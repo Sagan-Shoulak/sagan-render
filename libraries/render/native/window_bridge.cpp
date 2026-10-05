@@ -368,8 +368,12 @@ auto sagan_5f5f72656e6465725f77696e646f775f6f70656e(
   descriptor.hIconSm = static_cast<HICON>(LoadImageW(window.instance, MAKEINTRESOURCEW(1), IMAGE_ICON,
                                                     GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
                                                     LR_SHARED));
-  if (!descriptor.hIcon || !descriptor.hIconSm)
-    throw std::runtime_error("Sagan window icon resource is missing from the executable");
+  if (!descriptor.hIcon)
+    descriptor.hIcon = LoadIconW(nullptr, MAKEINTRESOURCEW(32512));
+  if (!descriptor.hIconSm)
+    descriptor.hIconSm = descriptor.hIcon;
+  if (!descriptor.hIcon)
+    throw std::runtime_error("Could not load a native window icon");
   if (!RegisterClassExW(&descriptor))
     throw std::runtime_error("Could not register the native window class");
   window.class_registered = true;

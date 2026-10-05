@@ -8,19 +8,10 @@ cd "$repo_root"
 
 mkdir -p build/window-demo build/tmp
 
-package_index="$repo_root/libraries/index.tsv"
-if [[ "$(bin/sagan --version)" == *"0.0.0+gunknown"* ]]; then
-  catalog_root="$repo_root/build/window-demo/source-checkout-catalog"
-  package_index="$catalog_root/index.tsv"
-  mkdir -p "$catalog_root/render/src"
-  cp libraries/render/sagan.toml "$catalog_root/render/sagan.toml"
-  cp libraries/render/src/window.sagan "$catalog_root/render/src/window.sagan"
-  awk 'BEGIN { OFS="\t" } NR == 2 { $3="^0.0.0" } { print }' \
-    libraries/index.tsv > "$package_index"
-fi
-export SAGAN_PACKAGE_INDEX="$package_index"
+export SAGAN_PACKAGE_INDEX="${SAGAN_PACKAGE_INDEX:-$repo_root/libraries/index.tsv}"
+sagan_executable="${SAGAN_EXECUTABLE:-sagan}"
 
-bin/sagan --emit-cpp-package examples/window_demo build/window-demo/program.cpp
+"$sagan_executable" --emit-cpp-package examples/window_demo build/window-demo/program.cpp
 
 native_output="build/window-demo/window-demo"
 if [[ "${OS:-}" == "Windows_NT" ]]; then
@@ -36,7 +27,6 @@ TMPDIR="$native_tmp" TMP="$native_tmp" TEMP="$native_tmp" \
   g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror \
   -include "$repo_root/libraries/render/native/window_bridge.hpp" \
   build/window-demo/program.cpp libraries/render/native/window_bridge.cpp \
-  "$repo_root/obj/launcher/sagan-resource.o" \
   -o "$native_output" -static -static-libgcc -static-libstdc++ -lgdi32 -luser32
 
 "$native_output"
