@@ -17,6 +17,12 @@ under `libraries/render/`; final root relocation is not yet complete.
 
 ## Exact focused Windows checks
 
+Independent Windows CI checks out the exact language commit in
+`sagan-source-commit.txt`, builds its compiler, and runs the two auto-closing
+window tests below against this repository's `libraries/index.tsv`. The
+native bridge has no validated Linux or macOS backend; a green Windows job
+does not imply multi-platform rendering support.
+
 Install or build compatible Sagan, MSYS2 UCRT64 g++, and a Windows desktop
 session. From the candidate root in Git Bash on the current development
 machine:
