@@ -23,6 +23,12 @@ window tests below against this repository's `libraries/index.tsv`. The
 native bridge has no validated Linux or macOS backend; a green Windows job
 does not imply multi-platform rendering support.
 
+When selected by the exact workspace lock, `scripts/workspace-build.sh` emits
+the window demo's linked C++ and `scripts/workspace-test.sh` runs the same two
+auto-closing checks. The workspace coordinator supplies its pinned compiler
+and combined package index through `SAGAN_EXECUTABLE` and
+`SAGAN_PACKAGE_INDEX`; outside a workspace, set both explicitly.
+
 Install or build compatible Sagan, MSYS2 UCRT64 g++, and a Windows desktop
 session. From the candidate root in Git Bash on the current development
 machine:
