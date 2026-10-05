@@ -1,0 +1,55 @@
+name: Windows renderer
+
+on:
+  push:
+    branches: [dev, main]
+    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "sagan-source-commit.txt"]
+  pull_request:
+    branches: [dev, main]
+    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "sagan-source-commit.txt"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-window-tests:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: render
+          persist-credentials: false
+      - name: Resolve compiler source pin
+        id: source
+        shell: bash
+        working-directory: render
+        run: |
+          sha="$(tr -d '\r\n' < sagan-source-commit.txt)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: Sagan-Shoulak/sagan
+          ref: ${{ steps.source.outputs.sha }}
+          path: sagan-source
+          persist-credentials: false
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git make mingw-w64-ucrt-x86_64-binutils mingw-w64-ucrt-x86_64-gcc
+      - name: Build pinned compiler
+        shell: msys2 {0}
+        working-directory: sagan-source
+        run: make -j2 bin/sagan
+      - name: Run auto-closing window checks
+        shell: msys2 {0}
+        working-directory: render
+        run: |
+          export SAGAN_EXECUTABLE="$(cygpath -u "$GITHUB_WORKSPACE")/sagan-source/bin/sagan.exe"
+          export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
+          bash tests/integration/window_bridge_test.sh
+          bash tests/integration/shape_text_test.sh
