@@ -9,9 +9,9 @@ verified_by: null
 
 # Maintaining Sagan rendering
 
-This is a local split candidate, not a published package repository.
+This is a public split repository, not a released package.
 `libraries/render/sagan.toml` currently declares `sagan-render` version
-`0.5.1`. Its candidate-local `libraries/index.tsv` points to that manifest
+`0.5.1`. Its repository-local `libraries/index.tsv` points to that manifest
 and declares compiler compatibility `^4.0.0`. The source package remains
 under `libraries/render/`; final root relocation is not yet complete.
 

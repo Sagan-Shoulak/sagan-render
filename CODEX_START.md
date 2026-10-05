@@ -5,7 +5,7 @@ Begin read-only. Read `AGENTS.md`, `TECHNOLOGY.md`, `MAINTAINERS.md`,
 the bridge source, examples/tests, and the versioned ecosystem/chat maps
 from the primary repository. Inspect branch, HEAD, status, staged paths,
 compiler version, native toolchain, package catalog, platform, and concurrent
-work. State that this is a local split candidate with a Windows-only backend,
+work. State that this is a public split repository with a Windows-only backend,
 not an independently released package.
 
 Prefer teaching me what to code through small steps, API sketches, examples,
@@ -24,3 +24,17 @@ handoff with goal, evidence, constraints, dependency pins, and verification;
 do not assume shared chat history. Use Bash, never PowerShell. Preserve
 unrelated work and do not push, publish, release, transfer, or change remote
 settings without current authorization.
+
+This tracked prompt is a one-time bootstrap. After reading it and orienting
+read-only, delete `CODEX_START.md` on a short-lived branch, commit that
+deletion and any required contract updates, then open a PR into `dev` linked
+to an onboarding issue. Do not
+recreate it; `AGENTS.md`, `TECHNOLOGY.md`, and `MAINTAINERS.md` remain the
+durable instructions.
+
+Use existing or new GitHub issues for substantive work, PRs into `dev` for
+review, and the organization Project for cross-repo milestones when access
+permits. Link each PR to its issue, record focused native/window tests,
+dependency pins, and integration impact, and update Project status. If
+Project access is unavailable, record that in the issue and continue safe
+local verification. The split is tracked by Sagan-Shoulak/sagan#6.
