@@ -34,6 +34,7 @@ jobs:
           repository: Sagan-Shoulak/sagan
           ref: ${{ steps.source.outputs.sha }}
           path: sagan-source
+          fetch-depth: 0 # Version calculation requires the baseline commit history.
           persist-credentials: false
       - uses: msys2/setup-msys2@v2
         with:
