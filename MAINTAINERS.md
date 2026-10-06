@@ -27,7 +27,8 @@ When selected by the exact workspace lock, `scripts/workspace-build.sh` emits
 the window demo's linked C++ and `scripts/workspace-test.sh` runs the same two
 auto-closing checks. The workspace coordinator supplies its pinned compiler
 and combined package index through `SAGAN_EXECUTABLE` and
-`SAGAN_PACKAGE_INDEX`; outside a workspace, set both explicitly.
+`SAGAN_PACKAGE_INDEX`. Manual demo launchers instead resolve the repository's
+exact compiler pin automatically when no executable is supplied.
 
 Install or build compatible Sagan, MSYS2 UCRT64 g++, and a Windows desktop
 session. From the candidate root in Git Bash on the current development
@@ -73,12 +74,17 @@ test closes after roughly 150 ms and checks that its own generated BMP is
 paints a recognizable test frame, presents it, saves the surface to BMP, and
 checks clean shutdown. It downloads the official SDL 3.4.16 MinGW archive only
 when absent and rejects a checksum mismatch. The window and shape/text checks passed with the extracted package, current Sagan 4.9.5
-development executable, and no monorepo launcher resource object. If Sagan
-is correctly installed on PATH, omit `SAGAN_EXECUTABLE`; scripts default to
-`sagan`. Set `SAGAN_PACKAGE_INDEX` explicitly only for a reviewed alternate
-catalog; otherwise the candidate-local index is used. The scripts create
-build output only under ignored `build/`. Do not kill another user-controlled
-demo window while testing.
+development executable, and no monorepo launcher resource object. On their
+first run without `SAGAN_EXECUTABLE`, manual demos clone the Sagan source
+revision in `sagan-source-commit.txt` and build it under the ignored
+`build/sagan-pinned-<commit>/` cache. This requires network access, Git, Make,
+and the compiler prerequisites for Sagan; later runs work from that cache.
+The resolver intentionally ignores an arbitrary `sagan` on PATH because its
+private bridge vocabulary may not match this repository. Set
+`SAGAN_EXECUTABLE` only to make an explicit reviewed override. Set
+`SAGAN_PACKAGE_INDEX` only for a reviewed alternate catalog; otherwise the
+candidate-local index is used. Do not kill another user-controlled demo window
+while testing.
 
 The corresponding manual demos are:
 
@@ -86,6 +92,9 @@ The corresponding manual demos are:
 bash scripts/window_demo.sh
 bash scripts/shape_text_demo.sh
 bash scripts/ui_gpu_demo.sh
+bash scripts/loading_demo.sh
+bash scripts/toolbar_demo.sh
+bash scripts/scene_demo.sh
 ```
 
 These open native windows. The tests set `SAGAN_RENDER_AUTOCLOSE_MS` to avoid

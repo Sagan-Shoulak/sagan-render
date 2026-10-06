@@ -9,7 +9,7 @@ cd "$repo_root"
 mkdir -p build/window-demo build/tmp
 
 export SAGAN_PACKAGE_INDEX="${SAGAN_PACKAGE_INDEX:-$repo_root/libraries/index.tsv}"
-sagan_executable="${SAGAN_EXECUTABLE:-sagan}"
+sagan_executable="$(bash scripts/resolve-sagan.sh)"
 
 "$sagan_executable" --emit-cpp-package examples/window_demo build/window-demo/program.cpp
 

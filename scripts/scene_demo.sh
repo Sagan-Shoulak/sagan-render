@@ -7,7 +7,7 @@ cd "$repo_root"
 mkdir -p build/scene-sagan-demo build/tmp
 
 sdl_root="$(bash scripts/fetch-sdl3-windows.sh)"
-sagan_executable="${SAGAN_EXECUTABLE:-sagan}"
+sagan_executable="$(bash scripts/resolve-sagan.sh)"
 export SAGAN_PACKAGE_INDEX="${SAGAN_PACKAGE_INDEX:-$repo_root/libraries/index.tsv}"
 "$sagan_executable" --emit-cpp-package examples/scene_sagan_demo build/scene-sagan-demo/program.cpp
 native_tmp="$repo_root/build/tmp"

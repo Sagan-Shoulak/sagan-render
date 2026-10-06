@@ -187,6 +187,14 @@ Until Sagan-Shoulak/sagan#8 removes redundant equality parentheses from emitted
 C++, the portable demo build suppresses only Clang's
 `-Wparentheses-equality`; all other Clang diagnostics remain fatal.
 
+Manual demo launchers resolve the source pin through one shared script. An
+explicit `SAGAN_EXECUTABLE` is authoritative; otherwise the resolver uses an
+exact-pin compiler cache or builds the pinned Sagan checkout. It does not fall
+back to an unrelated executable on PATH, since an older compiler can reject
+private bridge names before package code is emitted. Compiler source and build
+products remain ignored dependencies under `build/`, not copied language
+implementation in this rendering package.
+
 ## Scene snapshots, cameras, and precision
 
 `render.scene` is deliberately physics-agnostic. Its `SpatialRenderable` face

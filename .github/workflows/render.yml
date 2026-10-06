@@ -52,6 +52,7 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$(cygpath -u "$GITHUB_WORKSPACE")/sagan-source/bin/sagan.exe"
           export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
+          bash tests/integration/compiler_resolver_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_test.sh
@@ -133,6 +134,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
+          bash tests/integration/compiler_resolver_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/scene_demo_portable_test.sh
@@ -145,6 +147,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
+          bash tests/integration/compiler_resolver_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_portable_test.sh
