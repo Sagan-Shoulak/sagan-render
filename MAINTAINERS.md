@@ -63,6 +63,43 @@ a decision about final product branding. The current non-Windows backend
 throws an explicit unsupported-platform error; do not claim Linux/macOS
 rendering based on a passing Windows test.
 
+## Windows dev-channel package
+
+The minimum prerelease distribution is a source package for the compiler's
+existing native-package loader. Produce it only from a clean reviewed `dev`
+commit:
+
+```bash
+bash scripts/package-dev.sh
+```
+
+The command creates
+`build/dev-package/sagan-render-0.5.1-dev.1-windows-source.zip` and its
+`.sha256` file. The ZIP contains `LICENSE.txt`, `NOTICE.txt`,
+`libraries/index.tsv`, the package manifest
+and Sagan modules under `libraries/render/`, the private native bridge under
+`libraries/render/native/`, and `PROVENANCE.txt`. Set `SAGAN_PACKAGE_INDEX` to
+the extracted `libraries/index.tsv`. The catalog declares compiler
+compatibility `^4.0.0`; the package is GPL-3.0-only and preserves Schematic
+lineage; Windows is the only supported native backend.
+
+For a clean-location consumption test, point `SAGAN_EXECUTABLE` at an installed
+Sagan 4.9.5 executable and run:
+
+```bash
+export SAGAN_EXECUTABLE=/path/to/sagan-4.9.5/bin/sagan.exe
+bash tests/integration/dev_package_test.sh
+```
+
+The test verifies the checksum, extracts away from the repository, copies only
+consumer manifests and sources into that clean location, and exercises both
+auto-closing windows through `sagan --run-package`. A missing native bridge or
+incompatible compiler is a hard failure. Recover by removing the extracted
+package, clearing `SAGAN_PACKAGE_INDEX`, and restoring the previously reviewed
+package/index pair. To withdraw a published dev artifact, delete the GitHub
+prerelease and its dev tag; do not replace an existing asset under the same
+tag or checksum.
+
 ## Branches and documentation
 
 Inspect branch, HEAD, status, staged paths, compiler and native-toolchain

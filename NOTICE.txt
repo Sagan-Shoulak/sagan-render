@@ -1,0 +1,14 @@
+SPDX-License-Identifier: GPL-3.0-only
+
+Sagan Render is distributed under the GNU General Public License version 3
+only. The complete license is in LICENSE.txt.
+
+Sagan is based on Zachary Westerman's Schematic language project:
+https://github.com/ZacharyWesterman/schematic
+
+Schematic is distributed under the GNU General Public License version 3. Sagan
+retains Schematic-derived language and toolchain foundations, including parser,
+AST, diagnostic, generator, and build infrastructure. Sagan Render's package
+and native bridge are consumed through that Sagan toolchain. This notice
+preserves the project lineage without claiming that every renderer file was
+copied from Schematic.
