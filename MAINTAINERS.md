@@ -35,13 +35,16 @@ machine:
 
 ```bash
 export SAGAN_EXECUTABLE=/c/Users/joeps/coding/sagan/bin/sagan.exe
+bash tests/integration/window_contract_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
 ```
 
-The first test opens and closes its own window after roughly 100 ms. The
-second closes after roughly 150 ms and checks that its own generated BMP is
-960×540. Both passed with the extracted package, current Sagan 4.9.5
+The contract test has no display dependency and validates logical and drawable
+sizes, display scale, focus, resize notification, close, and cleanup state. The
+window test opens and closes its own window after roughly 100 ms. The shape/text
+test closes after roughly 150 ms and checks that its own generated BMP is
+960×540. The window and shape/text checks passed with the extracted package, current Sagan 4.9.5
 development executable, and no monorepo launcher resource object. If Sagan
 is correctly installed on PATH, omit `SAGAN_EXECUTABLE`; scripts default to
 `sagan`. Set `SAGAN_PACKAGE_INDEX` explicitly only for a reviewed alternate
