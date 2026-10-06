@@ -1,0 +1,48 @@
+module bodies
+
+import fill from ui
+
+fun disc(center_x: Float64, center_y: Float64, radius: Float64,
+         red: Int64, green: Int64, blue: Int64): Void {
+  let quarter = radius / 4.0
+  fill(center_x - radius * 0.66, center_y - radius, radius * 1.32, quarter,
+       red, green, blue)
+  fill(center_x - radius * 0.87, center_y - radius * 0.75, radius * 1.74, quarter,
+       red, green, blue)
+  fill(center_x - radius * 0.97, center_y - radius * 0.5, radius * 1.94, quarter,
+       red, green, blue)
+  fill(center_x - radius, center_y - radius * 0.25, radius * 2.0, quarter * 2.0,
+       red, green, blue)
+  fill(center_x - radius * 0.97, center_y + radius * 0.25, radius * 1.94, quarter,
+       red, green, blue)
+  fill(center_x - radius * 0.87, center_y + radius * 0.5, radius * 1.74, quarter,
+       red, green, blue)
+  fill(center_x - radius * 0.66, center_y + radius * 0.75, radius * 1.32, quarter,
+       red, green, blue)
+}
+
+/// Bootstrap spherical body presentation. It reconstructs a lit normal-like
+/// silhouette from GPU-composited strips. Issue #16 replaces this impostor
+/// with the shared mesh/material shader path without changing scene samples.
+fun draw_sphere_impostor(center_x: Float64, center_y: Float64,
+                         radius: Float64, appearance: Int64,
+                         selected: Bool): Void {
+  if selected { disc(center_x, center_y, radius + 4.0, 142, 203, 255) }
+  if appearance == 1 {
+    disc(center_x, center_y, radius, 151, 91, 24)
+    disc(center_x - radius * 0.16, center_y - radius * 0.12,
+         radius * 0.84, 255, 212, 91)
+  } else {
+    if appearance == 2 {
+      disc(center_x, center_y, radius, 20, 48, 112)
+      disc(center_x - radius * 0.2, center_y - radius * 0.14,
+           radius * 0.82, 70, 133, 255)
+    } else {
+      disc(center_x, center_y, radius, 82, 91, 105)
+      disc(center_x - radius * 0.2, center_y - radius * 0.14,
+           radius * 0.82, 205, 215, 225)
+    }
+  }
+}
+
+export draw_sphere_impostor

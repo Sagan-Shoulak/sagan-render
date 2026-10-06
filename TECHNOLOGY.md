@@ -274,6 +274,25 @@ The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples. Its
 objects remain static; the visual changes are selection and camera state only.
 
+### Sun-Earth-Moon bootstrap
+
+The first #29 slice replaces generic scene markers with unit-typed Sun, Earth,
+and Moon fixture data. It uses mean radii, a 149,597,870.7 km Sun-Earth
+separation, and a 384,400 km Earth-Moon separation. These values are deterministic
+demo inputs, not an ephemeris or an orbital solver. At the full-system camera
+scale the Moon marker is offset as a labeled callout because its true projected
+separation from Earth is smaller than the minimum selectable marker size; the
+underlying physical coordinate is not altered.
+
+`render.bodies.draw_sphere_impostor` builds a shaded spherical silhouette from
+GPU-composited horizontal strips. The smaller, upper-left lit silhouette acts
+as a coarse Lambert-like light response over a darker full disc. This makes
+depth and body curvature inspectable through the existing cross-platform GPU
+path, but it is explicitly a bootstrap rather than a triangle-mesh material.
+Issue #16 still owns shader compilation, mesh/material inputs, linear color,
+and the final lighting pipeline. Replacing the impostor must not change stable
+IDs, unit-typed positions/radii, camera focus, or snapshot ownership.
+
 ### Loading-screen example
 
 `examples/loading_sagan_demo` uses the same Sagan UI facade and native GPU host

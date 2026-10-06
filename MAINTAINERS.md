@@ -159,6 +159,13 @@ Focused CI captures the initial and changed-selection frames and requires them
 to differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;
 its only motion is application-owned camera input.
 
+The current #29 bootstrap names the three fixture samples Sun, Earth, and Moon,
+uses their approximate mean radii and separations, and draws shaded sphere
+impostors through the GPU compositor. It is not evidence that #16's mesh,
+material, shader, color-space, or lighting work is complete. The Moon callout
+offset is presentation-only at system scale; its stored position remains the
+measured fixture coordinate.
+
 ## Interactive UI GPU demo
 
 On Windows in Git Bash:
