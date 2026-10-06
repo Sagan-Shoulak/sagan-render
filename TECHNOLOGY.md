@@ -77,6 +77,62 @@ Destruction runs in the reverse direction after the device is idle: pipeline,
 transfer buffer, texture, claimed window, device, then window. This order keeps
 resources from outliving the device that owns them.
 
+## UI layout, physical views, and pixels
+
+The UI contract uses logical display units. Rows and columns first measure
+minimum, preferred, and maximum sizes, distribute remaining space by grow
+weight, and then arrange their children inside padding and gaps. Overlays share
+the same logical coordinate space and are hit-tested in reverse paint order, so
+the last painted eligible control receives the pointer. Parent and viewport
+rectangles clip painting and hit regions before anything reaches a backend.
+
+There are three intentionally separate length domains:
+
+```text
+physical length with a Sagan unit subtype
+  -> orthographic camera scale
+logical view or UI length
+  -> operating-system display scale
+drawable pixels
+```
+
+For example, a camera may declare that its horizontal span is exactly
+`400000 kilometer`. The camera derives its vertical physical span from the
+logical viewport aspect ratio, maps those physical coordinates into the view,
+and leaves display scaling to the final conversion. Moving a window between a
+1x and 2x display therefore doubles its drawable pixels without changing the
+400,000 km represented by the scene or the logical size of a UI button.
+
+The native contract models physical coordinates with distinct wrapper types so
+that pixel coordinates cannot be passed accidentally. The future public Sagan
+scene/camera API must be stronger: it will accept Sagan numeric values with a
+length unit subtype and use explicit conversions for display and physical
+units. The existing temporary `canvas.set_view` API still takes bare scalars;
+do not treat it as the final unit-safe contract. Camera ownership and the
+public measured API remain part of the scene/camera work tracked under #12 and
+#20, while #17 establishes the separation required by UI layout.
+
+Text follows a similar boundary. Layout sends text, font family, point size,
+wrap width, direction, and language to a shaping interface. A shaper returns
+glyph identifiers, advances, offsets, and logical bounds. Backend font and
+glyph resources remain private and can later be cached without changing the
+layout contract.
+
+The frame order is:
+
+```text
+content/style change -> measure -> arrange -> clip -> paint list -> rasterize
+drawable input -> logical coordinates -> topmost hit test -> focus/capture -> action
+```
+
+Window logical-size or display-scale changes invalidate arrangement and
+rasterization; content, font, and style changes also invalidate measurement.
+Relayout identifies controls by stable IDs, preserves keyboard focus when the
+same enabled control survives, and cancels pointer capture so a removed or
+moved control cannot receive a stale release. Activation occurs only when a
+captured pointer is released inside the still-enabled control. Cleanup clears
+focus, capture, and pending actions before renderer resources are destroyed.
+
 ## Shader formats and temporary bootstrap assets
 
 SDL GPU selects a native desktop backend, not a universal shader bytecode.
