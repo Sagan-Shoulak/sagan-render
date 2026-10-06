@@ -154,6 +154,11 @@ CPU reference Lambert calculation. It deliberately stops before claiming an
 SDL GPU pipeline: reproducible SDL_shadercross artifacts and actual GPU use are
 the next gate.
 
+The first consuming 3D milestone is #29: indexed model geometry for the Sun,
+Earth, and Moon plus a perspective camera with yaw, pitch, dolly/translation,
+focus, and orbit controls. Camera roll is excluded; a declared world-up axis
+keeps the horizon level and pitch clamping avoids the pole singularity.
+
 ## Deliberate non-decisions
 
 This proposal does not yet select a scene graph, entity system, UI styling

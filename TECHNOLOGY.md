@@ -404,6 +404,15 @@ textures, multiple lights, post-processing, and replacement of the sphere
 impostor remain open under #16. The repository must not claim that handwritten
 source plus a manifest is equivalent to compiled DXIL, SPIR-V, or MSL.
 
+The #29 completion target is a full 3D scene, not a more elaborate impostor.
+Sun, Earth, and Moon must be model-based entities backed by vertex/index
+geometry, transformed and depth-tested by the shared 3D pipeline. Its
+interactive perspective camera will expose yaw, pitch, translation or dolly,
+and focus/orbit behavior while remaining horizon locked: camera right and
+forward are rebuilt from a declared world-up axis, roll is not an input, and
+pitch is clamped before forward becomes parallel to world up. The current
+strip-composited discs remain bootstrap evidence only.
+
 ## Supported foundation and rollback
 
 - Windows validation explicitly requests SDL's `direct3d12` driver and DXIL.
