@@ -3,6 +3,7 @@
 
 #include "../libraries/render/native/ui_contract.hpp"
 #include "../libraries/render/native/ui_draw_list.hpp"
+#include "../libraries/render/native/ui_gpu_bridge.hpp"
 
 #include <algorithm>
 #include <array>
@@ -13,6 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -149,7 +151,7 @@ namespace
     std::vector<control> controls;
   };
 
-  auto compose(draw_list &list, bitmap_shaper &shaper, input_router &input,
+  [[maybe_unused]] auto compose(draw_list &list, bitmap_shaper &shaper, input_router &input,
                const bool modal_visible, const size canvas_size) -> demo_layout
   {
     const rectangle canvas{0.0, 0.0, canvas_size.width, canvas_size.height};
@@ -296,11 +298,16 @@ namespace
     }
 
   public:
-    gpu_compositor()
+    gpu_compositor(const std::string &title = "Sagan Render UI GPU Demo",
+                   std::uint32_t requested_width = initial_canvas_width,
+                   std::uint32_t requested_height = initial_canvas_height)
     {
       if (!SDL_Init(SDL_INIT_VIDEO)) fail("Could not initialize SDL video");
-      window = SDL_CreateWindow("Sagan Render UI GPU Demo", initial_canvas_width,
-                                initial_canvas_height,
+      if (const char *width_value = std::getenv("SAGAN_RENDER_LOGICAL_WIDTH"))
+        requested_width = static_cast<std::uint32_t>(std::strtoul(width_value, nullptr, 10));
+      if (const char *height_value = std::getenv("SAGAN_RENDER_LOGICAL_HEIGHT"))
+        requested_height = static_cast<std::uint32_t>(std::strtoul(height_value, nullptr, 10));
+      window = SDL_CreateWindow(title.c_str(), requested_width, requested_height,
                                 SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
       if (!window) fail("Could not create demo window");
       if (!SDL_SetWindowMinimumSize(window, 640, 400))
@@ -322,7 +329,7 @@ namespace
       palette_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
       palette_texture = SDL_CreateGPUTexture(device, &palette_info);
       if (!palette_texture) fail("Could not create UI palette texture");
-      create_target(initial_canvas_width, initial_canvas_height);
+      create_target(requested_width, requested_height);
 
       SDL_GPUTransferBufferCreateInfo upload_info{};
       upload_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -463,6 +470,7 @@ namespace
   };
 }
 
+#ifndef SAGAN_RENDER_UI_BRIDGE
 int main()
 {
   try
@@ -595,3 +603,189 @@ int main()
     return 1;
   }
 }
+#else
+namespace
+{
+  std::unique_ptr<gpu_compositor> bridge_gpu;
+  std::unique_ptr<draw_list> bridge_list;
+  bitmap_shaper bridge_shaper;
+  std::vector<std::string> bridge_keys;
+  bool bridge_running{};
+  bool bridge_pointer_down{};
+  bool bridge_pointer_up{};
+  double bridge_pointer_x{};
+  double bridge_pointer_y{};
+  std::uint64_t bridge_deadline{};
+  bool bridge_captured{};
+  std::string bridge_driver;
+  std::int64_t bridge_width{};
+  std::int64_t bridge_height{};
+
+  auto bridge_color(const std::int64_t red, const std::int64_t green,
+                    const std::int64_t blue) -> color
+  {
+    if (red < 0 || red > 255 || green < 0 || green > 255 || blue < 0 || blue > 255)
+      throw std::invalid_argument("UI color channels must be between 0 and 255");
+    return {static_cast<std::uint8_t>(red), static_cast<std::uint8_t>(green),
+            static_cast<std::uint8_t>(blue), 255};
+  }
+
+  auto remember_key(const std::string &value) -> void
+  {
+    if (std::find(bridge_keys.begin(), bridge_keys.end(), value) == bridge_keys.end())
+      bridge_keys.push_back(value);
+  }
+
+  auto update_bridge_size() -> void
+  {
+    int width{};
+    int height{};
+    SDL_GetWindowSize(bridge_gpu->native_window(), &width, &height);
+    if (width > 0 && height > 0)
+    {
+      bridge_width = width;
+      bridge_height = height;
+      bridge_gpu->resize(static_cast<std::uint32_t>(width),
+                         static_cast<std::uint32_t>(height));
+    }
+  }
+}
+
+auto sagan_5f5f72656e6465725f75695f6f70656e(
+  const std::string &title, const std::int64_t width, const std::int64_t height) -> bool
+{
+  if (width < 640 || height < 400) throw std::invalid_argument("UI window is too small");
+  bridge_gpu = std::make_unique<gpu_compositor>(
+    title, static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+  bridge_driver = bridge_gpu->driver();
+  bridge_running = true;
+  bridge_captured = false;
+  update_bridge_size();
+  const char *autoclose_value = std::getenv("SAGAN_RENDER_AUTOCLOSE_MS");
+  const std::uint64_t autoclose = autoclose_value && *autoclose_value
+    ? std::strtoull(autoclose_value, nullptr, 10) : 0;
+  bridge_deadline = autoclose == 0 ? 0 : SDL_GetTicks() + autoclose;
+  return true;
+}
+
+auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
+{
+  if (!bridge_gpu || !bridge_running) return false;
+  SDL_Event event{};
+  while (SDL_PollEvent(&event))
+  {
+    if (event.type == SDL_EVENT_QUIT || event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+      bridge_running = false;
+    else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
+    {
+      if (event.key.key == SDLK_ESCAPE) { remember_key("escape"); bridge_running = false; }
+      else if (event.key.key == SDLK_TAB)
+        remember_key((event.key.mod & SDL_KMOD_SHIFT) != 0 ? "shift-tab" : "tab");
+      else if (event.key.key == SDLK_RETURN) remember_key("enter");
+      else if (event.key.key == SDLK_SPACE) remember_key("space");
+      else if (event.key.key == SDLK_P) remember_key("p");
+    }
+    else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+    {
+      bridge_pointer_down = true;
+      bridge_pointer_x = event.button.x;
+      bridge_pointer_y = event.button.y;
+    }
+    else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP)
+    {
+      bridge_pointer_up = true;
+      bridge_pointer_x = event.button.x;
+      bridge_pointer_y = event.button.y;
+    }
+  }
+  update_bridge_size();
+  if (bridge_deadline != 0 && SDL_GetTicks() >= bridge_deadline) bridge_running = false;
+  return bridge_running;
+}
+
+auto sagan_5f5f72656e6465725f75695f636c6f7365() -> void
+{
+  bridge_list.reset();
+  bridge_gpu.reset();
+  std::cout << "SAGAN_UI_DEMO language=sagan driver=" << bridge_driver
+            << " logical=" << bridge_width << 'x' << bridge_height
+            << " solar_span_km=200000000 lunar_span_km=1000000 cleanup=1\n";
+}
+
+auto sagan_5f5f72656e6465725f75695f7769647468() -> double
+{
+  return static_cast<double>(bridge_width);
+}
+auto sagan_5f5f72656e6465725f75695f686569676874() -> double
+{
+  return static_cast<double>(bridge_height);
+}
+
+auto sagan_5f5f72656e6465725f75695f626567696e() -> void
+{
+  if (!bridge_gpu) throw std::runtime_error("UI begin requires an open window");
+  update_bridge_size();
+  bridge_list = std::make_unique<draw_list>(
+    rectangle{0.0, 0.0, static_cast<double>(bridge_width), static_cast<double>(bridge_height)});
+}
+
+auto sagan_5f5f72656e6465725f75695f66696c6c(
+  const double x, const double y, const double width, const double height,
+  const std::int64_t red, const std::int64_t green, const std::int64_t blue) -> void
+{
+  if (!bridge_list) throw std::runtime_error("UI fill requires begin");
+  bridge_list->fill({x, y, width, height}, bridge_color(red, green, blue));
+}
+
+auto sagan_5f5f72656e6465725f75695f74657874(
+  const double x, const double y, const std::string &value, const double height,
+  const std::int64_t red, const std::int64_t green, const std::int64_t blue) -> void
+{
+  if (!bridge_list) throw std::runtime_error("UI text requires begin");
+  draw_text(*bridge_list, bridge_shaper, {x, y}, value, height,
+            bridge_color(red, green, blue));
+}
+
+auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void
+{
+  if (!bridge_gpu || !bridge_list) throw std::runtime_error("UI present requires begin");
+  const char *capture_value = std::getenv("SAGAN_RENDER_UI_CAPTURE_BMP");
+  const std::string capture = !bridge_captured && capture_value && *capture_value
+    ? capture_value : std::string{};
+  bridge_gpu->render(*bridge_list, true, capture);
+  if (!capture.empty()) bridge_captured = true;
+}
+
+auto sagan_5f5f72656e6465725f75695f6b65795f70726573736564(
+  const std::string &key) -> bool
+{
+  const auto found = std::find(bridge_keys.begin(), bridge_keys.end(), key);
+  if (found == bridge_keys.end()) return false;
+  bridge_keys.erase(found);
+  return true;
+}
+
+auto sagan_5f5f72656e6465725f75695f706f696e7465725f70726573736564() -> bool
+{
+  const bool result = bridge_pointer_down;
+  bridge_pointer_down = false;
+  return result;
+}
+
+auto sagan_5f5f72656e6465725f75695f706f696e7465725f72656c6561736564() -> bool
+{
+  const bool result = bridge_pointer_up;
+  bridge_pointer_up = false;
+  return result;
+}
+
+auto sagan_5f5f72656e6465725f75695f706f696e7465725f78() -> double
+{
+  return bridge_pointer_x;
+}
+
+auto sagan_5f5f72656e6465725f75695f706f696e7465725f79() -> double
+{
+  return bridge_pointer_y;
+}
+#endif

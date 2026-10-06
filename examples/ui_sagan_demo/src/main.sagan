@@ -1,0 +1,217 @@
+module main
+
+import open from render.ui
+import poll from render.ui
+import close from render.ui
+import width from render.ui
+import height from render.ui
+import begin from render.ui
+import fill from render.ui
+import text from render.ui
+import present from render.ui
+import key_pressed from render.ui
+import pointer_pressed from render.ui
+import pointer_released from render.ui
+import pointer_x from render.ui
+import pointer_y from render.ui
+
+const SOLAR_SPAN: Float64<meter> = 200000000 kilometer
+const SOLAR_CENTER: Float64<meter> = 75000000 kilometer
+const EARTH_POSITION: Float64<meter> = 149600000 kilometer
+const SOLAR_SCALE_BAR: Float64<meter> = 50000000 kilometer
+const LUNAR_SPAN: Float64<meter> = 1000000 kilometer
+const LUNAR_CENTER: Float64<meter> = 192200 kilometer
+const MOON_POSITION: Float64<meter> = 384400 kilometer
+
+fun minimum(first: Float64, second: Float64): Float64 {
+  if first < second { return first }
+  return second
+}
+
+fun project_x(position: Float64<meter>, center: Float64<meter>,
+              span: Float64<meter>, left: Float64,
+              logical_width: Float64): Float64 =>
+  left + ((position - (center - span / 2.0)) / span) * logical_width
+
+fun inside(x: Float64, y: Float64, left: Float64, top: Float64,
+           box_width: Float64, box_height: Float64): Bool {
+  if x < left { return false }
+  if y < top { return false }
+  if x >= left + box_width { return false }
+  if y >= top + box_height { return false }
+  return true
+}
+
+fun button_at(x: Float64, y: Float64, window_width: Float64,
+              window_height: Float64, paused: Bool): Int64 {
+  let content_x = 236.0
+  let content_width = window_width - 252.0
+  if paused == false {
+    if inside(x, y, content_x + content_width - 124.0, 30.0, 100.0, 32.0) {
+      return 0
+    }
+    return -1
+  }
+  let modal_width = minimum(360.0, content_width - 48.0)
+  let modal_height = minimum(290.0, window_height - 80.0)
+  let modal_x = content_x + (content_width - modal_width) / 2.0
+  let modal_y = 16.0 + ((window_height - 32.0) - modal_height) / 2.0
+  let button_x = modal_x + 60.0
+  let button_width = modal_width - 120.0
+  if inside(x, y, button_x, modal_y + 95.0, button_width, 42.0) { return 0 }
+  if inside(x, y, button_x, modal_y + 153.0, button_width, 42.0) { return 1 }
+  if inside(x, y, button_x, modal_y + 211.0, button_width, 42.0) { return 2 }
+  return -1
+}
+
+fun draw_button(x: Float64, y: Float64, box_width: Float64,
+                label: String, focused: Bool): Void {
+  if focused {
+    fill(x, y, box_width, 42.0, 55, 125, 181)
+  } else {
+    fill(x, y, box_width, 42.0, 38, 78, 116)
+  }
+  text(x + 24.0, y + 12.0, label, 14.0, 245, 249, 255)
+}
+
+fun compose(window_width: Float64, window_height: Float64,
+            paused: Bool, focus: Int64): Void {
+  let sidebar_width = 208.0
+  let content_x = 236.0
+  let content_width = window_width - 252.0
+  let content_height = window_height - 32.0
+  fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
+  fill(16.0, 16.0, sidebar_width, content_height, 16, 43, 70)
+  fill(content_x, 16.0, content_width, content_height, 2, 6, 11)
+
+  text(32.0, 34.0, "SAGAN UI", 21.0, 245, 249, 255)
+  text(32.0, 72.0, "SAGAN AUTHORED", 12.0, 71, 174, 255)
+  text(32.0, 136.0, "UNIT-TYPED VIEWS", 10.0, 142, 164, 188)
+  text(32.0, 157.0, "KM TO LOGICAL", 12.0, 245, 249, 255)
+  text(32.0, 216.0, "TAB: FOCUS", 10.0, 142, 164, 188)
+  text(32.0, 237.0, "ENTER: ACTIVATE", 10.0, 142, 164, 188)
+  text(32.0, 258.0, "P: PAUSE", 10.0, 142, 164, 188)
+  text(32.0, 279.0, "ESC: QUIT", 10.0, 142, 164, 188)
+
+  let viewport_x = content_x + 24.0
+  let viewport_y = 80.0
+  let viewport_width = content_width - 48.0
+  let viewport_height = content_height - 122.0
+  text(viewport_x, 36.0, "SOLAR VIEW: 200000000 KM WIDE", 12.0, 245, 249, 255)
+
+  let sun_x = project_x(0.0 meter, SOLAR_CENTER, SOLAR_SPAN,
+                        viewport_x, viewport_width)
+  let earth_x = project_x(EARTH_POSITION, SOLAR_CENTER, SOLAR_SPAN,
+                          viewport_x, viewport_width)
+  let center_y = viewport_y + viewport_height / 2.0
+  fill(sun_x - 30.0, center_y - 30.0, 60.0, 60.0, 255, 212, 91)
+  fill(earth_x - 10.0, center_y - 10.0, 20.0, 20.0, 70, 133, 255)
+  text(sun_x - 18.0, center_y + 42.0, "SUN", 9.0, 255, 212, 91)
+  text(earth_x - 18.0, center_y + 18.0, "EARTH", 9.0, 70, 133, 255)
+
+  let scale_width = (SOLAR_SCALE_BAR / SOLAR_SPAN) * viewport_width
+  let scale_x = viewport_x + 20.0
+  let scale_y = viewport_y + viewport_height - 24.0
+  fill(scale_x, scale_y, scale_width, 3.0, 142, 203, 255)
+  fill(scale_x, scale_y - 4.0, 2.0, 11.0, 142, 203, 255)
+  fill(scale_x + scale_width - 2.0, scale_y - 4.0, 2.0, 11.0, 142, 203, 255)
+  text(scale_x, scale_y - 18.0, "50000000 KM", 9.0, 245, 249, 255)
+
+  let inset_width = minimum(300.0, viewport_width * 0.46)
+  let inset_x = viewport_x + viewport_width - inset_width - 16.0
+  let inset_y = viewport_y + viewport_height - 108.0
+  fill(inset_x - 3.0, inset_y - 3.0, inset_width + 6.0, 98.0, 142, 203, 255)
+  fill(inset_x, inset_y, inset_width, 92.0, 16, 43, 70)
+  text(inset_x + 10.0, inset_y + 8.0,
+       "EARTH-MOON: 1000000 KM WIDE", 8.0, 245, 249, 255)
+  let lunar_left = inset_x + 12.0
+  let lunar_width = inset_width - 24.0
+  let inset_earth_x = project_x(0.0 meter, LUNAR_CENTER, LUNAR_SPAN,
+                                lunar_left, lunar_width)
+  let inset_moon_x = project_x(MOON_POSITION, LUNAR_CENTER, LUNAR_SPAN,
+                               lunar_left, lunar_width)
+  let inset_center_y = inset_y + 61.0
+  fill(inset_earth_x - 7.0, inset_center_y - 7.0, 14.0, 14.0, 70, 133, 255)
+  fill(inset_moon_x - 4.0, inset_center_y - 4.0, 8.0, 8.0, 205, 215, 225)
+  text(viewport_x, 16.0 + content_height - 30.0,
+       "RESIZE REFLOWS SAGAN LAYOUT - KM STAY FIXED", 9.0, 142, 164, 188)
+
+  if paused {
+    let modal_width = minimum(360.0, content_width - 48.0)
+    let modal_height = minimum(290.0, content_height - 48.0)
+    let modal_x = content_x + (content_width - modal_width) / 2.0
+    let modal_y = 16.0 + (content_height - modal_height) / 2.0
+    fill(modal_x - 4.0, modal_y - 4.0,
+         modal_width + 8.0, modal_height + 8.0, 142, 203, 255)
+    fill(modal_x, modal_y, modal_width, modal_height, 36, 55, 82)
+    text(modal_x + 40.0, modal_y + 33.0, "PAUSED", 24.0, 245, 249, 255)
+    draw_button(modal_x + 60.0, modal_y + 95.0, modal_width - 120.0,
+                "RESUME", focus == 0)
+    draw_button(modal_x + 60.0, modal_y + 153.0, modal_width - 120.0,
+                "SETTINGS", focus == 1)
+    draw_button(modal_x + 60.0, modal_y + 211.0, modal_width - 120.0,
+                "QUIT", focus == 2)
+  } else {
+    let pause_x = content_x + content_width - 124.0
+    draw_button(pause_x, 30.0, 100.0, "PAUSE", focus == 0)
+  }
+}
+
+if open("Sagan-authored GPU UI", 960, 540) {
+  let paused = false
+  let focus: Int64 = 0
+  let captured: Int64 = -1
+  let running = true
+  while running {
+    if poll() == false { running = false }
+    if running {
+      let window_width = width()
+      let window_height = height()
+    if key_pressed("p") {
+      paused = paused == false
+      focus = 0
+    }
+    if key_pressed("tab") {
+      if paused {
+        focus = (focus + 1) % 3
+      } else {
+        focus = 0
+      }
+    }
+    if key_pressed("shift-tab") {
+      if paused {
+        focus = (focus + 2) % 3
+      } else {
+        focus = 0
+      }
+    }
+    let activation: Int64 = -1
+    if key_pressed("enter") { activation = focus }
+    if key_pressed("space") { activation = focus }
+    if pointer_pressed() {
+      captured = button_at(pointer_x(), pointer_y(), window_width,
+                           window_height, paused)
+      if captured >= 0 { focus = captured }
+    }
+    if pointer_released() {
+      let released = button_at(pointer_x(), pointer_y(), window_width,
+                               window_height, paused)
+      if released == captured { activation = released }
+      captured = -1
+    }
+    if activation >= 0 {
+      if paused == false {
+        paused = true
+        focus = 0
+      } else {
+        if activation == 0 { paused = false }
+        if activation == 2 { running = false }
+      }
+    }
+    begin()
+    compose(window_width, window_height, paused, focus)
+      present()
+    }
+  }
+  close()
+}

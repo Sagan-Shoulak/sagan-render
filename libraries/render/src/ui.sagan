@@ -1,0 +1,51 @@
+module ui
+
+/// Open the SDL GPU UI host. Layout and composition remain in Sagan.
+fun open(title: String, width: Int64, height: Int64): Bool =>
+  __render_ui_open(title, width, height)
+
+/// Poll native events. Returns false when the window should close.
+fun poll(): Bool => __render_ui_poll()
+fun close(): Void => __render_ui_close()
+
+/// Current logical window dimensions, independent of drawable pixel density.
+fun width(): Float64 => __render_ui_width()
+fun height(): Float64 => __render_ui_height()
+
+/// Begin a new handle-free logical draw list.
+fun begin(): Void => __render_ui_begin()
+
+/// Append a clipped logical rectangle.
+fun fill(x: Float64, y: Float64, width: Float64, height: Float64,
+         red: Int64, green: Int64, blue: Int64): Void =>
+  __render_ui_fill(x, y, width, height, red, green, blue)
+
+/// Shape and append deterministic bootstrap text at a logical position.
+fun text(x: Float64, y: Float64, value: String, height: Float64,
+         red: Int64, green: Int64, blue: Int64): Void =>
+  __render_ui_text(x, y, value, height, red, green, blue)
+
+/// Submit the logical draw list to the private GPU backend.
+fun present(): Void => __render_ui_present()
+
+/// Consume one named key press: tab, shift-tab, enter, space, p, or escape.
+fun key_pressed(key: String): Bool => __render_ui_key_pressed(key)
+fun pointer_pressed(): Bool => __render_ui_pointer_pressed()
+fun pointer_released(): Bool => __render_ui_pointer_released()
+fun pointer_x(): Float64 => __render_ui_pointer_x()
+fun pointer_y(): Float64 => __render_ui_pointer_y()
+
+export open
+export poll
+export close
+export width
+export height
+export begin
+export fill
+export text
+export present
+export key_pressed
+export pointer_pressed
+export pointer_released
+export pointer_x
+export pointer_y

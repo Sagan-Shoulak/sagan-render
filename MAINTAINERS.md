@@ -154,20 +154,23 @@ On Linux or macOS with the dependencies required by the portable SDL probe:
 bash scripts/ui_gpu_demo_portable.sh
 ```
 
-The demo starts at 960×540 and presents through D3D12, Vulkan, or Metal.
+The demo compiles `examples/ui_sagan_demo/src/main.sagan`, starts at 960×540,
+and presents through D3D12, Vulkan, or Metal.
 Use Tab and Shift+Tab to move focus, Enter or Space to activate, P to toggle the
 pause overlay, the mouse to activate buttons, and Escape to close. Resizing
 recomputes logical layout and reallocates the offscreen target, so text retains
 its logical size and aspect. The main view is exactly 200,000,000 km wide and
 includes a derived 50,000,000 km scale bar; an Earth–Moon inset is exactly
-1,000,000 km wide. Interactive runs start with both views exposed. CI explicitly
-starts paused and writes 960×540 and 800×600 captures for comparable menu,
-focus, layout, and resize evidence.
+1,000,000 km wide. Interactive runs start with both views exposed. CI launches
+the same Sagan program at 960×540 and 800×600 for comparable layout and
+physical-span evidence.
 
-The current composition source is a native backend demonstration, not the
-intended application authoring layer. Before #17 closes, expose the layout,
-draw-list, input, and unit-typed camera contracts as Sagan modules and reproduce
-the demonstration from Sagan. C++ retains SDL/GPU resource ownership only.
+Sagan owns the composition, focus and activation state, hit-testing, and
+unit-typed physical-to-logical projections. The C++ bridge retains native
+window, event, bootstrap text-rasterization, and SDL GPU resource ownership.
+The compiler commit in `sagan-source-commit.txt` must support the exact private
+bridge signatures used by `render.ui`; changing either side requires updating
+and validating the pin together.
 
 ## Windows dev-channel package
 

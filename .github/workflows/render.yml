@@ -67,9 +67,9 @@ jobs:
             render/build/sdl-gpu/sdl-gpu-triangle.bmp
             render/build/sdl-gpu/sdl-gpu-report.txt
             render/build/ui-contract/ui-layout.svg
-            render/build/ui-gpu-demo/ui-gpu-demo.bmp
-            render/build/ui-gpu-demo/ui-gpu-demo-resized.bmp
-            render/build/ui-gpu-demo/ui-gpu-demo-report.txt
+            render/build/ui-sagan-demo/ui-sagan-960x540.bmp
+            render/build/ui-sagan-demo/ui-sagan-800x600.bmp
+            render/build/ui-sagan-demo/ui-sagan-demo-report.txt
           if-no-files-found: error
 
   portable-sdl-window-probe:
@@ -83,6 +83,20 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Resolve compiler source pin
+        id: source
+        shell: bash
+        run: |
+          sha="$(tr -d '\r\n' < sagan-source-commit.txt)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: Sagan-Shoulak/sagan
+          ref: ${{ steps.source.outputs.sha }}
+          path: sagan-source
+          fetch-depth: 0
+          persist-credentials: false
       - name: Install Linux display and SDL build dependencies
         if: runner.os == 'Linux'
         run: |
@@ -91,9 +105,13 @@ jobs:
       - name: Install macOS build dependency
         if: runner.os == 'macOS'
         run: brew install ninja
+      - name: Build pinned compiler
+        working-directory: sagan-source
+        run: make -j2 bin/sagan
       - name: Build SDL and run Linux window probe under Xvfb
         if: runner.os == 'Linux'
         run: |
+          export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/ui_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/ui_gpu_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/sdl_window_probe_portable_test.sh
@@ -101,6 +119,7 @@ jobs:
       - name: Build SDL and run macOS window probe
         if: runner.os == 'macOS'
         run: |
+          export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/ui_gpu_demo_portable_test.sh
           bash tests/integration/sdl_window_probe_portable_test.sh
@@ -113,7 +132,7 @@ jobs:
             build/sdl-gpu/sdl-gpu-triangle.bmp
             build/sdl-gpu/sdl-gpu-report.txt
             build/ui-contract/ui-layout.svg
-            build/ui-gpu-demo/ui-gpu-demo.bmp
-            build/ui-gpu-demo/ui-gpu-demo-resized.bmp
-            build/ui-gpu-demo/ui-gpu-demo-report.txt
+            build/ui-sagan-demo/ui-sagan-960x540.bmp
+            build/ui-sagan-demo/ui-sagan-800x600.bmp
+            build/ui-sagan-demo/ui-sagan-demo-report.txt
           if-no-files-found: error
