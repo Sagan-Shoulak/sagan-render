@@ -183,6 +183,9 @@ bridge names are pinned through `sagan-source-commit.txt`; they are package
 plumbing rather than public language built-ins. C++ consumes draw/event data,
 rasters the deterministic bootstrap font, and owns SDL/GPU resources. It does
 not choose scene positions, physical spans, control geometry, or UI state.
+Until Sagan-Shoulak/sagan#8 removes redundant equality parentheses from emitted
+C++, the portable demo build suppresses only Clang's
+`-Wparentheses-equality`; all other Clang diagnostics remain fatal.
 
 ## Shader formats and temporary bootstrap assets
 

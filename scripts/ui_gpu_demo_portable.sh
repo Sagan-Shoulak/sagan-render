@@ -10,7 +10,14 @@ sagan_executable="${SAGAN_EXECUTABLE:-sagan}"
 export SAGAN_PACKAGE_INDEX="${SAGAN_PACKAGE_INDEX:-$repo_root/libraries/index.tsv}"
 "$sagan_executable" --emit-cpp-package examples/ui_sagan_demo build/ui-sagan-demo/program.cpp
 executable="build/ui-sagan-demo/ui-sagan-demo"
-c++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -DSAGAN_RENDER_UI_BRIDGE \
+warning_flags=()
+compiler_version="$(c++ --version)"
+if [[ "$compiler_version" == *clang* || "$compiler_version" == *Clang* ]]; then
+  # Remove with Sagan-Shoulak/sagan#8. Keep every other Clang warning fatal.
+  warning_flags+=(-Wno-parentheses-equality)
+fi
+c++ -std=c++23 -Wall -Wextra -Wpedantic -Werror "${warning_flags[@]}" \
+  -DSAGAN_RENDER_UI_BRIDGE \
   -include "$repo_root/libraries/render/native/ui_gpu_bridge.hpp" \
   -I"$sdl_root/include" build/ui-sagan-demo/program.cpp examples/ui_gpu_demo.cpp \
   -L"$sdl_root/lib" -lSDL3 -o "$executable"
