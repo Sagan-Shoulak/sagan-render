@@ -9,9 +9,11 @@ Sagan Render is licensed under GPL-3.0-only. See [LICENSE.txt](LICENSE.txt) and
 [NOTICE.txt](NOTICE.txt) for the complete terms and Schematic lineage.
 
 The repository-local `libraries/index.tsv` resolves this extracted package.
-The demo scripts accept `SAGAN_EXECUTABLE` or installed `sagan` and no longer
-need the monorepo's launcher resource object. A bundled custom icon is used
-when present; otherwise the bridge uses the Windows stock application icon.
+The demo scripts accept an explicit `SAGAN_EXECUTABLE`. Without one, they read
+`sagan-source-commit.txt`, reuse that exact compiler from the ignored `build/`
+cache, or fetch and build it automatically. They deliberately do not trust an
+unrelated `sagan` on PATH. A bundled custom icon is used when present;
+otherwise the bridge uses the Windows stock application icon.
 
 Read [MAINTAINERS.md](MAINTAINERS.md) for exact Bash commands and recovery,
 [TECHNOLOGY.md](TECHNOLOGY.md) for the architecture boundary, and

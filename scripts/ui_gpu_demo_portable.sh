@@ -6,7 +6,7 @@ cd "$repo_root"
 mkdir -p build/ui-sagan-demo
 
 sdl_root="$(bash scripts/build-sdl3-source.sh | tail -n 1)"
-sagan_executable="${SAGAN_EXECUTABLE:-sagan}"
+sagan_executable="$(bash scripts/resolve-sagan.sh)"
 export SAGAN_PACKAGE_INDEX="${SAGAN_PACKAGE_INDEX:-$repo_root/libraries/index.tsv}"
 "$sagan_executable" --emit-cpp-package examples/ui_sagan_demo build/ui-sagan-demo/program.cpp
 executable="build/ui-sagan-demo/ui-sagan-demo"
