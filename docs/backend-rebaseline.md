@@ -5,18 +5,18 @@ publication_ready: false
 verified_in: null
 verified_on: null
 verified_by: null
-decision: proposed
+decision: accepted
 ---
 
 # Renderer backend rebaseline
 
-Issue #11 requires one UI API with consistent Windows, Linux, and macOS
+Issue #10 requires one rendering API with consistent Windows, Linux, and macOS
 behavior. The current Win32/GDI bridge cannot satisfy that contract and does
-not provide a scalable path to programmable shaders or lighting. This proposal
-defines the boundary before implementation; it is not evidence that the new
-backend exists.
+not provide a scalable path to programmable shaders or lighting. This document
+defines the accepted boundary. M0 through M2 have executable foundation
+evidence; later renderer and UI milestones remain planned.
 
-## Proposed stack
+## Accepted stack
 
 - SDL3 owns windows, platform events, input focus, display changes, and DPI
   discovery.
@@ -61,7 +61,7 @@ explicit, deterministic, and validated while the graphics device is alive.
 
 ## Milestones
 
-### M0: native window seam
+### M0: native window seam — implemented
 
 Agent-owned implementation work:
 
@@ -75,7 +75,7 @@ Completion test: the existing Windows examples remain byte-for-byte compatible
 where deterministic, and the window contract can be exercised without canvas
 drawing.
 
-### M1: SDL3 window backend
+### M1: SDL3 window backend — implemented foundation
 
 Agent-owned native integration work:
 
@@ -87,22 +87,35 @@ Agent-owned native integration work:
 Completion test: one source-level window example opens, resizes, reports scale,
 processes focus and close events, and cleans up on all three platforms.
 
-### M2: first GPU frame
+### M2: first GPU frame — implemented foundation
 
-Teacher-student rendering work:
+Implementation and teaching evidence:
 
 - learn the device, command-buffer, swapchain, render-pass, pipeline, and shader
   lifecycle;
 - render a clear color and one triangle through the backend-neutral contract;
-- compile one small shader set for D3D12, Vulkan, and Metal;
+- load one checksummed shader set for D3D12, Vulkan, and Metal;
 - capture and validate a deterministic offscreen frame.
 
 Completion test: the same scene and public calls produce equivalent output on
 all supported backends.
 
+The focused probe creates a native SDL window and an explicitly selected GPU
+device: D3D12 on Windows, Vulkan on Linux, and Metal on macOS. It records one
+command buffer containing an offscreen render pass, a bufferless RGB triangle,
+a blit to the window swapchain, and a download to CPU-visible memory. The test
+checks the returned pixels for substantial red-, green-, and blue-dominant
+regions and retains a 256×256 BMP. This validates the private first-frame seam;
+the Sagan-facing API will be composed over it without exposing SDL objects.
+
+The temporary compiled shaders come from the zlib-licensed SDL GPU examples at
+the commit and checksums in `third_party/sdl-gpu-foundation-shaders.lock`.
+Issue #16 replaces this bootstrap dependency with the reviewed project-owned
+shader compilation pipeline.
+
 ### M3: scalable 2D foundation
 
-Teacher-student rendering work:
+Agent-led implementation with explanation and comprehension evidence:
 
 - batch textured and solid-color geometry;
 - establish orthographic cameras, scissor rectangles, alpha blending, texture
@@ -114,7 +127,7 @@ and animated transitions without per-widget draw calls.
 
 ### M4: UI layout and controls
 
-Teacher-student rendering work:
+Agent-led implementation with explanation and comprehension evidence:
 
 - implement rows, columns, overlays, constraints, padding, alignment, and scale;
 - add toolbar buttons, focus traversal, pointer capture, keyboard activation,
@@ -126,7 +139,7 @@ resize, DPI, focus, and cleanup harnesses on all three platforms.
 
 ### M5: effects and lighting path
 
-Teacher-student rendering work:
+Agent-led implementation with explanation and comprehension evidence:
 
 - define material and uniform interfaces without exposing backend handles;
 - add a post-processing pass and a small 2D lighting example;
