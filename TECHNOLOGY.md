@@ -35,6 +35,13 @@ The dependency direction is rendering to Sagan's language/math/toolchain;
 physics and the Space Game may consume rendering but do not own its native
 bridge. The future workspace exact lock coordinates tested versions.
 
+Issue #11 begins a proposed cross-platform rebaseline around an SDL3 window
+layer and SDL GPU rendering layer. The proposal preserves programmable shaders,
+lighting, post-processing, and compute as intended capabilities while keeping
+backend objects private. It is a design under review, not a statement that the
+current Win32/GDI implementation is already portable. See
+[the backend rebaseline](docs/backend-rebaseline.md).
+
 The local Windows extraction tests passed the short auto-closing window
 check and the shape/text BMP capture check without the monorepo resource
 object. This is focused evidence for the candidate's current Win32 path,
