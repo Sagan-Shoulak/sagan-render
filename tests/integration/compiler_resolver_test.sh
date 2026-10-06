@@ -2,6 +2,7 @@
 set -euo pipefail
 
 export PATH="/c/msys64/ucrt64/bin:/ucrt64/bin:/usr/bin:/bin:$PATH"
+unset SAGAN_EXECUTABLE
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 pin="$(tr -d '\r\n' < "$repo_root/sagan-source-commit.txt")"
