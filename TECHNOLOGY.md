@@ -293,6 +293,14 @@ Issue #16 still owns shader compilation, mesh/material inputs, linear color,
 and the final lighting pipeline. Replacing the impostor must not change stable
 IDs, unit-typed positions/radii, camera focus, or snapshot ownership.
 
+The demonstration advances an Earth phase and a faster Moon phase with a
+bounded Taylor approximation of sine and cosine, then constructs fresh
+presentation objects for the frame. This is intentionally bare-bones circular
+motion, not an orbital integrator: it has no masses, forces, energy model,
+ephemeris, error control, or persistent mutable body state. A later application
+can replace the generator with versioned `sagan-physics` snapshots without
+changing renderer APIs.
+
 ### Loading-screen example
 
 `examples/loading_sagan_demo` uses the same Sagan UI facade and native GPU host
