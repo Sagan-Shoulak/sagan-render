@@ -36,6 +36,9 @@ namespace
   constexpr color sun{255, 212, 91, 255};
   constexpr color earth{70, 133, 255, 255};
   constexpr color moon{205, 215, 225, 255};
+  constexpr color sun_shadow{151, 91, 24, 255};
+  constexpr color earth_shadow{20, 48, 112, 255};
+  constexpr color moon_shadow{82, 91, 105, 255};
   constexpr color white{245, 249, 255, 255};
   constexpr color muted{142, 164, 188, 255};
   constexpr color modal{36, 55, 82, 255};
@@ -43,7 +46,8 @@ namespace
   constexpr color button_focus{55, 125, 181, 255};
   constexpr std::array palette{
     background, panel, panel_light, scene, accent, focus_color, sun, earth,
-    moon, white, muted, modal, button, button_focus
+    moon, sun_shadow, earth_shadow, moon_shadow, white, muted, modal, button,
+    button_focus
   };
   static_assert(sizeof(color) == bytes_per_pixel);
 

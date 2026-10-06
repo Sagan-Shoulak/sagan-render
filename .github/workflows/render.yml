@@ -72,9 +72,9 @@ jobs:
             render/build/sdl-gpu/sdl-gpu-report.txt
             render/build/ui-contract/ui-layout.svg
             render/build/scene-contract/scene-camera.svg
-            render/build/scene-sagan-demo/scene-idle.bmp
-            render/build/scene-sagan-demo/scene-reframed.bmp
-            render/build/scene-sagan-demo/scene-demo-report.txt
+            render/build/scene-sagan-demo-test/scene-idle.bmp
+            render/build/scene-sagan-demo-test/scene-reframed.bmp
+            render/build/scene-sagan-demo-test/scene-demo-report.txt
             render/build/ui-sagan-demo/ui-sagan-960x540.bmp
             render/build/ui-sagan-demo/ui-sagan-800x600.bmp
             render/build/ui-sagan-demo/ui-sagan-demo-report.txt
@@ -162,9 +162,9 @@ jobs:
             build/sdl-gpu/sdl-gpu-report.txt
             build/ui-contract/ui-layout.svg
             build/scene-contract/scene-camera.svg
-            build/scene-sagan-demo/scene-idle.bmp
-            build/scene-sagan-demo/scene-reframed.bmp
-            build/scene-sagan-demo/scene-demo-report.txt
+            build/scene-sagan-demo-test/scene-idle.bmp
+            build/scene-sagan-demo-test/scene-reframed.bmp
+            build/scene-sagan-demo-test/scene-demo-report.txt
             build/ui-sagan-demo/ui-sagan-960x540.bmp
             build/ui-sagan-demo/ui-sagan-800x600.bmp
             build/ui-sagan-demo/ui-sagan-demo-report.txt
