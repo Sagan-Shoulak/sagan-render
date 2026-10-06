@@ -135,9 +135,11 @@ focus, capture, and pending actions before renderer resources are destroyed.
 
 ### GPU UI demonstration
 
-The UI demo turns the backend-neutral draw list into real SDL GPU work without
-letting SDL objects leak into layout descriptions. Each fill command contains
-only logical bounds and an RGBA color. The GPU compositor owns a tiny palette
+The UI demo is authored in Sagan. Its program owns responsive layout, focus and
+activation state, pointer hit-testing, and the unit-typed camera calculations.
+The private native bridge turns its backend-neutral commands into real SDL GPU
+work without leaking SDL objects into Sagan. Each fill command contains only
+logical bounds and an RGBA color. The GPU compositor owns a tiny palette
 texture, a logical-size offscreen target, a download buffer used only for
 evidence, and the claimed window. It blits palette texels into clipped
 rectangles, then blits the completed offscreen target to the current swapchain
@@ -145,13 +147,12 @@ size. Static UI is repainted only when state changes; ordinary frames reuse the
 offscreen target and perform one presentation blit.
 
 Interactive resize reallocates that target to the current logical window size
-and reruns layout. Text therefore retains its logical height and aspect instead
-of stretching with an old frame. The final blit accounts for drawable density,
-whose aspect matches the logical window. CI fixes the initial logical size for
-reference comparison and injects a second logical-target aspect ratio. The
-injected resize avoids depending on a headless window manager accepting a
-programmatic window-size request while exercising the same target reallocation
-and layout path used by real resize events.
+and reruns Sagan layout. Text therefore retains its logical height and aspect
+instead of stretching with an old frame. The final blit accounts for drawable
+density, whose aspect matches the logical window. CI launches the same Sagan
+program at 960×540 and 800×600. This avoids depending on a headless window
+manager accepting a programmatic resize while exercising the same size-query,
+target-allocation, and Sagan relayout path used by real resize events.
 
 The demonstration font implements the `text_shaper` boundary with fixed 5×7
 glyph data. Measurement produces logical advances and painting emits glyph
@@ -162,24 +163,26 @@ change layout or the GPU consumer because both depend on the shaping
 request/result contract rather than a platform font handle.
 
 Every captured demo frame must contain minimum counts of exact white text and
-Earth pixels; paused CI captures additionally require modal pixels. That catches
-a blank frame, absent text, missing overlay, or lost scene content before the
-BMP is accepted. The same executable runs against D3D12, Vulkan, and Metal in
-CI. Individual rectangle blits are a portable bootstrap; a later shader-backed
-batch may consume the same draw list without changing UI descriptions.
+Earth pixels. That catches a blank frame, absent text, or lost scene content
+before the BMP is accepted. The same emitted Sagan program runs against D3D12,
+Vulkan, and Metal in CI. Individual rectangle blits are a portable bootstrap; a
+later shader-backed batch may consume the same draw list without changing UI
+descriptions.
 
-The measured scene uses two explicit orthographic transforms. Its main view is
-200,000,000 km wide, placing the Sun and Earth from metre-valued coordinates
-and deriving a 50,000,000 km scale bar from `metres_per_logical_x`. A separate
+The measured scene uses two explicit orthographic transforms in Sagan. Its main
+view is 200,000,000 km wide, placing the Sun and Earth from values typed with
+the `meter` unit and deriving a 50,000,000 km scale bar as a ratio of physical
+span to logical width. A separate
 1,000,000 km Earth–Moon inset makes the 384,400 km separation legible without
 falsifying the Solar-scale positions. Resizing changes both bars' pixel lengths
 through the camera transform while their declared physical lengths remain
 constant.
 
-This composition is still native test/demo code. That is a temporary boundary,
-not the final library experience. The remaining #17 gate is a Sagan-facing UI
-and measured-camera API plus a Sagan-authored version of the demo. C++ should
-then be limited to consuming draw/event data and owning SDL/GPU resources.
+The public `render.ui` facade is Sagan source. Its compiler-recognized private
+bridge names are pinned through `sagan-source-commit.txt`; they are package
+plumbing rather than public language built-ins. C++ consumes draw/event data,
+rasters the deterministic bootstrap font, and owns SDL/GPU resources. It does
+not choose scene positions, physical spans, control geometry, or UI state.
 
 ## Shader formats and temporary bootstrap assets
 
