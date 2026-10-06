@@ -53,6 +53,7 @@ jobs:
           export SAGAN_EXECUTABLE="$(cygpath -u "$GITHUB_WORKSPACE")/sagan-source/bin/sagan.exe"
           export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
           bash tests/integration/compiler_resolver_test.sh
+          bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
@@ -136,6 +137,7 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/compiler_resolver_test.sh
+          bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
@@ -150,6 +152,7 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/compiler_resolver_test.sh
+          bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh

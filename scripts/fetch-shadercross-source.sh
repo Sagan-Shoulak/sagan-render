@@ -27,7 +27,8 @@ fi
 
 mkdir -p build/dependencies
 echo "Fetching SDL_shadercross source $short_commit without submodules..." >&2
-git clone --filter=blob:none --no-checkout "$source_repository" "$source_directory" >&2
+git clone --filter=blob:none --no-checkout --no-recurse-submodules \
+  "$source_repository" "$source_directory" >&2
 git -C "$source_directory" fetch origin "$source_commit" >&2
 git -C "$source_directory" checkout --detach "$source_commit" >&2
 

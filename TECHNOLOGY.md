@@ -411,6 +411,15 @@ HEAD differs. This initial fetch intentionally leaves submodules uninitialized:
 the next reviewed chunk must pin and inspect the much larger DXC, SPIRV-Tools,
 SPIRV-Headers, and SPIRV-Cross dependency graph before any build begins.
 
+That graph is now explicit in the lock. SDL_shadercross directly pins
+SPIRV-Cross, SPIRV-Headers, SPIRV-Tools, and SDL's DirectXShaderCompiler fork.
+The DXC fork in turn pins its own SPIRV-Headers, SPIRV-Tools, and
+DirectX-Headers revisions; its `.gitmodules` mentions googletest but the pinned
+tree has no googletest gitlink. The two SPIR-V revision pairs intentionally
+differ and must not be collapsed merely because their repository names match.
+Source fetch remains non-recursive until the build chunk decides exactly which
+vendored targets are necessary and records their license/install impact.
+
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its

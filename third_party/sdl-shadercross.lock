@@ -5,3 +5,18 @@ source_commit = "1ff05bec573988a98ef9e0260b4da44f512b8367"
 source_commit_date = "2026-09-03"
 license = "Zlib"
 submodules_initialized = false
+submodule_graph_verified = true
+
+spirv_cross_repository = "https://github.com/KhronosGroup/SPIRV-Cross.git"
+spirv_cross_commit = "1a6169566c73d3da552748fc372fe2bbb856e46e"
+spirv_headers_repository = "https://github.com/KhronosGroup/SPIRV-Headers.git"
+spirv_headers_commit = "ad9184e76a66b1001c29db9b0a3e87f646c64de0"
+spirv_tools_repository = "https://github.com/KhronosGroup/SPIRV-Tools.git"
+spirv_tools_commit = "0539c81f69a3daeb706fd3477dca61435b475156"
+directx_shader_compiler_repository = "https://github.com/libsdl-org/DirectXShaderCompiler.git"
+directx_shader_compiler_commit = "2c84a1c5ab7091608c97df6ba5ccf46e71c322eb"
+
+dxc_spirv_headers_commit = "04f10f650d514df88b76d25e83db360142c7b174"
+dxc_spirv_tools_commit = "fbe4f3ad913c44fe8700545f8ffe35d1382b7093"
+dxc_directx_headers_commit = "980971e835876dc0cde415e8f9bc646e64667bf7"
+dxc_googletest_gitlink = "absent-at-pinned-commit"
