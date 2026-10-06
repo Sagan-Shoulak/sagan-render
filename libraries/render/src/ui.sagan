@@ -28,7 +28,8 @@ fun text(x: Float64, y: Float64, value: String, height: Float64,
 /// Submit the logical draw list to the private GPU backend.
 fun present(): Void => __render_ui_present()
 
-/// Consume one named key press: tab, shift-tab, enter, space, p, or escape.
+/// Consume one named key press. The current host recognizes tab, shift-tab,
+/// enter, space, p, f, r, escape, and the four arrow directions.
 fun key_pressed(key: String): Bool => __render_ui_key_pressed(key)
 fun pointer_pressed(): Bool => __render_ui_pointer_pressed()
 fun pointer_released(): Bool => __render_ui_pointer_released()

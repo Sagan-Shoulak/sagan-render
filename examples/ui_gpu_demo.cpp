@@ -750,6 +750,10 @@ auto sagan_5f5f72656e6465725f75695f636c6f7365() -> void
     std::cout << "SAGAN_TOOLBAR_DEMO language=sagan driver=" << bridge_driver
               << " logical=" << bridge_width << 'x' << bridge_height
               << " cleanup=1\n";
+  else if (kind_value && std::string_view{kind_value} == "scene")
+    std::cout << "SAGAN_SCENE_DEMO language=sagan driver=" << bridge_driver
+              << " logical=" << bridge_width << 'x' << bridge_height
+              << " precision_origin_metres=1e15 cleanup=1\n";
   else
     std::cout << "SAGAN_UI_DEMO language=sagan driver=" << bridge_driver
               << " logical=" << bridge_width << 'x' << bridge_height

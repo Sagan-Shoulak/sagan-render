@@ -1,0 +1,136 @@
+module main
+
+import open from render.ui
+import poll from render.ui
+import close from render.ui
+import width from render.ui
+import height from render.ui
+import begin from render.ui
+import fill from render.ui
+import text from render.ui
+import present from render.ui
+import key_pressed from render.ui
+import SpatialRenderable from render.scene
+import RenderSample from render.scene
+import sample from render.scene
+import relative_axis from render.scene
+import perspective_axis from render.scene
+import depth_visible from render.scene
+
+const DISTANT_ORIGIN: Float64<meter> = 1000000000000.0 kilometer
+const CAMERA_DEPTH: Float64<meter> = 1000000.0 kilometer
+
+class PresentationObject has SpatialRenderable {
+  let identifier_value: Int64
+  let x_value: Float64<meter>
+  let y_value: Float64<meter>
+  let z_value: Float64<meter>
+  let radius_value: Float64<meter>
+  let label_value: String
+
+  new(identifier: Int64, x: Float64<meter>, y: Float64<meter>,
+      z: Float64<meter>, radius: Float64<meter>, label: String) {
+    self.identifier_value = identifier
+    self.x_value = x
+    self.y_value = y
+    self.z_value = z
+    self.radius_value = radius
+    self.label_value = label
+  }
+
+  fun render_identifier(): Int64 => self.identifier_value
+  fun render_x(): Float64<meter> => self.x_value
+  fun render_y(): Float64<meter> => self.y_value
+  fun render_z(): Float64<meter> => self.z_value
+  fun render_radius(): Float64<meter> => self.radius_value
+  fun render_label(): String => self.label_value
+}
+
+fun maximum(first: Float64, second: Float64): Float64 {
+  if first > second { return first }
+  return second
+}
+
+fun draw_object(value: SpatialRenderable,
+                camera_x: Float64<meter>, camera_y: Float64<meter>,
+                camera_z: Float64<meter>, viewport_x: Float64,
+                viewport_y: Float64, viewport_width: Float64,
+                viewport_height: Float64): Void {
+  let item: RenderSample = sample(value)
+  let forward_depth = camera_z - item.z()
+  if depth_visible(forward_depth, item.radius(),
+                   1.0 kilometer, 10000000.0 kilometer) {
+    let logical_x = viewport_x + perspective_axis(
+      relative_axis(item.x(), camera_x), forward_depth, 0.577350269, viewport_width)
+    let logical_y = viewport_y + perspective_axis(
+      0.0 meter - relative_axis(item.y(), camera_y), forward_depth,
+      0.577350269, viewport_height)
+    let projected_radius = maximum(4.0,
+      (item.radius() / forward_depth) / 0.577350269 * viewport_height / 2.0)
+    if item.identifier() == 1 {
+      fill(logical_x - projected_radius, logical_y - projected_radius,
+           projected_radius * 2.0, projected_radius * 2.0, 255, 212, 91)
+    } else {
+      if item.identifier() == 2 {
+        fill(logical_x - projected_radius, logical_y - projected_radius,
+             projected_radius * 2.0, projected_radius * 2.0, 70, 133, 255)
+      } else {
+        fill(logical_x - projected_radius, logical_y - projected_radius,
+             projected_radius * 2.0, projected_radius * 2.0, 205, 215, 225)
+      }
+    }
+    text(logical_x + projected_radius + 7.0, logical_y - 5.0,
+         item.label(), 10.0, 245, 249, 255)
+  }
+}
+
+fun compose(camera_x: Float64<meter>): Void {
+  let window_width = width()
+  let window_height = height()
+  let viewport_x = 24.0
+  let viewport_y = 76.0
+  let viewport_width = window_width - 48.0
+  let viewport_height = window_height - 116.0
+  let camera_y = DISTANT_ORIGIN
+  let camera_z = DISTANT_ORIGIN
+  let center = PresentationObject(
+    1, DISTANT_ORIGIN, DISTANT_ORIGIN, DISTANT_ORIGIN - CAMERA_DEPTH,
+    50000.0 kilometer, "SAMPLE A")
+  let right = PresentationObject(
+    2, DISTANT_ORIGIN + 250000.0 kilometer, DISTANT_ORIGIN,
+    DISTANT_ORIGIN - CAMERA_DEPTH, 25000.0 kilometer, "SAMPLE B")
+  let high = PresentationObject(
+    3, DISTANT_ORIGIN, DISTANT_ORIGIN + 200000.0 kilometer,
+    DISTANT_ORIGIN - 1500000.0 kilometer, 40000.0 kilometer, "SAMPLE C")
+
+  begin()
+  fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
+  text(24.0, 22.0, "PHYSICS-AGNOSTIC SCENE SNAPSHOT", 16.0, 245, 249, 255)
+  text(24.0, 48.0, "LEFT/RIGHT: REFRAME CAMERA | POSITIONS NEAR 1E15 M", 10.0,
+       142, 203, 255)
+  fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
+  draw_object(center, camera_x, camera_y, camera_z,
+              viewport_x, viewport_y, viewport_width, viewport_height)
+  draw_object(right, camera_x, camera_y, camera_z,
+              viewport_x, viewport_y, viewport_width, viewport_height)
+  draw_object(high, camera_x, camera_y, camera_z,
+              viewport_x, viewport_y, viewport_width, viewport_height)
+  text(24.0, window_height - 28.0,
+       "STATIC DEMO SAMPLES - NO ORBITAL DYNAMICS IN RENDER", 10.0,
+       142, 164, 188)
+  present()
+}
+
+if open("Sagan scene and camera precision", 960, 540) {
+  let camera_x = DISTANT_ORIGIN
+  let running = true
+  while running {
+    if poll() == false { running = false }
+    if running {
+      if key_pressed("left") { camera_x = camera_x - 50000.0 kilometer }
+      if key_pressed("right") { camera_x = camera_x + 50000.0 kilometer }
+      compose(camera_x)
+    }
+  }
+  close()
+}
