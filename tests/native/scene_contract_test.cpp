@@ -50,6 +50,42 @@ int main(int argc, char **argv)
   assert(projection_matrix[5] > projection_matrix[0]);
   assert(near(projection_matrix[14], 1.0));
 
+  horizon_locked_camera controlled{{anchor, anchor, anchor}};
+  assert(near(controlled.forward().z, -1.0));
+  assert(near(controlled.right().x, 1.0));
+  assert(near(dot(controlled.right(), controlled.world_up()), 0.0));
+  controlled.rotate(1.5707963267948966, 0.0);
+  assert(near(controlled.forward().x, 1.0));
+  assert(near(controlled.forward().y, 0.0));
+  assert(near(controlled.forward().z, 0.0));
+  controlled.rotate(0.0, 100.0);
+  assert(controlled.pitch_radians() < 1.5707963267948966);
+  assert(dot(controlled.up(), controlled.world_up()) > 0.0);
+  assert(near(dot(controlled.right(), controlled.world_up()), 0.0));
+
+  horizon_locked_camera moving{{0.0, 0.0, 0.0}};
+  moving.translate(10.0, 20.0, 30.0);
+  assert(near(moving.position().x_metres, 10.0));
+  assert(near(moving.position().y_metres, 20.0));
+  assert(near(moving.position().z_metres, -30.0));
+  moving.orbit({100.0, 200.0, 300.0}, 50.0);
+  assert(near(moving.position().x_metres, 100.0));
+  assert(near(moving.position().y_metres, 200.0));
+  assert(near(moving.position().z_metres, 350.0));
+  const horizon_locked_camera alternate_up{
+    {0.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}};
+  assert(near(dot(alternate_up.right(), alternate_up.world_up()), 0.0));
+  assert(dot(alternate_up.up(), alternate_up.world_up()) > 0.0);
+  bool rejected_pole_forward = false;
+  try
+  {
+    const horizon_locked_camera invalid{
+      {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 1.0, 0.0}};
+    (void)invalid;
+  }
+  catch (const std::invalid_argument &) { rejected_pole_forward = true; }
+  assert(rejected_pole_forward);
+
   // Reframing creates another projection; the immutable source is unchanged.
   camera moved = view;
   moved.position.x_metres += 250000.0;

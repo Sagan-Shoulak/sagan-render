@@ -413,6 +413,16 @@ forward are rebuilt from a declared world-up axis, roll is not an input, and
 pitch is clamped before forward becomes parallel to world up. The current
 strip-composited discs remain bootstrap evidence only.
 
+The native `horizon_locked_camera` contract now supplies the camera-side math.
+It stores a physical position, normalized world-up direction, yaw, and clamped
+pitch. Each query reconstructs an orthonormal forward/right/up basis, so
+incremental floating-point rotations cannot accumulate roll. Strafe follows
+camera right, lift follows world up, dolly follows camera forward, and orbit
+places the camera at a measured distance behind its facing direction. The
+contract accepts generic measured targets and does not know what kind of entity
+is being viewed. Public Sagan controls and the mesh demo still remain to be
+wired after the GPU mesh path exists.
+
 ## Supported foundation and rollback
 
 - Windows validation explicitly requests SDL's `direct3d12` driver and DXIL.
