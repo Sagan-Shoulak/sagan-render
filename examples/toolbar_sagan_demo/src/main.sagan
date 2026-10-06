@@ -1,0 +1,157 @@
+module main
+
+import open from render.ui
+import poll from render.ui
+import close from render.ui
+import width from render.ui
+import height from render.ui
+import begin from render.ui
+import fill from render.ui
+import text from render.ui
+import present from render.ui
+import key_pressed from render.ui
+import pointer_pressed from render.ui
+import pointer_released from render.ui
+import pointer_x from render.ui
+import pointer_y from render.ui
+import ButtonState from render.controls
+import ToolbarFocus from render.controls
+import contains from render.controls
+import draw_button from render.controls
+
+fun minimum(first: Float64, second: Float64): Float64 {
+  if first < second { return first }
+  return second
+}
+
+fun synchronize_focus(focus: ToolbarFocus, primary: ButtonState,
+                       unavailable: ButtonState, reset: ButtonState): Void {
+  primary.set_focused!(focus.index == 0)
+  unavailable.set_focused!(focus.index == 1)
+  reset.set_focused!(focus.index == 2)
+}
+
+fun move_focus(focus: ToolbarFocus, primary: ButtonState,
+                unavailable: ButtonState, reset: ButtonState,
+                reverse: Bool): Void {
+  if reverse {
+    focus.previous!()
+    if focus.index == 1 { focus.previous!() }
+  } else {
+    focus.next!()
+    if focus.index == 1 { focus.next!() }
+  }
+  synchronize_focus(focus, primary, unavailable, reset)
+}
+
+fun main(): Void {
+  if open("Sagan reusable toolbar example", 960, 540) {
+    let primary = ButtonState()
+    let unavailable = ButtonState(false)
+    let reset = ButtonState()
+    let focus = ToolbarFocus(3)
+    let message = "NO ACTION"
+    let last_width = 0.0
+    let last_height = 0.0
+    let running = true
+    synchronize_focus(focus, primary, unavailable, reset)
+
+    while running {
+      if poll() == false { running = false }
+      if running {
+        let window_width = width()
+        let window_height = height()
+        let vertical = window_width < 760.0
+        let toolbar_width = minimum(680.0, window_width - 80.0)
+        let button_width = 180.0
+        let button_height = 48.0
+        let gap = 18.0
+        let toolbar_x = (window_width - toolbar_width) / 2.0
+        let toolbar_y = window_height * 0.42
+        let first_x = toolbar_x + 42.0
+        let first_y = toolbar_y
+        let second_x = first_x + button_width + gap
+        let second_y = toolbar_y
+        let third_x = second_x + button_width + gap
+        let third_y = toolbar_y
+        if vertical {
+          first_x = (window_width - button_width) / 2.0
+          first_y = toolbar_y - 40.0
+          second_x = first_x
+          second_y = first_y + button_height + gap
+          third_x = first_x
+          third_y = second_y + button_height + gap
+        }
+
+        if window_width != last_width {
+          primary.cancel_interaction!()
+          unavailable.cancel_interaction!()
+          reset.cancel_interaction!()
+        }
+        if window_height != last_height {
+          primary.cancel_interaction!()
+          unavailable.cancel_interaction!()
+          reset.cancel_interaction!()
+        }
+        last_width = window_width
+        last_height = window_height
+
+        primary.update_hover!(contains(pointer_x(), pointer_y(), first_x, first_y,
+                                       button_width, button_height))
+        unavailable.update_hover!(contains(pointer_x(), pointer_y(), second_x, second_y,
+                                           button_width, button_height))
+        reset.update_hover!(contains(pointer_x(), pointer_y(), third_x, third_y,
+                                     button_width, button_height))
+        if pointer_pressed() {
+          primary.pointer_down!()
+          unavailable.pointer_down!()
+          reset.pointer_down!()
+        }
+        if pointer_released() {
+          primary.pointer_up!()
+          unavailable.pointer_up!()
+          reset.pointer_up!()
+        }
+
+        if key_pressed("tab") { move_focus(focus, primary, unavailable, reset, false) }
+        if key_pressed("shift-tab") { move_focus(focus, primary, unavailable, reset, true) }
+        if key_pressed("right") { move_focus(focus, primary, unavailable, reset, false) }
+        if key_pressed("down") { move_focus(focus, primary, unavailable, reset, false) }
+        if key_pressed("left") { move_focus(focus, primary, unavailable, reset, true) }
+        if key_pressed("up") { move_focus(focus, primary, unavailable, reset, true) }
+        if key_pressed("enter") {
+          primary.keyboard_activate!()
+          unavailable.keyboard_activate!()
+          reset.keyboard_activate!()
+        }
+        if key_pressed("space") {
+          primary.keyboard_activate!()
+          unavailable.keyboard_activate!()
+          reset.keyboard_activate!()
+        }
+
+        if primary.take_activation!() { message = "PRIMARY ACTIVATED" }
+        if reset.take_activation!() { message = "RESET ACTIVATED" }
+
+        begin()
+        fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
+        text(40.0, 38.0, "REUSABLE SAGAN TOOLBAR", 22.0, 245, 249, 255)
+        text(40.0, 76.0, "POINTER AND KEYBOARD SHARE ONE STATE MODEL",
+             10.0, 142, 164, 188)
+        text(40.0, 112.0, message, 13.0, 71, 174, 255)
+        draw_button(primary, first_x, first_y, button_width, button_height, "PRIMARY")
+        draw_button(unavailable, second_x, second_y, button_width, button_height, "DISABLED")
+        draw_button(reset, third_x, third_y, button_width, button_height, "RESET")
+        text(40.0, window_height - 46.0,
+             "TAB ARROWS ENTER SPACE - RESIZE REFLOWS", 10.0, 142, 164, 188)
+        present()
+      }
+    }
+    primary.cancel_interaction!()
+    unavailable.cancel_interaction!()
+    reset.cancel_interaction!()
+    close()
+  }
+}
+
+main()
