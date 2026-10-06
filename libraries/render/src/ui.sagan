@@ -35,6 +35,9 @@ fun pointer_released(): Bool => __render_ui_pointer_released()
 fun pointer_x(): Float64 => __render_ui_pointer_x()
 fun pointer_y(): Float64 => __render_ui_pointer_y()
 
+/// Monotonic seconds since the UI host opened.
+fun elapsed_seconds(): Float64 => __render_elapsed_seconds()
+
 export open
 export poll
 export close
@@ -49,3 +52,4 @@ export pointer_pressed
 export pointer_released
 export pointer_x
 export pointer_y
+export elapsed_seconds

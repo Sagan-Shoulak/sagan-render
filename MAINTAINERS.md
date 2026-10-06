@@ -172,6 +172,33 @@ The compiler commit in `sagan-source-commit.txt` must support the exact private
 bridge signatures used by `render.ui`; changing either side requires updating
 and validating the pin together.
 
+## Loading-screen example
+
+On Windows in Git Bash:
+
+```bash
+SAGAN_EXECUTABLE=/path/to/pinned/sagan.exe bash scripts/loading_demo.sh
+```
+
+On Linux or macOS:
+
+```bash
+SAGAN_EXECUTABLE=/path/to/pinned/sagan bash scripts/loading_demo_portable.sh
+```
+
+The example is authored in `examples/loading_sagan_demo/src/main.sagan`.
+Press F to display the asset-failure presentation, R to restart the synthetic
+loading cycle, and Escape to close. The synthetic driver is deliberately not a
+game asset policy: applications replace it with their own progress, ready, and
+failure signals while retaining the same presentation states.
+
+Focused CI runs loading at 960×540, ready at 800×600, transition at 1024×576,
+and failure at 960×540.
+It freezes elapsed time and injects failure input through private environment
+test hooks, checks captured BMP dimensions and content thresholds, and requires
+cleanup reports on D3D12, Vulkan, and Metal. Captures and the report are under
+ignored `build/loading-sagan-demo/`.
+
 ## Windows dev-channel package
 
 The minimum prerelease distribution is a source package for the compiler's

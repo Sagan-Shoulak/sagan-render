@@ -1,0 +1,99 @@
+module main
+
+import open from render.ui
+import poll from render.ui
+import close from render.ui
+import width from render.ui
+import height from render.ui
+import begin from render.ui
+import fill from render.ui
+import text from render.ui
+import present from render.ui
+import key_pressed from render.ui
+import elapsed_seconds from render.ui
+
+fun minimum(first: Float64, second: Float64): Float64 {
+  if first < second { return first }
+  return second
+}
+
+fun maximum(first: Float64, second: Float64): Float64 {
+  if first > second { return first }
+  return second
+}
+
+fun clamp(value: Float64, low: Float64, high: Float64): Float64 =>
+  minimum(high, maximum(low, value))
+
+fun draw_progress(window_width: Float64, window_height: Float64,
+                  progress: Float64): Void {
+  let bar_width = minimum(560.0, window_width - 96.0)
+  let bar_x = (window_width - bar_width) / 2.0
+  let bar_y = window_height * 0.70
+  fill(bar_x - 3.0, bar_y - 3.0, bar_width + 6.0, 24.0, 142, 203, 255)
+  fill(bar_x, bar_y, bar_width, 18.0, 16, 43, 70)
+  fill(bar_x, bar_y, bar_width * clamp(progress, 0.0, 1.0), 18.0,
+       71, 174, 255)
+}
+
+fun compose(window_width: Float64, window_height: Float64,
+            elapsed: Float64, failed: Bool): Void {
+  fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
+  let card_width = minimum(720.0, window_width - 64.0)
+  let card_height = minimum(360.0, window_height - 64.0)
+  let card_x = (window_width - card_width) / 2.0
+  let card_y = (window_height - card_height) / 2.0
+  fill(card_x - 4.0, card_y - 4.0, card_width + 8.0,
+       card_height + 8.0, 142, 203, 255)
+  fill(card_x, card_y, card_width, card_height, 16, 43, 70)
+  text(card_x + 42.0, card_y + 42.0, "SAGAN LOADING", 26.0, 245, 249, 255)
+  text(card_x + 42.0, card_y + 82.0,
+       "GENERIC RENDERER EXAMPLE", 11.0, 142, 164, 188)
+
+  if failed {
+    text(card_x + 42.0, card_y + 145.0,
+         "ASSET LOAD FAILED", 18.0, 255, 212, 91)
+    text(card_x + 42.0, card_y + 181.0,
+         "PRESS R TO RETRY", 12.0, 245, 249, 255)
+  } else {
+    if elapsed < 3.0 {
+      text(card_x + 42.0, card_y + 145.0,
+           "LOADING RENDER ASSETS", 15.0, 245, 249, 255)
+      draw_progress(window_width, window_height, elapsed / 3.0)
+    } else {
+      if elapsed < 4.0 {
+        text(card_x + 42.0, card_y + 145.0,
+             "READY - TRANSITIONING", 15.0, 245, 249, 255)
+        let wipe = clamp(elapsed - 3.0, 0.0, 1.0)
+        fill(0.0, 0.0, window_width * wipe, window_height, 2, 6, 11)
+      } else {
+        text(card_x + 42.0, card_y + 145.0,
+             "READY", 18.0, 71, 174, 255)
+        text(card_x + 42.0, card_y + 181.0,
+             "PRESS F TO TEST FAILURE", 11.0, 142, 164, 188)
+      }
+    }
+  }
+  text(card_x + 42.0, card_y + card_height - 45.0,
+       "RESIZE REFLOWS - ESC CLOSES", 10.0, 142, 164, 188)
+}
+
+if open("Sagan loading-screen example", 960, 540) {
+  let failed = false
+  let started_at = 0.0
+  let running = true
+  while running {
+    if poll() == false { running = false }
+    if running {
+      if key_pressed("f") { failed = true }
+      if key_pressed("r") {
+        failed = false
+        started_at = elapsed_seconds()
+      }
+      begin()
+      compose(width(), height(), elapsed_seconds() - started_at, failed)
+      present()
+    }
+  }
+  close()
+}

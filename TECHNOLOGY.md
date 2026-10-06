@@ -187,6 +187,28 @@ Until Sagan-Shoulak/sagan#8 removes redundant equality parentheses from emitted
 C++, the portable demo build suppresses only Clang's
 `-Wparentheses-equality`; all other Clang diagnostics remain fatal.
 
+### Loading-screen example
+
+`examples/loading_sagan_demo` uses the same Sagan UI facade and native GPU host
+to demonstrate four renderer-facing presentation states: loading progress,
+ready, failure, and an animated transition. The centered card and progress bar
+are recomputed from current logical dimensions, so drawable density and window
+aspect do not stretch stored pixels.
+
+The example intentionally uses a deterministic synthetic loading driver. It
+stands in for application-owned asset work without defining game policy or
+pretending that this renderer package owns an application asset graph. The
+renderer is responsible for displaying the supplied state; a real application
+will replace the timer and F/R controls with its loader's progress and error
+signals. CI freezes the native monotonic clock and injects an input event to
+capture loading, ready, and asset-failure presentations deterministically.
+
+The transition is a Sagan-authored horizontal wipe between three and four
+seconds. Native code exposes only elapsed monotonic time; it does not choose
+state thresholds or geometry. Closing from any state destroys the draw list,
+GPU target, palette, transfer buffer, device claim, and window through the same
+bridge cleanup path.
+
 ## Shader formats and temporary bootstrap assets
 
 SDL GPU selects a native desktop backend, not a universal shader bytecode.
