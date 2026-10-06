@@ -30,6 +30,29 @@ const CAMERA_DEPTH: Float64<meter> = 200000000.0 kilometer
 const EARTH_DISTANCE: Float64<meter> = 149597870.7 kilometer
 const MOON_DISTANCE: Float64<meter> = 384400.0 kilometer
 
+fun wrapped_angle(value: Float64): Float64 {
+  let result = value
+  while result > 3.141592653589793 { result = result - 6.283185307179586 }
+  while result < 0.0 - 3.141592653589793 { result = result + 6.283185307179586 }
+  return result
+}
+
+/// Demo-only trigonometric approximation. Authoritative orbital state belongs
+/// in sagan-physics; the renderer receives only the resulting snapshots.
+fun demo_sine(value: Float64): Float64 {
+  let angle = wrapped_angle(value)
+  let squared = angle * angle
+  return angle * (1.0 - squared / 6.0 + squared * squared / 120.0 -
+                  squared * squared * squared / 5040.0)
+}
+
+fun demo_cosine(value: Float64): Float64 {
+  let angle = wrapped_angle(value)
+  let squared = angle * angle
+  return 1.0 - squared / 2.0 + squared * squared / 24.0 -
+         squared * squared * squared / 720.0
+}
+
 class PresentationObject has SpatialRenderable {
   let identifier_value: Int64
   let x_value: Float64<meter>
@@ -137,15 +160,6 @@ fun compose(camera_x: Float64<meter>, selection: SelectionState,
 }
 
 if open("Sagan Sun-Earth-Moon scene", 960, 540) {
-  let first = PresentationObject(
-    1, DISTANT_ORIGIN, DISTANT_ORIGIN, DISTANT_ORIGIN - CAMERA_DEPTH,
-    696340.0 kilometer, "SUN")
-  let second = PresentationObject(
-    2, DISTANT_ORIGIN + EARTH_DISTANCE, DISTANT_ORIGIN,
-    DISTANT_ORIGIN - CAMERA_DEPTH, 6371.0 kilometer, "EARTH")
-  let third = PresentationObject(
-    3, DISTANT_ORIGIN + EARTH_DISTANCE + MOON_DISTANCE, DISTANT_ORIGIN,
-    DISTANT_ORIGIN - CAMERA_DEPTH, 1737.4 kilometer, "MOON")
   let selection = SelectionState()
   selection.select!(1)
   let camera_x = DISTANT_ORIGIN + EARTH_DISTANCE / 2.0
@@ -157,6 +171,22 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   while running {
     if poll() == false { running = false }
     if running {
+      // Accelerated, circular, demo-owned snapshot generation. This is not an
+      // n-body integrator and is intentionally replaceable by physics output.
+      let earth_phase = elapsed_seconds() * 0.08
+      let moon_phase = earth_phase * 13.368746
+      let earth_x = DISTANT_ORIGIN + EARTH_DISTANCE * demo_cosine(earth_phase)
+      let earth_y = DISTANT_ORIGIN + EARTH_DISTANCE * demo_sine(earth_phase)
+      let first = PresentationObject(
+        1, DISTANT_ORIGIN, DISTANT_ORIGIN, DISTANT_ORIGIN - CAMERA_DEPTH,
+        696340.0 kilometer, "SUN")
+      let second = PresentationObject(
+        2, earth_x, earth_y, DISTANT_ORIGIN - CAMERA_DEPTH,
+        6371.0 kilometer, "EARTH")
+      let third = PresentationObject(
+        3, earth_x + MOON_DISTANCE * demo_cosine(moon_phase),
+        earth_y + MOON_DISTANCE * demo_sine(moon_phase),
+        DISTANT_ORIGIN - CAMERA_DEPTH, 1737.4 kilometer, "MOON")
       if key_pressed("left") {
         let previous = selection.identifier() - 1
         if previous < 1 { previous = 3 }
