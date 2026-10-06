@@ -240,11 +240,11 @@ value, not a promise about the nonlinear value ultimately stored in a hardware
 depth buffer. Precision limits, clipping policy, and matrices are tested in
 `tests/integration/scene_contract_test.sh`, which also emits the inspectable
 `build/scene-contract/scene-camera.svg` artifact on every supported platform.
-The Sagan-authored `examples/scene_sagan_demo` sends three generic static
-samples through the existing GPU UI host at coordinates near `1e15 meter`.
-Left and Right change the camera origin. Cross-platform focused tests require
-the initial and reframed captures to differ on D3D12, Vulkan, and Metal; no
-sample position is advanced by the renderer.
+The Sagan-authored `examples/scene_sagan_demo` sends three presentation
+snapshots through the existing GPU UI host at coordinates near `1e15 meter`.
+Cross-platform focused tests require the initial and later captures to differ
+on D3D12, Vulkan, and Metal. The demo advances its snapshots; no sample
+position is advanced by the renderer.
 
 ### Selection, focus, and spatial labels
 
@@ -271,8 +271,11 @@ Production text shaping may change measured label bounds without changing this
 placement contract.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to
-start a focus transition, and pointer clicks to pick projected samples. Its
-objects remain static; the visual changes are selection and camera state only.
+start a focus transition, R to restore the system framing, and pointer clicks
+to pick projected samples. Focusing interpolates all three measured camera
+axes, then follows the selected object's fresh presentation snapshots. The
+Sun, Earth, and Moon viewing distances are demo-owned presentation choices;
+the generic scene library neither selects them nor changes a body position.
 
 ### Sun-Earth-Moon bootstrap
 
@@ -282,7 +285,8 @@ separation, and a 384,400 km Earth-Moon separation. These values are determinist
 demo inputs, not an ephemeris or an orbital solver. At the full-system camera
 scale the Moon marker is offset as a labeled callout because its true projected
 separation from Earth is smaller than the minimum selectable marker size; the
-underlying physical coordinate is not altered.
+underlying physical coordinate is not altered. The callout disappears at
+closer framing, where the measured separation can be shown directly.
 
 `render.bodies.draw_sphere_impostor` builds a shaded spherical silhouette from
 GPU-composited horizontal strips. The smaller, upper-left lit silhouette acts

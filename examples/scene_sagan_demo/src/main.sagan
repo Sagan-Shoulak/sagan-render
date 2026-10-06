@@ -29,6 +29,9 @@ const DISTANT_ORIGIN: Float64<meter> = 1000000000000.0 kilometer
 const CAMERA_DEPTH: Float64<meter> = 200000000.0 kilometer
 const EARTH_DISTANCE: Float64<meter> = 149597870.7 kilometer
 const MOON_DISTANCE: Float64<meter> = 384400.0 kilometer
+const SUN_VIEW_DISTANCE: Float64<meter> = 8000000.0 kilometer
+const EARTH_VIEW_DISTANCE: Float64<meter> = 90000.0 kilometer
+const MOON_VIEW_DISTANCE: Float64<meter> = 30000.0 kilometer
 
 fun wrapped_angle(value: Float64): Float64 {
   let result = value
@@ -84,6 +87,11 @@ fun maximum(first: Float64, second: Float64): Float64 {
   return second
 }
 
+fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
+  if camera_z - sample(moon).z() > 10000000.0 kilometer { return 30.0 }
+  return 0.0
+}
+
 fun draw_object(value: SpatialRenderable,
                 camera_x: Float64<meter>, camera_y: Float64<meter>,
                 camera_z: Float64<meter>, viewport_x: Float64,
@@ -101,7 +109,9 @@ fun draw_object(value: SpatialRenderable,
     let minimum_radius = 7.0
     if item.identifier() == 1 { minimum_radius = 22.0 }
     if item.identifier() == 2 { minimum_radius = 18.0 }
-    if item.identifier() == 3 { logical_x = logical_x + 30.0 }
+    if item.identifier() == 3 {
+      logical_x = logical_x + moon_marker_offset(camera_z, value)
+    }
     let projected_radius = maximum(minimum_radius,
       (item.radius() / forward_depth) / 0.577350269 * viewport_height / 2.0)
     draw_sphere_impostor(logical_x, logical_y, projected_radius,
@@ -112,22 +122,50 @@ fun draw_object(value: SpatialRenderable,
 }
 
 fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
+                camera_z: Float64<meter>,
                 viewport_x: Float64, viewport_width: Float64): Float64 {
   let item: RenderSample = sample(value)
-  let forward_depth = DISTANT_ORIGIN - item.z()
+  let forward_depth = camera_z - item.z()
   return viewport_x + perspective_axis(
     relative_axis(item.x(), camera_x), forward_depth, 0.577350269, viewport_width)
 }
 
-fun selected_target(identifier: Int64,
-                    first: SpatialRenderable, second: SpatialRenderable,
-                    third: SpatialRenderable): Float64<meter> {
+fun projected_y(value: SpatialRenderable, camera_y: Float64<meter>,
+                camera_z: Float64<meter>,
+                viewport_y: Float64, viewport_height: Float64): Float64 {
+  let item: RenderSample = sample(value)
+  let forward_depth = camera_z - item.z()
+  return viewport_y + perspective_axis(
+    0.0 meter - relative_axis(item.y(), camera_y), forward_depth,
+    0.577350269, viewport_height)
+}
+
+fun selected_target_x(identifier: Int64,
+                      first: SpatialRenderable, second: SpatialRenderable,
+                      third: SpatialRenderable): Float64<meter> {
   if identifier == 2 { return sample(second).x() }
   if identifier == 3 { return sample(third).x() }
   return sample(first).x()
 }
 
-fun compose(camera_x: Float64<meter>, selection: SelectionState,
+fun selected_target_y(identifier: Int64,
+                      first: SpatialRenderable, second: SpatialRenderable,
+                      third: SpatialRenderable): Float64<meter> {
+  if identifier == 2 { return sample(second).y() }
+  if identifier == 3 { return sample(third).y() }
+  return sample(first).y()
+}
+
+fun selected_camera_z(identifier: Int64,
+                      first: SpatialRenderable, second: SpatialRenderable,
+                      third: SpatialRenderable): Float64<meter> {
+  if identifier == 2 { return sample(second).z() + EARTH_VIEW_DISTANCE }
+  if identifier == 3 { return sample(third).z() + MOON_VIEW_DISTANCE }
+  return sample(first).z() + SUN_VIEW_DISTANCE
+}
+
+fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
+            camera_z: Float64<meter>, selection: SelectionState,
             first: SpatialRenderable, second: SpatialRenderable,
             third: SpatialRenderable): Void {
   let window_width = width()
@@ -136,12 +174,10 @@ fun compose(camera_x: Float64<meter>, selection: SelectionState,
   let viewport_y = 76.0
   let viewport_width = window_width - 48.0
   let viewport_height = window_height - 116.0
-  let camera_y = DISTANT_ORIGIN
-  let camera_z = DISTANT_ORIGIN
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(24.0, 22.0, "SUN - EARTH - MOON SNAPSHOT", 16.0, 245, 249, 255)
-  text(24.0, 48.0, "LEFT/RIGHT: SELECT | ENTER: FOCUS | CLICK: PICK", 10.0,
+  text(24.0, 48.0, "LEFT/RIGHT: SELECT | ENTER: FOCUS | R: SYSTEM | CLICK: PICK", 10.0,
        142, 203, 255)
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
   draw_object(first, camera_x, camera_y, camera_z,
@@ -154,7 +190,7 @@ fun compose(camera_x: Float64<meter>, selection: SelectionState,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(3))
   text(24.0, window_height - 28.0,
-       "REAL DISTANCES - MOON MARKER OFFSET AT SYSTEM SCALE", 10.0,
+       "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
        142, 164, 188)
   present()
 }
@@ -163,10 +199,20 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let selection = SelectionState()
   selection.select!(1)
   let camera_x = DISTANT_ORIGIN + EARTH_DISTANCE / 2.0
-  let focus_start = camera_x
-  let focus_target = camera_x
+  let camera_y = DISTANT_ORIGIN
+  let camera_z = DISTANT_ORIGIN
+  let system_camera_x = camera_x
+  let system_camera_y = camera_y
+  let system_camera_z = camera_z
+  let focus_start_x = camera_x
+  let focus_start_y = camera_y
+  let focus_start_z = camera_z
+  let focus_target_x = camera_x
+  let focus_target_y = camera_y
+  let focus_target_z = camera_z
   let focus_started = 0.0
   let focusing = false
+  let focused_identifier: Int64 = 0
   let running = true
   while running {
     if poll() == false { running = false }
@@ -204,32 +250,62 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       if pointer_pressed() {
         let click_x = pointer_x()
         let click_y = pointer_y()
-        let center_y = viewport_y + viewport_height / 2.0
         if pick_circle(click_x, click_y,
-                       projected_x(first, camera_x, viewport_x, viewport_width),
-                       center_y, 34.0) { selection.select!(1) }
+                       projected_x(first, camera_x, camera_z,
+                                   viewport_x, viewport_width),
+                       projected_y(first, camera_y, camera_z,
+                                   viewport_y, viewport_height),
+                       34.0) { selection.select!(1) }
         if pick_circle(click_x, click_y,
-                       projected_x(second, camera_x, viewport_x, viewport_width),
-                       center_y, 24.0) { selection.select!(2) }
-        let third_y = viewport_y + perspective_axis(
-          0.0 meter - relative_axis(sample(third).y(), DISTANT_ORIGIN),
-          DISTANT_ORIGIN - sample(third).z(), 0.577350269, viewport_height)
+                       projected_x(second, camera_x, camera_z,
+                                   viewport_x, viewport_width),
+                       projected_y(second, camera_y, camera_z,
+                                   viewport_y, viewport_height),
+                       24.0) { selection.select!(2) }
         if pick_circle(click_x, click_y,
-                       projected_x(third, camera_x, viewport_x, viewport_width) + 30.0,
-                       third_y, 24.0) { selection.select!(3) }
+                       projected_x(third, camera_x, camera_z,
+                                   viewport_x, viewport_width) +
+                         moon_marker_offset(camera_z, third),
+                       projected_y(third, camera_y, camera_z,
+                                   viewport_y, viewport_height),
+                       24.0) { selection.select!(3) }
       }
       if key_pressed("enter") {
-        focus_start = camera_x
-        focus_target = selected_target(selection.identifier(), first, second, third)
+        focus_start_x = camera_x
+        focus_start_y = camera_y
+        focus_start_z = camera_z
+        focus_target_x = selected_target_x(selection.identifier(), first, second, third)
+        focus_target_y = selected_target_y(selection.identifier(), first, second, third)
+        focus_target_z = selected_camera_z(selection.identifier(), first, second, third)
         focus_started = elapsed_seconds()
         focusing = true
+        focused_identifier = selection.identifier()
+      }
+      if key_pressed("r") {
+        focus_start_x = camera_x
+        focus_start_y = camera_y
+        focus_start_z = camera_z
+        focus_target_x = system_camera_x
+        focus_target_y = system_camera_y
+        focus_target_z = system_camera_z
+        focus_started = elapsed_seconds()
+        focusing = true
+        focused_identifier = 0
       }
       if focusing {
         let focus_elapsed = elapsed_seconds() - focus_started
-        camera_x = smooth_focus_axis(focus_start, focus_target, focus_elapsed, 1.2)
+        camera_x = smooth_focus_axis(focus_start_x, focus_target_x, focus_elapsed, 1.2)
+        camera_y = smooth_focus_axis(focus_start_y, focus_target_y, focus_elapsed, 1.2)
+        camera_z = smooth_focus_axis(focus_start_z, focus_target_z, focus_elapsed, 1.2)
         if focus_elapsed >= 1.2 { focusing = false }
       }
-      compose(camera_x, selection, first, second, third)
+      if focusing == false {
+        if focused_identifier > 0 {
+          camera_x = selected_target_x(focused_identifier, first, second, third)
+          camera_y = selected_target_y(focused_identifier, first, second, third)
+        }
+      }
+      compose(camera_x, camera_y, camera_z, selection, first, second, third)
     }
   }
   close()
