@@ -109,6 +109,16 @@ namespace sagan_render::scene
     return {value.x / magnitude, value.y / magnitude, value.z / magnitude};
   }
 
+  inline auto scale(const direction3 value, const scalar amount) -> direction3
+  {
+    return {value.x * amount, value.y * amount, value.z * amount};
+  }
+
+  inline auto add(const direction3 first, const direction3 second) -> direction3
+  {
+    return {first.x + second.x, first.y + second.y, first.z + second.z};
+  }
+
   struct camera
   {
     length3 position{};
@@ -117,6 +127,111 @@ namespace sagan_render::scene
     scalar vertical_field_of_view_radians{1.0471975511965976};
     scalar near_metres{1.0};
     scalar far_metres{1.0e16};
+  };
+
+  class horizon_locked_camera
+  {
+    static constexpr scalar half_pi = 1.57079632679489661923;
+    static constexpr scalar pole_margin = 0.001;
+
+    length3 position_value;
+    direction3 world_up_value;
+    direction3 reference_forward_value;
+    direction3 reference_right_value;
+    scalar yaw_radians_value{};
+    scalar pitch_radians_value{};
+
+  public:
+    horizon_locked_camera(const length3 position,
+                          const direction3 initial_forward = {0.0, 0.0, -1.0},
+                          const direction3 world_up = {0.0, 1.0, 0.0})
+      : position_value{position}, world_up_value{normalize(world_up)}
+    {
+      if (!std::isfinite(position.x_metres) || !std::isfinite(position.y_metres) ||
+          !std::isfinite(position.z_metres))
+        throw std::invalid_argument("Camera position must be finite");
+      const direction3 forward = normalize(initial_forward);
+      const scalar vertical = dot(forward, world_up_value);
+      const direction3 horizontal = add(forward, scale(world_up_value, -vertical));
+      reference_forward_value = normalize(horizontal);
+      reference_right_value = normalize(cross(reference_forward_value, world_up_value));
+      pitch_radians_value = std::asin(std::clamp(vertical, -1.0, 1.0));
+    }
+
+    auto rotate(const scalar yaw_delta_radians,
+                const scalar pitch_delta_radians) -> void
+    {
+      if (!std::isfinite(yaw_delta_radians) || !std::isfinite(pitch_delta_radians))
+        throw std::invalid_argument("Camera rotation must be finite");
+      yaw_radians_value = std::remainder(
+        yaw_radians_value + yaw_delta_radians, 6.28318530717958647692);
+      pitch_radians_value = std::clamp(
+        pitch_radians_value + pitch_delta_radians,
+        -half_pi + pole_margin, half_pi - pole_margin);
+    }
+
+    auto forward() const -> direction3
+    {
+      const direction3 horizontal = add(
+        scale(reference_forward_value, std::cos(yaw_radians_value)),
+        scale(reference_right_value, std::sin(yaw_radians_value)));
+      return normalize(add(
+        scale(horizontal, std::cos(pitch_radians_value)),
+        scale(world_up_value, std::sin(pitch_radians_value))));
+    }
+
+    auto right() const -> direction3
+    {
+      return normalize(cross(forward(), world_up_value));
+    }
+
+    auto up() const -> direction3
+    {
+      return normalize(cross(right(), forward()));
+    }
+
+    auto translate(const scalar strafe_metres, const scalar lift_metres,
+                   const scalar dolly_metres) -> void
+    {
+      if (!std::isfinite(strafe_metres) || !std::isfinite(lift_metres) ||
+          !std::isfinite(dolly_metres))
+        throw std::invalid_argument("Camera translation must be finite");
+      const direction3 displacement = add(
+        add(scale(right(), strafe_metres), scale(world_up_value, lift_metres)),
+        scale(forward(), dolly_metres));
+      position_value = {
+        position_value.x_metres + displacement.x,
+        position_value.y_metres + displacement.y,
+        position_value.z_metres + displacement.z,
+      };
+    }
+
+    auto orbit(const length3 target, const scalar distance_metres) -> void
+    {
+      if (!std::isfinite(target.x_metres) || !std::isfinite(target.y_metres) ||
+          !std::isfinite(target.z_metres) || !std::isfinite(distance_metres) ||
+          distance_metres <= 0.0)
+        throw std::invalid_argument("Camera orbit target and distance must be valid");
+      const direction3 facing = forward();
+      position_value = {
+        target.x_metres - facing.x * distance_metres,
+        target.y_metres - facing.y * distance_metres,
+        target.z_metres - facing.z * distance_metres,
+      };
+    }
+
+    auto position() const -> length3 { return position_value; }
+    auto world_up() const -> direction3 { return world_up_value; }
+    auto yaw_radians() const -> scalar { return yaw_radians_value; }
+    auto pitch_radians() const -> scalar { return pitch_radians_value; }
+
+    auto view(const scalar vertical_field_of_view_radians = 1.0471975511965976,
+              const scalar near_metres = 1.0,
+              const scalar far_metres = 1.0e16) const -> camera
+    {
+      return {position_value, forward(), up(), vertical_field_of_view_radians,
+              near_metres, far_metres};
+    }
   };
 
   struct viewport
