@@ -21,8 +21,8 @@
 namespace
 {
   using namespace sagan_render::ui;
-  constexpr std::uint32_t canvas_width = 960;
-  constexpr std::uint32_t canvas_height = 540;
+  constexpr std::uint32_t initial_canvas_width = 960;
+  constexpr std::uint32_t initial_canvas_height = 540;
   constexpr std::uint32_t bytes_per_pixel = 4;
 
   constexpr color background{7, 17, 31, 255};
@@ -150,9 +150,9 @@ namespace
   };
 
   auto compose(draw_list &list, bitmap_shaper &shaper, input_router &input,
-               const bool modal_visible) -> demo_layout
+               const bool modal_visible, const size canvas_size) -> demo_layout
   {
-    const rectangle canvas{0.0, 0.0, canvas_width, canvas_height};
+    const rectangle canvas{0.0, 0.0, canvas_size.width, canvas_size.height};
     list.fill(canvas, background);
     const auto columns = linear_layout(canvas, axis::horizontal,
       {{180.0, 208.0, 240.0, 0.0, 0.0}, {400.0, 700.0, 2000.0, 1.0, 0.0}},
@@ -161,43 +161,74 @@ namespace
     list.fill(columns[1], scene);
     draw_text(list, shaper, {32.0, 34.0}, "SAGAN UI", 21.0, white);
     draw_text(list, shaper, {32.0, 72.0}, "GPU DEMO", 14.0, accent);
-    draw_text(list, shaper, {32.0, 136.0}, "PHYSICAL SPAN", 10.0, muted);
-    draw_text(list, shaper, {32.0, 157.0}, "400000 KM", 14.0, white);
+    draw_text(list, shaper, {32.0, 136.0}, "MEASURED VIEWS", 10.0, muted);
+    draw_text(list, shaper, {32.0, 157.0}, "KM TO LOGICAL", 12.0, white);
     draw_text(list, shaper, {32.0, 216.0}, "TAB: FOCUS", 10.0, muted);
     draw_text(list, shaper, {32.0, 237.0}, "ENTER: ACTIVATE", 10.0, muted);
     draw_text(list, shaper, {32.0, 258.0}, "P: PAUSE", 10.0, muted);
     draw_text(list, shaper, {32.0, 279.0}, "ESC: QUIT", 10.0, muted);
 
-    const rectangle viewport = inset(columns[1], {24.0, 56.0, 24.0, 58.0});
+    const rectangle viewport = inset(columns[1], {24.0, 64.0, 24.0, 58.0});
     list.push_clip(viewport);
-    list.fill({viewport.x - 30.0, viewport.y + viewport.height - 2.0,
-               viewport.width + 60.0, 2.0}, panel_light);
-    const auto physical_view = orthographic_transform::with_horizontal_span(
-      viewport, {0.0, 0.0}, 400000000.0);
-    const point sun_at = physical_view.to_logical({0.0, 0.0});
-    const point earth_at = physical_view.to_logical({145000000.0, 0.0});
-    const point moon_at = physical_view.to_logical({160000000.0, 0.0});
+    const auto solar_view = orthographic_transform::with_horizontal_span(
+      viewport, {75000000000.0, 0.0}, 200000000000.0);
+    const point sun_at = solar_view.to_logical({0.0, 0.0});
+    const point earth_at = solar_view.to_logical({149600000000.0, 0.0});
     list.fill({sun_at.x - 30.0, sun_at.y - 30.0, 60.0, 60.0}, sun);
     list.fill({earth_at.x - 10.0, earth_at.y - 10.0, 20.0, 20.0}, earth);
-    list.fill({moon_at.x - 4.0, moon_at.y - 4.0, 8.0, 8.0}, moon);
+    draw_text(list, shaper, {sun_at.x - 18.0, sun_at.y + 42.0}, "SUN", 9.0, sun);
+    draw_text(list, shaper, {earth_at.x - 18.0, earth_at.y + 18.0}, "EARTH", 9.0, earth);
+
+    const scalar fifty_million_km = 50000000000.0;
+    const scalar scale_width = fifty_million_km / solar_view.metres_per_logical_x();
+    const scalar scale_x = viewport.x + 20.0;
+    const scalar scale_y = viewport.y + viewport.height - 24.0;
+    list.fill({scale_x, scale_y, scale_width, 3.0}, focus_color);
+    list.fill({scale_x, scale_y - 4.0, 2.0, 11.0}, focus_color);
+    list.fill({scale_x + scale_width - 2.0, scale_y - 4.0, 2.0, 11.0}, focus_color);
+    draw_text(list, shaper, {scale_x, scale_y - 18.0}, "50000000 KM", 9.0, white);
+
+    const scalar inset_width = std::min<scalar>(300.0, viewport.width * 0.46);
+    const rectangle inset_bounds{viewport.x + viewport.width - inset_width - 16.0,
+                                 viewport.y + viewport.height - 108.0,
+                                 inset_width, 92.0};
+    list.fill({inset_bounds.x - 3.0, inset_bounds.y - 3.0,
+               inset_bounds.width + 6.0, inset_bounds.height + 6.0}, focus_color);
+    list.fill(inset_bounds, panel);
+    const rectangle inset_view = inset(inset_bounds, {12.0, 28.0, 12.0, 10.0});
+    const auto moon_view = orthographic_transform::with_horizontal_span(
+      inset_view, {192200000.0, 0.0}, 1000000000.0);
+    const point inset_earth = moon_view.to_logical({0.0, 0.0});
+    const point inset_moon = moon_view.to_logical({384400000.0, 0.0});
+    list.fill({inset_earth.x - 7.0, inset_earth.y - 7.0, 14.0, 14.0}, earth);
+    list.fill({inset_moon.x - 4.0, inset_moon.y - 4.0, 8.0, 8.0}, moon);
+    draw_text(list, shaper, {inset_bounds.x + 10.0, inset_bounds.y + 8.0},
+              "EARTH-MOON: 1000000 KM WIDE", 8.0, white);
     list.pop_clip();
     draw_text(list, shaper, {columns[1].x + 24.0, columns[1].y + 20.0},
-              "ORTHOGRAPHIC SCENE VIEW", 13.0, white);
+              "SOLAR VIEW: 200000000 KM WIDE", 12.0, white);
     draw_text(list, shaper, {columns[1].x + 24.0, columns[1].y + columns[1].height - 30.0},
-              "DISPLAY SCALE DOES NOT CHANGE KM", 10.0, muted);
+              "RESIZE REFLOWS UI - SCALE BARS KEEP KM", 10.0, muted);
 
     std::vector<control> controls;
     if (modal_visible)
     {
-      const rectangle modal_bounds{390.0, 125.0, 360.0, 290.0};
+      const scalar modal_width = std::min<scalar>(360.0, columns[1].width - 48.0);
+      const scalar modal_height = std::min<scalar>(290.0, columns[1].height - 48.0);
+      const rectangle modal_bounds{columns[1].x + (columns[1].width - modal_width) / 2.0,
+                                   columns[1].y + (columns[1].height - modal_height) / 2.0,
+                                   modal_width, modal_height};
       list.fill({modal_bounds.x - 4.0, modal_bounds.y - 4.0,
                  modal_bounds.width + 8.0, modal_bounds.height + 8.0}, focus_color);
       list.fill(modal_bounds, modal);
-      draw_text(list, shaper, {430.0, 158.0}, "PAUSED", 24.0, white);
+      draw_text(list, shaper, {modal_bounds.x + 40.0, modal_bounds.y + 33.0},
+                "PAUSED", 24.0, white);
       const std::array<std::string, 3> labels{"RESUME", "SETTINGS", "QUIT"};
       for (std::size_t index = 0; index < labels.size(); ++index)
       {
-        const rectangle bounds{450.0, 220.0 + 58.0 * static_cast<scalar>(index), 240.0, 42.0};
+        const rectangle bounds{modal_bounds.x + 60.0,
+                               modal_bounds.y + 95.0 + 58.0 * static_cast<scalar>(index),
+                               modal_bounds.width - 120.0, 42.0};
         const bool focused = input.focused_identifier() == labels[index];
         list.fill(bounds, focused ? button_focus : button);
         draw_text(list, shaper, {bounds.x + 24.0, bounds.y + 12.0},
@@ -225,6 +256,8 @@ namespace
     SDL_GPUTexture *palette_texture{};
     SDL_GPUTransferBuffer *download{};
     bool claimed{};
+    std::uint32_t target_width{};
+    std::uint32_t target_height{};
 
     auto palette_index(const color value) const -> std::uint32_t
     {
@@ -233,43 +266,63 @@ namespace
       return static_cast<std::uint32_t>(found - palette.begin());
     }
 
-  public:
-    gpu_compositor()
+    auto create_target(const std::uint32_t width, const std::uint32_t height) -> void
     {
-      if (!SDL_Init(SDL_INIT_VIDEO)) fail("Could not initialize SDL video");
-      window = SDL_CreateWindow("Sagan Render UI GPU Demo", canvas_width, canvas_height,
-                                SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-      if (!window) fail("Could not create demo window");
-      device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_SPIRV |
-                                   SDL_GPU_SHADERFORMAT_MSL, false, platform_driver());
-      if (!device) fail("Could not create GPU device");
-      if (!SDL_ClaimWindowForGPUDevice(device, window)) fail("Could not claim demo window");
-      claimed = true;
+      if (width == 0 || height == 0) return;
+      if (target) SDL_ReleaseGPUTexture(device, target);
+      if (download) SDL_ReleaseGPUTransferBuffer(device, download);
+      target = nullptr;
+      download = nullptr;
 
       SDL_GPUTextureCreateInfo target_info{};
       target_info.type = SDL_GPU_TEXTURETYPE_2D;
       target_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
       target_info.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-      target_info.width = canvas_width;
-      target_info.height = canvas_height;
+      target_info.width = width;
+      target_info.height = height;
       target_info.layer_count_or_depth = 1;
       target_info.num_levels = 1;
       target_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
       target = SDL_CreateGPUTexture(device, &target_info);
       if (!target) fail("Could not create UI target");
 
-      SDL_GPUTextureCreateInfo palette_info = target_info;
+      SDL_GPUTransferBufferCreateInfo download_info{};
+      download_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+      download_info.size = width * height * bytes_per_pixel;
+      download = SDL_CreateGPUTransferBuffer(device, &download_info);
+      if (!download) fail("Could not create UI download buffer");
+      target_width = width;
+      target_height = height;
+    }
+
+  public:
+    gpu_compositor()
+    {
+      if (!SDL_Init(SDL_INIT_VIDEO)) fail("Could not initialize SDL video");
+      window = SDL_CreateWindow("Sagan Render UI GPU Demo", initial_canvas_width,
+                                initial_canvas_height,
+                                SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+      if (!window) fail("Could not create demo window");
+      if (!SDL_SetWindowMinimumSize(window, 640, 400))
+        fail("Could not set demo minimum size");
+      device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_SPIRV |
+                                   SDL_GPU_SHADERFORMAT_MSL, false, platform_driver());
+      if (!device) fail("Could not create GPU device");
+      if (!SDL_ClaimWindowForGPUDevice(device, window)) fail("Could not claim demo window");
+      claimed = true;
+
+      SDL_GPUTextureCreateInfo palette_info{};
+      palette_info.type = SDL_GPU_TEXTURETYPE_2D;
+      palette_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
       palette_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
       palette_info.width = palette.size();
       palette_info.height = 1;
+      palette_info.layer_count_or_depth = 1;
+      palette_info.num_levels = 1;
+      palette_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
       palette_texture = SDL_CreateGPUTexture(device, &palette_info);
       if (!palette_texture) fail("Could not create UI palette texture");
-
-      SDL_GPUTransferBufferCreateInfo download_info{};
-      download_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-      download_info.size = canvas_width * canvas_height * bytes_per_pixel;
-      download = SDL_CreateGPUTransferBuffer(device, &download_info);
-      if (!download) fail("Could not create UI download buffer");
+      create_target(initial_canvas_width, initial_canvas_height);
 
       SDL_GPUTransferBufferCreateInfo upload_info{};
       upload_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -309,6 +362,15 @@ namespace
 
     auto native_window() const -> SDL_Window * { return window; }
     auto driver() const -> const char * { return SDL_GetGPUDeviceDriver(device); }
+
+    auto resize(const std::uint32_t width, const std::uint32_t height) -> bool
+    {
+      if (width == 0 || height == 0 ||
+          (width == target_width && height == target_height)) return false;
+      SDL_WaitForGPUIdle(device);
+      create_target(width, height);
+      return true;
+    }
 
     auto render(const draw_list &list, const bool repaint,
                 const std::string &capture = {}) -> void
@@ -352,7 +414,7 @@ namespace
       if (swapchain)
       {
         SDL_GPUBlitInfo present{};
-        present.source = {target, 0, 0, 0, 0, canvas_width, canvas_height};
+        present.source = {target, 0, 0, 0, 0, target_width, target_height};
         present.destination = {swapchain, 0, 0, 0, 0, swapchain_width, swapchain_height};
         present.load_op = SDL_GPU_LOADOP_DONT_CARE;
         present.filter = SDL_GPU_FILTER_LINEAR;
@@ -363,8 +425,8 @@ namespace
       {
         SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
         const SDL_GPUTextureRegion source{target, 0, 0, 0, 0, 0,
-                                          canvas_width, canvas_height, 1};
-        const SDL_GPUTextureTransferInfo destination{download, 0, canvas_width, canvas_height};
+                                          target_width, target_height, 1};
+        const SDL_GPUTextureTransferInfo destination{download, 0, target_width, target_height};
         SDL_DownloadFromGPUTexture(copy, &source, &destination);
         SDL_EndGPUCopyPass(copy);
       }
@@ -380,7 +442,7 @@ namespace
       std::uint32_t white_pixels{};
       std::uint32_t modal_pixels{};
       std::uint32_t earth_pixels{};
-      for (std::uint32_t index = 0; index < canvas_width * canvas_height; ++index)
+      for (std::uint32_t index = 0; index < target_width * target_height; ++index)
       {
         const color value{pixels[index * bytes_per_pixel], pixels[index * bytes_per_pixel + 1],
                           pixels[index * bytes_per_pixel + 2], pixels[index * bytes_per_pixel + 3]};
@@ -388,10 +450,10 @@ namespace
         if (value == modal) ++modal_pixels;
         if (value == earth) ++earth_pixels;
       }
-      if (white_pixels < 1000 || modal_pixels < 50000 || earth_pixels < 200)
-        throw std::runtime_error("UI capture is missing expected text, modal, or scene pixels");
-      SDL_Surface *surface = SDL_CreateSurfaceFrom(canvas_width, canvas_height,
-        SDL_PIXELFORMAT_RGBA32, pixels, canvas_width * bytes_per_pixel);
+      if (white_pixels < 1000 || earth_pixels < 200)
+        throw std::runtime_error("UI capture is missing expected text or measured-scene pixels");
+      SDL_Surface *surface = SDL_CreateSurfaceFrom(target_width, target_height,
+        SDL_PIXELFORMAT_RGBA32, pixels, target_width * bytes_per_pixel);
       if (!surface || !SDL_SaveBMP(surface, capture.c_str())) fail("Could not save UI capture");
       SDL_DestroySurface(surface);
       SDL_UnmapGPUTransferBuffer(device, download);
@@ -408,14 +470,22 @@ int main()
     gpu_compositor gpu;
     bitmap_shaper shaper;
     input_router input;
-    bool modal_visible = true;
+    const char *paused_value = std::getenv("SAGAN_RENDER_START_PAUSED");
+    bool modal_visible = paused_value && std::string_view{paused_value} == "1";
     bool running = true;
     bool first = true;
     bool controls_dirty = true;
     bool repaint = true;
+    int logical_width = initial_canvas_width;
+    int logical_height = initial_canvas_height;
     const char *capture_value = std::getenv("SAGAN_RENDER_UI_CAPTURE_BMP");
     const std::string capture = capture_value && *capture_value
       ? capture_value : "build/ui-gpu-demo/ui-gpu-demo.bmp";
+    const char *resize_capture_value = std::getenv("SAGAN_RENDER_UI_RESIZE_CAPTURE_BMP");
+    const std::string resize_capture = resize_capture_value && *resize_capture_value
+      ? resize_capture_value : std::string{};
+    bool resized_captured = false;
+    bool synthetic_resize_pending = false;
     const char *autoclose_value = std::getenv("SAGAN_RENDER_AUTOCLOSE_MS");
     const std::uint64_t autoclose = autoclose_value && *autoclose_value
       ? std::strtoull(autoclose_value, nullptr, 10) : 0;
@@ -447,21 +517,36 @@ int main()
         }
         else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
         {
-          int width{};
-          int height{};
-          SDL_GetWindowSize(gpu.native_window(), &width, &height);
-          input.pointer_down({event.button.x * canvas_width / std::max(width, 1),
-                              event.button.y * canvas_height / std::max(height, 1)});
+          input.pointer_down({event.button.x, event.button.y});
           repaint = true;
         }
         else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP)
         {
-          int width{};
-          int height{};
-          SDL_GetWindowSize(gpu.native_window(), &width, &height);
-          input.pointer_up({event.button.x * canvas_width / std::max(width, 1),
-                            event.button.y * canvas_height / std::max(height, 1)});
+          input.pointer_up({event.button.x, event.button.y});
         }
+      }
+
+      int current_width{};
+      int current_height{};
+      if (synthetic_resize_pending)
+      {
+        current_width = 800;
+        current_height = 600;
+        synthetic_resize_pending = false;
+      }
+      else
+        SDL_GetWindowSize(gpu.native_window(), &current_width, &current_height);
+      bool resized_this_frame = false;
+      if (current_width > 0 && current_height > 0 &&
+          (current_width != logical_width || current_height != logical_height))
+      {
+        logical_width = current_width;
+        logical_height = current_height;
+        gpu.resize(static_cast<std::uint32_t>(logical_width),
+                   static_cast<std::uint32_t>(logical_height));
+        controls_dirty = true;
+        repaint = true;
+        resized_this_frame = true;
       }
 
       if (const auto action = input.take_activation())
@@ -475,24 +560,32 @@ int main()
         if (*action == "QUIT") running = false;
       }
 
-      draw_list list{{0.0, 0.0, canvas_width, canvas_height}};
-      const demo_layout layout = compose(list, shaper, input, modal_visible);
+      const size canvas_size{static_cast<scalar>(logical_width),
+                             static_cast<scalar>(logical_height)};
+      draw_list list{{0.0, 0.0, canvas_size.width, canvas_size.height}};
+      const demo_layout layout = compose(list, shaper, input, modal_visible, canvas_size);
       if (controls_dirty)
       {
         input.set_controls(layout.controls);
         if (!input.focused_identifier()) input.focus_next();
-        list = draw_list{{0.0, 0.0, canvas_width, canvas_height}};
-        compose(list, shaper, input, modal_visible);
+        list = draw_list{{0.0, 0.0, canvas_size.width, canvas_size.height}};
+        compose(list, shaper, input, modal_visible, canvas_size);
         controls_dirty = false;
         repaint = true;
       }
-      gpu.render(list, repaint, first ? capture : std::string{});
+      const std::string frame_capture = first ? capture
+        : (resized_this_frame && !resize_capture.empty() && !resized_captured
+            ? resize_capture : std::string{});
+      gpu.render(list, repaint, frame_capture);
+      if (frame_capture == resize_capture && !resize_capture.empty()) resized_captured = true;
+      if (first && !resize_capture.empty()) synthetic_resize_pending = true;
       first = false;
       repaint = false;
       SDL_Delay(16);
     }
     std::cout << "SAGAN_UI_DEMO driver=" << gpu.driver()
-              << " logical=960x540 physical_span_km=400000 capture=" << capture
+              << " initial_logical=960x540 solar_span_km=200000000"
+              << " lunar_span_km=1000000 responsive=1 capture=" << capture
               << " cleanup=1\n";
     return 0;
   }
