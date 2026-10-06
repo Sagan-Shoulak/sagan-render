@@ -13,6 +13,22 @@ permissions:
   contents: read
 
 jobs:
+  shader-toolchain-generator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install SDL build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libdbus-1-dev libudev-dev libgl1-mesa-dev libegl1-mesa-dev
+      - name: Build and smoke-test pinned shader generator
+        run: bash scripts/build-shader-toolchain-linux.sh
+      - name: Verify generator did not replace runtime artifacts
+        run: grep -q '^runtime_artifacts_replaced=false$' build/shader-toolchain/toolchain-report.txt
+
   windows-window-tests:
     runs-on: windows-latest
     timeout-minutes: 45

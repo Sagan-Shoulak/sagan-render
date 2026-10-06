@@ -34,4 +34,4 @@ published_runtime_library = false
 sdl_license = "Zlib"
 shadercross_license = "Zlib"
 spirv_cross_license = "Apache-2.0 OR MIT"
-dxc_license_notice = "LICENSE.TXT plus ThirdPartyNotices.txt from the pinned release"
+dxc_license_notices = "LICENSE-LLVM.txt,LICENSE-MS.txt"
