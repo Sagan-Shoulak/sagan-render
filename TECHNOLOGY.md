@@ -27,22 +27,34 @@ application icon when it does not. This removes a hidden dependency on the
 language repository's launcher resource object while preserving branding
 where available.
 
-The current native backend supports Windows only. The non-Windows path
-reports that limitation rather than silently claiming a window backend.
-Linux and macOS backend design, display-server integration, packaging,
-headless test strategy, and release compatibility remain separate work.
+The package-facing native backend still supports Windows only. The
+foundation probe now separately validates that pinned SDL3 can create,
+paint, capture, and destroy a window on Windows, Linux, and macOS. This probe
+is evidence for the selected cross-platform window dependency; it is not yet
+wired into the public Sagan API. Linux CI runs under Xvfb, so it proves the X11
+lifecycle and pixels in a virtual display rather than a physical desktop.
+macOS CI exercises the Cocoa window lifecycle in its runner session.
 The dependency direction is rendering to Sagan's language/math/toolchain;
 physics and the Space Game may consume rendering but do not own its native
 bridge. The future workspace exact lock coordinates tested versions.
 
-Issue #11 begins a proposed cross-platform rebaseline around an SDL3 window
+Issue #15 begins a cross-platform rebaseline around an SDL3 window
 layer and SDL GPU rendering layer. The proposal preserves programmable shaders,
 lighting, post-processing, and compute as intended capabilities while keeping
-backend objects private. It is a design under review, not a statement that the
-current Win32/GDI implementation is already portable. See
+backend objects private. The window probe uses an SDL software surface only to
+make the first platform test observable; it does not choose that surface API as
+the eventual renderer. GPU device creation and the teaching-led rendering
+pipeline remain later slices. See
 [the backend rebaseline](docs/backend-rebaseline.md).
 
-The local Windows extraction tests passed the short auto-closing window
-check and the shape/text BMP capture check without the monorepo resource
-object. This is focused evidence for the candidate's current Win32 path,
-not proof of all backends or display environments. See [MAINTAINERS.md](MAINTAINERS.md).
+SDL is pinned to release 3.4.16, source commit
+`fa2c02bb6e21974a89ea9824bc53c9932abe5f9c`, with release-asset checksums in
+`third_party/sdl3.lock`. Windows consumes the official MinGW development
+archive. Linux and macOS CI build the official source archive at the same
+version. Backend and platform limitations must continue to be reported
+explicitly.
+
+The local Windows extraction tests passed the short auto-closing window check,
+the shape/text BMP capture check, and the new SDL window lifecycle/capture
+probe. Cross-platform status is established by the named CI jobs and their BMP
+artifacts, not inferred from the Windows result. See [MAINTAINERS.md](MAINTAINERS.md).
