@@ -16,7 +16,7 @@ c++ -std=c++23 -Wall -Wextra -Wpedantic -Werror \
   -I"$sdl_root/include" examples/ui_gpu_demo.cpp \
   -L"$sdl_root/lib" -lSDL3 -o "$executable"
 
-export SAGAN_RENDER_AUTOCLOSE_MS=250
+export SAGAN_RENDER_AUTOCLOSE_MS=1500
 export SAGAN_RENDER_START_PAUSED=1
 export SAGAN_RENDER_UI_CAPTURE_BMP="$capture"
 export SAGAN_RENDER_UI_RESIZE_CAPTURE_BMP="$resize_capture"

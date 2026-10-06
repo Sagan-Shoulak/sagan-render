@@ -18,7 +18,7 @@ g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror \
   -L"$sdl_root/lib" -lSDL3 -o build/ui-gpu-demo/ui-gpu-demo.exe
 cp "$sdl_root/bin/SDL3.dll" build/ui-gpu-demo/SDL3.dll
 
-export SAGAN_RENDER_AUTOCLOSE_MS=250
+export SAGAN_RENDER_AUTOCLOSE_MS=1500
 export SAGAN_RENDER_START_PAUSED=1
 export SAGAN_RENDER_UI_CAPTURE_BMP="$capture"
 export SAGAN_RENDER_UI_RESIZE_CAPTURE_BMP="$resize_capture"
