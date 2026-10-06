@@ -52,5 +52,6 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$(cygpath -u "$GITHUB_WORKSPACE")/sagan-source/bin/sagan.exe"
           export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
+          bash tests/integration/window_contract_test.sh
           bash tests/integration/window_bridge_test.sh
           bash tests/integration/shape_text_test.sh

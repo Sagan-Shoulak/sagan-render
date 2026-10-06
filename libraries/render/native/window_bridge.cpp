@@ -1,4 +1,5 @@
 #include "window_bridge.hpp"
+#include "window_contract.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -26,6 +27,7 @@ namespace
     HDC surface{};
     HBITMAP surface_bitmap{};
     HGDIOBJ previous_bitmap{};
+    sagan_render::native::window_contract contract{};
     int surface_width{};
     int surface_height{};
     double view_center_x{};
@@ -34,7 +36,6 @@ namespace
     bool frame_ready{};
     bool capture_written{};
     bool class_registered{};
-    bool close_requested{};
     bool space_pressed{};
     bool up_pressed{};
     bool down_pressed{};
@@ -58,6 +59,27 @@ namespace
   {
     static window_state value;
     return value;
+  }
+
+  auto display_scale(const HWND handle) -> double
+  {
+    HDC device = GetDC(handle);
+    if (!device) return 1.0;
+    const int dpi = GetDeviceCaps(device, LOGPIXELSX);
+    ReleaseDC(handle, device);
+    return dpi <= 0 ? 1.0 : static_cast<double>(dpi) / 96.0;
+  }
+
+  auto update_window_contract(const HWND handle, const int drawable_width,
+                              const int drawable_height) -> void
+  {
+    const double scale = display_scale(handle);
+    const auto logical_width = static_cast<std::int64_t>(
+      std::lround(static_cast<double>(drawable_width) / scale));
+    const auto logical_height = static_cast<std::int64_t>(
+      std::lround(static_cast<double>(drawable_height) / scale));
+    state().contract.update_dimensions(logical_width, logical_height,
+                                       drawable_width, drawable_height, scale);
   }
 
   auto fail_if_channel_invalid(const std::int64_t value) -> void
@@ -144,6 +166,7 @@ namespace
       throw std::runtime_error("Could not read the window client size");
     const int width = client.right - client.left;
     const int height = client.bottom - client.top;
+    update_window_contract(window.handle, width, height);
     if (width < 1 || height < 1) throw std::runtime_error("Cannot draw to a minimized window");
     if (window.surface && width == window.surface_width && height == window.surface_height) return;
     release_surface();
@@ -245,12 +268,29 @@ namespace
     switch (message)
     {
     case WM_CLOSE:
-      state().close_requested = true;
+      state().contract.request_close();
       DestroyWindow(handle);
       return 0;
     case WM_DESTROY:
       state().handle = nullptr;
-      state().close_requested = true;
+      state().contract.request_close();
+      return 0;
+    case WM_SIZE:
+      update_window_contract(handle, LOWORD(data), HIWORD(data));
+      return 0;
+    case WM_DPICHANGED:
+    {
+      RECT client{};
+      if (GetClientRect(handle, &client))
+        update_window_contract(handle, client.right - client.left,
+                               client.bottom - client.top);
+      return DefWindowProcW(handle, message, word, data);
+    }
+    case WM_SETFOCUS:
+      state().contract.set_focused(true);
+      return 0;
+    case WM_KILLFOCUS:
+      state().contract.set_focused(false);
       return 0;
     case WM_KEYDOWN:
       if ((data & (1LL << 30)) == 0)
@@ -262,7 +302,7 @@ namespace
       }
       if (word == VK_ESCAPE)
       {
-        state().close_requested = true;
+        state().contract.request_close();
         DestroyWindow(handle);
       }
       return 0;
@@ -328,7 +368,7 @@ namespace
       UnregisterClassW(window_class_name, window.instance);
       window.class_registered = false;
     }
-    window.close_requested = true;
+    window.contract.close();
   }
 }
 
@@ -398,20 +438,33 @@ auto sagan_5f5f72656e6465725f77696e646f775f6f70656e(
   window.opened_at = std::chrono::steady_clock::now();
   ShowWindow(window.handle, SW_SHOW);
   UpdateWindow(window.handle);
+  RECT client{};
+  if (!GetClientRect(window.handle, &client))
+  {
+    release_window();
+    throw std::runtime_error("Could not read the initial window client size");
+  }
+  const int drawable_width = client.right - client.left;
+  const int drawable_height = client.bottom - client.top;
+  const double scale = display_scale(window.handle);
+  window.contract.open(
+    static_cast<std::int64_t>(std::lround(static_cast<double>(drawable_width) / scale)),
+    static_cast<std::int64_t>(std::lround(static_cast<double>(drawable_height) / scale)),
+    drawable_width, drawable_height, scale, GetFocus() == window.handle);
   return true;
 }
 
 auto sagan_5f5f72656e6465725f77696e646f775f706f6c6c() -> bool
 {
   auto &window = state();
-  if (!window.handle || window.close_requested) return false;
+  if (!window.handle || window.contract.metrics().close_requested) return false;
   MSG message{};
   while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE))
   {
     TranslateMessage(&message);
     DispatchMessageW(&message);
   }
-  if (!window.handle || window.close_requested) return false;
+  if (!window.handle || window.contract.metrics().close_requested) return false;
   if (window.frame_limit > 0 && window.poll_count >= window.frame_limit)
   {
     release_window();
@@ -429,7 +482,7 @@ auto sagan_5f5f72656e6465725f77696e646f775f706f6c6c() -> bool
   if (window.auto_close_after.count() > 0 &&
       std::chrono::steady_clock::now() - window.opened_at >= window.auto_close_after)
     release_window();
-  return window.handle && !window.close_requested;
+  return window.handle && !window.contract.metrics().close_requested;
 }
 
 auto sagan_5f5f72656e6465725f77696e646f775f636c656172(

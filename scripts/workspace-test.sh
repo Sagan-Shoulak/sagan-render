@@ -13,5 +13,6 @@ case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) ;;
   *) echo "Rendering native window tests require Windows; no other backend is claimed."; exit 0 ;;
 esac
+bash tests/integration/window_contract_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
