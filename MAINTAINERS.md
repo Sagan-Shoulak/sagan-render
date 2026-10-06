@@ -36,14 +36,20 @@ machine:
 ```bash
 export SAGAN_EXECUTABLE=/c/Users/joeps/coding/sagan/bin/sagan.exe
 bash tests/integration/window_contract_test.sh
+bash tests/integration/ui_contract_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
 bash tests/integration/sdl_window_probe_test.sh
 bash tests/integration/sdl_gpu_triangle_probe_test.sh
 ```
 
-The contract test has no display dependency and validates logical and drawable
-sizes, display scale, focus, resize notification, close, and cleanup state. The
+The window contract test has no display dependency and validates logical and
+drawable sizes, display scale, focus, resize notification, close, and cleanup
+state. The UI contract test is also display-independent. It validates logical
+row/column layout, clipping, text shaping requests, overlay hit order, keyboard
+focus, activation, pointer capture, and cleanup. It also proves that a fixed
+physical orthographic span is independent of display scaling and writes an
+inspectable `build/ui-contract/ui-layout.svg` artifact. The
 window test opens and closes its own window after roughly 100 ms. The shape/text
 test closes after roughly 150 ms and checks that its own generated BMP is
 960×540. The SDL probe opens a 960×540 high-DPI, resizable SDL3 window,

@@ -52,6 +52,7 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$(cygpath -u "$GITHUB_WORKSPACE")/sagan-source/bin/sagan.exe"
           export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
+          bash tests/integration/ui_contract_test.sh
           bash tests/integration/window_contract_test.sh
           bash tests/integration/window_bridge_test.sh
           bash tests/integration/shape_text_test.sh
@@ -64,6 +65,7 @@ jobs:
             render/build/sdl-window/sdl-window.bmp
             render/build/sdl-gpu/sdl-gpu-triangle.bmp
             render/build/sdl-gpu/sdl-gpu-report.txt
+            render/build/ui-contract/ui-layout.svg
           if-no-files-found: error
 
   portable-sdl-window-probe:
@@ -88,11 +90,13 @@ jobs:
       - name: Build SDL and run Linux window probe under Xvfb
         if: runner.os == 'Linux'
         run: |
+          bash tests/integration/ui_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/sdl_window_probe_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - name: Build SDL and run macOS window probe
         if: runner.os == 'macOS'
         run: |
+          bash tests/integration/ui_contract_test.sh
           bash tests/integration/sdl_window_probe_portable_test.sh
           bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - uses: actions/upload-artifact@v6
@@ -102,4 +106,5 @@ jobs:
             build/sdl-window/sdl-window.bmp
             build/sdl-gpu/sdl-gpu-triangle.bmp
             build/sdl-gpu/sdl-gpu-report.txt
+            build/ui-contract/ui-layout.svg
           if-no-files-found: error
