@@ -133,6 +133,58 @@ moved control cannot receive a stale release. Activation occurs only when a
 captured pointer is released inside the still-enabled control. Cleanup clears
 focus, capture, and pending actions before renderer resources are destroyed.
 
+### GPU UI demonstration
+
+The UI demo turns the backend-neutral draw list into real SDL GPU work without
+letting SDL objects leak into layout descriptions. Each fill command contains
+only logical bounds and an RGBA color. The GPU compositor owns a tiny palette
+texture, an offscreen 960×540 target, a download buffer used only for evidence,
+and the claimed window. It blits palette texels into the clipped rectangles,
+then blits the completed offscreen target to the current swapchain size. Static
+UI is repainted only when state changes; ordinary frames reuse the offscreen
+target and perform one presentation blit.
+
+That offscreen target keeps the captured reference independent of desktop
+resolution and scaling while the presented window still fills its actual
+drawable surface. The demonstration font implements the `text_shaper` boundary
+with fixed 5×7 glyph data. Measurement produces logical advances and painting
+emits glyph cells into the same draw list as panels and buttons. This small font
+makes cross-platform reference pixels deterministic; it is not the final
+Unicode, script-shaping, fallback, or accessibility font system. Replacing it
+does not change layout or the GPU consumer because both depend on the shaping
+request/result contract rather than a platform font handle.
+
+Every captured demo frame must contain minimum counts of exact white text,
+modal-panel, and Earth pixels. That catches a blank frame, absent text, missing
+overlay, or lost scene content before the BMP is accepted. The same executable
+runs against D3D12, Vulkan, and Metal in CI. Individual rectangle blits are a
+portable bootstrap; a later shader-backed batch may consume the same draw list
+without changing UI descriptions.
+
+### GPU UI demonstration
+
+The UI demo turns the backend-neutral draw list into real SDL GPU work without
+letting SDL objects leak into layout descriptions. Each fill command contains
+only logical bounds and an RGBA color. The GPU compositor owns a tiny palette
+texture, an offscreen 960×540 target, a download buffer used only for evidence,
+and the claimed window. It blits palette texels into the clipped rectangles,
+then blits the completed offscreen target to the current swapchain size. This
+keeps the captured reference independent of desktop resolution and scaling
+while the presented window still fills its actual drawable surface.
+
+The demonstration font implements the `text_shaper` boundary with fixed 5×7
+glyph data. Measurement produces logical advances and painting emits glyph
+cells into the same draw list as panels and buttons. This deliberately small
+font makes cross-platform reference pixels deterministic; it is not the final
+Unicode, script-shaping, fallback, or accessibility font system. Replacing it
+does not change layout or the GPU consumer because both depend on the shaping
+request/result contract rather than a platform font handle.
+
+Every captured demo frame must contain minimum counts of exact white text,
+modal-panel, and Earth pixels. That evidence catches a blank frame, absent
+text, missing overlay, or lost scene content before the BMP is accepted. The
+same executable runs against D3D12, Vulkan, and Metal in CI.
+
 ## Shader formats and temporary bootstrap assets
 
 SDL GPU selects a native desktop backend, not a universal shader bytecode.

@@ -1,4 +1,5 @@
 #include "../../libraries/render/native/ui_contract.hpp"
+#include "../../libraries/render/native/ui_draw_list.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -78,6 +79,18 @@ int main(int argc, char **argv)
   assert(near(rows[0].height, 52.0));
   assert(near(rows[2].height, 64.0));
   assert(near(intersect({760.0, 420.0, 100.0, 100.0}, logical_window).width, 40.0));
+
+  draw_list painting{logical_window};
+  painting.fill({-20.0, 10.0, 50.0, 20.0}, {255, 0, 0, 255});
+  painting.push_clip({100.0, 100.0, 80.0, 60.0});
+  painting.fill({90.0, 90.0, 40.0, 40.0}, {0, 255, 0, 255});
+  painting.pop_clip();
+  assert(painting.clip_depth() == 1);
+  assert(painting.fills().size() == 2);
+  assert(near(painting.fills()[0].bounds.x, 0.0));
+  assert(near(painting.fills()[0].bounds.width, 30.0));
+  assert(near(painting.fills()[1].bounds.x, 100.0));
+  assert(near(painting.fills()[1].bounds.width, 30.0));
 
   // A view that is exactly 400,000 km wide remains exactly that wide at
   // either display scale. Only the final logical-to-drawable conversion changes.
