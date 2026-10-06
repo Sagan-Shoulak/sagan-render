@@ -1,0 +1,71 @@
+module scene
+
+/// Minimal application-facing view of something that can enter a render snapshot.
+/// Implement this on an application adapter or presentation-facing class; the
+/// renderer neither requires nor understands physics state.
+face SpatialRenderable {
+  fun render_identifier(): Int64
+  fun render_x(): Float64<meter>
+  fun render_y(): Float64<meter>
+  fun render_z(): Float64<meter>
+  fun render_radius(): Float64<meter>
+  fun render_label(): String
+}
+
+/// Immutable copy of the render-facing fields sampled for one frame revision.
+class RenderSample {
+  let identifier_value: Int64
+  let x_value: Float64<meter>
+  let y_value: Float64<meter>
+  let z_value: Float64<meter>
+  let radius_value: Float64<meter>
+  let label_value: String
+
+  new(identifier: Int64, x: Float64<meter>, y: Float64<meter>,
+      z: Float64<meter>, radius: Float64<meter>, label: String) {
+    self.identifier_value = identifier
+    self.x_value = x
+    self.y_value = y
+    self.z_value = z
+    self.radius_value = radius
+    self.label_value = label
+  }
+
+  fun identifier(): Int64 => self.identifier_value
+  fun x(): Float64<meter> => self.x_value
+  fun y(): Float64<meter> => self.y_value
+  fun z(): Float64<meter> => self.z_value
+  fun radius(): Float64<meter> => self.radius_value
+  fun label(): String => self.label_value
+}
+
+fun sample(value: SpatialRenderable): RenderSample =>
+  RenderSample(value.render_identifier(), value.render_x(), value.render_y(),
+               value.render_z(), value.render_radius(), value.render_label())
+
+/// Subtract the camera origin while values still carry their physical unit.
+/// The result is safe to convert to a GPU scalar only after this operation.
+fun relative_axis(value: Float64<meter>, origin: Float64<meter>): Float64<meter> =>
+  value - origin
+
+/// Project one camera-relative horizontal axis into logical viewport units.
+/// This initial public helper describes a camera looking down its -Z axis.
+fun perspective_axis(relative: Float64<meter>, forward_depth: Float64<meter>,
+                     tangent_half_field: Float64, logical_span: Float64): Float64 =>
+  logical_span / 2.0 +
+    ((relative / forward_depth) / tangent_half_field) * logical_span / 2.0
+
+fun depth_visible(forward_depth: Float64<meter>, radius: Float64<meter>,
+                  near_distance: Float64<meter>,
+                  far_distance: Float64<meter>): Bool {
+  if forward_depth + radius < near_distance { return false }
+  if forward_depth - radius > far_distance { return false }
+  return true
+}
+
+export SpatialRenderable
+export RenderSample
+export sample
+export relative_axis
+export perspective_axis
+export depth_visible

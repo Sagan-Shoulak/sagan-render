@@ -53,6 +53,8 @@ jobs:
           export SAGAN_EXECUTABLE="$(cygpath -u "$GITHUB_WORKSPACE")/sagan-source/bin/sagan.exe"
           export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
           bash tests/integration/ui_contract_test.sh
+          bash tests/integration/scene_contract_test.sh
+          bash tests/integration/scene_demo_test.sh
           bash tests/integration/ui_gpu_demo_test.sh
           bash tests/integration/loading_demo_test.sh
           bash tests/integration/toolbar_demo_test.sh
@@ -69,6 +71,10 @@ jobs:
             render/build/sdl-gpu/sdl-gpu-triangle.bmp
             render/build/sdl-gpu/sdl-gpu-report.txt
             render/build/ui-contract/ui-layout.svg
+            render/build/scene-contract/scene-camera.svg
+            render/build/scene-sagan-demo/scene-idle.bmp
+            render/build/scene-sagan-demo/scene-reframed.bmp
+            render/build/scene-sagan-demo/scene-demo-report.txt
             render/build/ui-sagan-demo/ui-sagan-960x540.bmp
             render/build/ui-sagan-demo/ui-sagan-800x600.bmp
             render/build/ui-sagan-demo/ui-sagan-demo-report.txt
@@ -128,6 +134,8 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/ui_contract_test.sh
+          bash tests/integration/scene_contract_test.sh
+          xvfb-run --auto-servernum bash tests/integration/scene_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/ui_gpu_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/loading_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/toolbar_demo_portable_test.sh
@@ -138,6 +146,8 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/ui_contract_test.sh
+          bash tests/integration/scene_contract_test.sh
+          bash tests/integration/scene_demo_portable_test.sh
           bash tests/integration/ui_gpu_demo_portable_test.sh
           bash tests/integration/loading_demo_portable_test.sh
           bash tests/integration/toolbar_demo_portable_test.sh
@@ -151,6 +161,10 @@ jobs:
             build/sdl-gpu/sdl-gpu-triangle.bmp
             build/sdl-gpu/sdl-gpu-report.txt
             build/ui-contract/ui-layout.svg
+            build/scene-contract/scene-camera.svg
+            build/scene-sagan-demo/scene-idle.bmp
+            build/scene-sagan-demo/scene-reframed.bmp
+            build/scene-sagan-demo/scene-demo-report.txt
             build/ui-sagan-demo/ui-sagan-960x540.bmp
             build/ui-sagan-demo/ui-sagan-800x600.bmp
             build/ui-sagan-demo/ui-sagan-demo-report.txt

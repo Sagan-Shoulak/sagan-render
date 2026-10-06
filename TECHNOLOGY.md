@@ -187,6 +187,65 @@ Until Sagan-Shoulak/sagan#8 removes redundant equality parentheses from emitted
 C++, the portable demo build suppresses only Clang's
 `-Wparentheses-equality`; all other Clang diagnostics remain fatal.
 
+## Scene snapshots, cameras, and precision
+
+`render.scene` is deliberately physics-agnostic. Its `SpatialRenderable` face
+promises only a stable identifier, a three-dimensional position, a display
+radius, and a label. An application may implement that face on a
+presentation-facing class, or use a small adapter around a physics-owned
+snapshot. The `sample` function copies only those fields into an immutable
+`RenderSample`. The renderer does not know about mass, velocity, acceleration,
+forces, timesteps, orbital elements, integrators, or mutable solver objects.
+
+This boundary permits physics-forward classes to be made visible without
+moving their behavior into the renderer. It also avoids forcing
+`sagan-physics` to depend on `sagan-render`: an application package that already
+depends on both can own the adapter. A demo may synthesize positions to explain
+the camera, but such motion is example policy and not a renderer API.
+
+Positions and radii cross the public Sagan boundary as `Float64<meter>`.
+Logical viewport dimensions remain unitless display coordinates, and drawable
+pixels remain private to the native backend. A frame is prepared in this order:
+
+```text
+physics/application immutable snapshot
+  -> application-owned SpatialRenderable adapter
+  -> renderer RenderSample values in physical units
+  -> subtract camera origin in Float64<meter>
+  -> rotate into camera axes
+  -> perspective projection and frustum visibility
+  -> logical coordinates and stable label anchors
+  -> backend-specific GPU representation
+```
+
+Origin subtraction must occur before narrowing values for GPU buffers. For
+example, two objects 32 metres apart near an absolute coordinate of
+`1e15 meter` remain distinguishable after their shared nearby origin is
+subtracted; converting both absolute positions to 32-bit floats first would
+erase that separation. Moving the camera or choosing another rendering origin
+creates different frame data and never mutates the source snapshot.
+
+The initial camera contract uses a right-handed world. A default camera looks
+along negative world Z with positive Y up. The native deterministic seam builds
+an orthonormal right/up/forward basis. Its row-major view matrix operates on
+column vectors and contains rotation only because translation has already been
+handled by origin subtraction. The backend-neutral perspective matrix maps X
+and Y to `[-1, 1]` and forward depth to `[0, 1]`; a D3D12, Vulkan, or Metal
+adapter may transpose matrices or use reverse depth privately.
+
+Near/far distances and object radii use metres. Sphere/frustum tests include an
+object whose center is just outside a plane when its radius still intersects
+the view. `linear_depth` is a stable renderer-facing ordering and inspection
+value, not a promise about the nonlinear value ultimately stored in a hardware
+depth buffer. Precision limits, clipping policy, and matrices are tested in
+`tests/integration/scene_contract_test.sh`, which also emits the inspectable
+`build/scene-contract/scene-camera.svg` artifact on every supported platform.
+The Sagan-authored `examples/scene_sagan_demo` sends three generic static
+samples through the existing GPU UI host at coordinates near `1e15 meter`.
+Left and Right change the camera origin. Cross-platform focused tests require
+the initial and reframed captures to differ on D3D12, Vulkan, and Metal; no
+sample position is advanced by the renderer.
+
 ### Loading-screen example
 
 `examples/loading_sagan_demo` uses the same Sagan UI facade and native GPU host

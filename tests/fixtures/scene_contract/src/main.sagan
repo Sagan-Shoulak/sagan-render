@@ -1,0 +1,41 @@
+module main
+
+import SpatialRenderable from render.scene
+import RenderSample from render.scene
+import sample from render.scene
+import relative_axis from render.scene
+import perspective_axis from render.scene
+import depth_visible from render.scene
+
+class PresentationBody has SpatialRenderable {
+  let identifier_value: Int64
+  let x_value: Float64<meter>
+  let label_value: String
+
+  new(identifier: Int64, x: Float64<meter>, label: String) {
+    self.identifier_value = identifier
+    self.x_value = x
+    self.label_value = label
+  }
+
+  fun render_identifier(): Int64 => self.identifier_value
+  fun render_x(): Float64<meter> => self.x_value
+  fun render_y(): Float64<meter> => 0.0 meter
+  fun render_z(): Float64<meter> => 0.0 meter - 1000.0 kilometer
+  fun render_radius(): Float64<meter> => 10.0 kilometer
+  fun render_label(): String => self.label_value
+}
+
+fun main(): Int {
+  let origin: Float64<meter> = 1000000000000.0 kilometer
+  let body = PresentationBody(7, origin + 32.0 meter, "fixture")
+  let frame_sample: RenderSample = sample(body)
+  let relative = relative_axis(frame_sample.x(), origin)
+  let projected = perspective_axis(relative, 1000.0 kilometer, 1.0, 960.0)
+  if frame_sample.identifier() != 7 { return 1 }
+  if relative != 32.0 meter { return 2 }
+  if projected <= 480.0 { return 3 }
+  if depth_visible(1000.0 kilometer, frame_sample.radius(),
+                   1.0 meter, 2000.0 kilometer) == false { return 4 }
+  return 0
+}

@@ -37,6 +37,8 @@ machine:
 export SAGAN_EXECUTABLE=/c/Users/joeps/coding/sagan/bin/sagan.exe
 bash tests/integration/window_contract_test.sh
 bash tests/integration/ui_contract_test.sh
+bash tests/integration/scene_contract_test.sh
+bash tests/integration/scene_demo_test.sh
 bash tests/integration/ui_gpu_demo_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
@@ -58,8 +60,14 @@ logical-target resize capture, proving that reallocation reflows the UI instead
 of stretching the original frame without relying on a headless window manager
 to honor a resize request. Its built-in font covers only the
 demonstration text; it validates the shaping and drawing seam rather than
-claiming production Unicode typography. The
-window test opens and closes its own window after roughly 100 ms. The shape/text
+claiming production Unicode typography. The scene contract test is also
+display-independent. It compiles the public Sagan `render.scene` adapter
+surface, then verifies immutable snapshots, stable IDs, unit-preserving origin
+subtraction, camera basis and projection matrices, sphere/frustum visibility,
+label anchors, and camera reframing near coordinates of `1e15 meter`. It writes
+`build/scene-contract/scene-camera.svg`; because it has no window or backend
+dependency, the same test runs on Windows, Linux, and macOS. The window test
+opens and closes its own window after roughly 100 ms. The shape/text
 test closes after roughly 150 ms and checks that its own generated BMP is
 960×540. The SDL probe opens a 960×540 high-DPI, resizable SDL3 window,
 paints a recognizable test frame, presents it, saves the surface to BMP, and
@@ -139,6 +147,16 @@ test requires device, command-buffer, render-pass, swapchain, triangle, fence,
 readback, and cleanup evidence. If the SDL foundation must be rolled back,
 retain the current Win32 bridge and revert the SDL probe/shader changes as one
 unit; current package-facing canvas behavior does not depend on them.
+
+## Scene and camera demo
+
+The scene/camera precision demo uses the same GPU host with generic static
+render samples positioned near `1e15 meter`. Run it on Windows with
+`bash scripts/scene_demo.sh`, or on Linux/macOS with
+`bash scripts/scene_demo_portable.sh`. Left and Right reframe the camera without
+changing source samples. Focused CI captures the initial and reframed frames and
+requires them to differ on D3D12, Vulkan, and Metal. The example contains no
+orbital dynamics; its only motion is application-owned camera input.
 
 ## Interactive UI GPU demo
 
