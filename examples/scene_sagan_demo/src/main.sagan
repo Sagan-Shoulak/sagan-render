@@ -10,12 +10,19 @@ import fill from render.ui
 import text from render.ui
 import present from render.ui
 import key_pressed from render.ui
+import pointer_pressed from render.ui
+import pointer_x from render.ui
+import pointer_y from render.ui
+import elapsed_seconds from render.ui
 import SpatialRenderable from render.scene
 import RenderSample from render.scene
 import sample from render.scene
 import relative_axis from render.scene
 import perspective_axis from render.scene
 import depth_visible from render.scene
+import SelectionState from render.scene
+import smooth_focus_axis from render.scene
+import pick_circle from render.scene
 
 const DISTANT_ORIGIN: Float64<meter> = 1000000000000.0 kilometer
 const CAMERA_DEPTH: Float64<meter> = 1000000.0 kilometer
@@ -55,7 +62,7 @@ fun draw_object(value: SpatialRenderable,
                 camera_x: Float64<meter>, camera_y: Float64<meter>,
                 camera_z: Float64<meter>, viewport_x: Float64,
                 viewport_y: Float64, viewport_width: Float64,
-                viewport_height: Float64): Void {
+                viewport_height: Float64, selected: Bool): Void {
   let item: RenderSample = sample(value)
   let forward_depth = camera_z - item.z()
   if depth_visible(forward_depth, item.radius(),
@@ -67,6 +74,11 @@ fun draw_object(value: SpatialRenderable,
       0.577350269, viewport_height)
     let projected_radius = maximum(4.0,
       (item.radius() / forward_depth) / 0.577350269 * viewport_height / 2.0)
+    if selected {
+      fill(logical_x - projected_radius - 4.0, logical_y - projected_radius - 4.0,
+           projected_radius * 2.0 + 8.0, projected_radius * 2.0 + 8.0,
+           142, 203, 255)
+    }
     if item.identifier() == 1 {
       fill(logical_x - projected_radius, logical_y - projected_radius,
            projected_radius * 2.0, projected_radius * 2.0, 255, 212, 91)
@@ -84,7 +96,25 @@ fun draw_object(value: SpatialRenderable,
   }
 }
 
-fun compose(camera_x: Float64<meter>): Void {
+fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
+                viewport_x: Float64, viewport_width: Float64): Float64 {
+  let item: RenderSample = sample(value)
+  let forward_depth = DISTANT_ORIGIN - item.z()
+  return viewport_x + perspective_axis(
+    relative_axis(item.x(), camera_x), forward_depth, 0.577350269, viewport_width)
+}
+
+fun selected_target(identifier: Int64,
+                    first: SpatialRenderable, second: SpatialRenderable,
+                    third: SpatialRenderable): Float64<meter> {
+  if identifier == 2 { return sample(second).x() }
+  if identifier == 3 { return sample(third).x() }
+  return sample(first).x()
+}
+
+fun compose(camera_x: Float64<meter>, selection: SelectionState,
+            first: SpatialRenderable, second: SpatialRenderable,
+            third: SpatialRenderable): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
@@ -93,28 +123,21 @@ fun compose(camera_x: Float64<meter>): Void {
   let viewport_height = window_height - 116.0
   let camera_y = DISTANT_ORIGIN
   let camera_z = DISTANT_ORIGIN
-  let center = PresentationObject(
-    1, DISTANT_ORIGIN, DISTANT_ORIGIN, DISTANT_ORIGIN - CAMERA_DEPTH,
-    50000.0 kilometer, "SAMPLE A")
-  let right = PresentationObject(
-    2, DISTANT_ORIGIN + 250000.0 kilometer, DISTANT_ORIGIN,
-    DISTANT_ORIGIN - CAMERA_DEPTH, 25000.0 kilometer, "SAMPLE B")
-  let high = PresentationObject(
-    3, DISTANT_ORIGIN, DISTANT_ORIGIN + 200000.0 kilometer,
-    DISTANT_ORIGIN - 1500000.0 kilometer, 40000.0 kilometer, "SAMPLE C")
-
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(24.0, 22.0, "PHYSICS-AGNOSTIC SCENE SNAPSHOT", 16.0, 245, 249, 255)
-  text(24.0, 48.0, "LEFT/RIGHT: REFRAME CAMERA | POSITIONS NEAR 1E15 M", 10.0,
+  text(24.0, 48.0, "LEFT/RIGHT: SELECT | ENTER: FOCUS | CLICK: PICK", 10.0,
        142, 203, 255)
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
-  draw_object(center, camera_x, camera_y, camera_z,
-              viewport_x, viewport_y, viewport_width, viewport_height)
-  draw_object(right, camera_x, camera_y, camera_z,
-              viewport_x, viewport_y, viewport_width, viewport_height)
-  draw_object(high, camera_x, camera_y, camera_z,
-              viewport_x, viewport_y, viewport_width, viewport_height)
+  draw_object(first, camera_x, camera_y, camera_z,
+              viewport_x, viewport_y, viewport_width, viewport_height,
+              selection.is_selected(1))
+  draw_object(second, camera_x, camera_y, camera_z,
+              viewport_x, viewport_y, viewport_width, viewport_height,
+              selection.is_selected(2))
+  draw_object(third, camera_x, camera_y, camera_z,
+              viewport_x, viewport_y, viewport_width, viewport_height,
+              selection.is_selected(3))
   text(24.0, window_height - 28.0,
        "STATIC DEMO SAMPLES - NO ORBITAL DYNAMICS IN RENDER", 10.0,
        142, 164, 188)
@@ -122,14 +145,69 @@ fun compose(camera_x: Float64<meter>): Void {
 }
 
 if open("Sagan scene and camera precision", 960, 540) {
+  let first = PresentationObject(
+    1, DISTANT_ORIGIN, DISTANT_ORIGIN, DISTANT_ORIGIN - CAMERA_DEPTH,
+    50000.0 kilometer, "SAMPLE A")
+  let second = PresentationObject(
+    2, DISTANT_ORIGIN + 250000.0 kilometer, DISTANT_ORIGIN,
+    DISTANT_ORIGIN - CAMERA_DEPTH, 25000.0 kilometer, "SAMPLE B")
+  let third = PresentationObject(
+    3, DISTANT_ORIGIN, DISTANT_ORIGIN + 200000.0 kilometer,
+    DISTANT_ORIGIN - 1500000.0 kilometer, 40000.0 kilometer, "SAMPLE C")
+  let selection = SelectionState()
+  selection.select!(1)
   let camera_x = DISTANT_ORIGIN
+  let focus_start = camera_x
+  let focus_target = camera_x
+  let focus_started = 0.0
+  let focusing = false
   let running = true
   while running {
     if poll() == false { running = false }
     if running {
-      if key_pressed("left") { camera_x = camera_x - 50000.0 kilometer }
-      if key_pressed("right") { camera_x = camera_x + 50000.0 kilometer }
-      compose(camera_x)
+      if key_pressed("left") {
+        let previous = selection.identifier() - 1
+        if previous < 1 { previous = 3 }
+        selection.select!(previous)
+      }
+      if key_pressed("right") {
+        let next = selection.identifier() + 1
+        if next > 3 { next = 1 }
+        selection.select!(next)
+      }
+      let viewport_x = 24.0
+      let viewport_y = 76.0
+      let viewport_width = width() - 48.0
+      let viewport_height = height() - 116.0
+      if pointer_pressed() {
+        let click_x = pointer_x()
+        let click_y = pointer_y()
+        let center_y = viewport_y + viewport_height / 2.0
+        if pick_circle(click_x, click_y,
+                       projected_x(first, camera_x, viewport_x, viewport_width),
+                       center_y, 34.0) { selection.select!(1) }
+        if pick_circle(click_x, click_y,
+                       projected_x(second, camera_x, viewport_x, viewport_width),
+                       center_y, 24.0) { selection.select!(2) }
+        let third_y = viewport_y + perspective_axis(
+          0.0 meter - relative_axis(sample(third).y(), DISTANT_ORIGIN),
+          DISTANT_ORIGIN - sample(third).z(), 0.577350269, viewport_height)
+        if pick_circle(click_x, click_y,
+                       projected_x(third, camera_x, viewport_x, viewport_width),
+                       third_y, 24.0) { selection.select!(3) }
+      }
+      if key_pressed("enter") {
+        focus_start = camera_x
+        focus_target = selected_target(selection.identifier(), first, second, third)
+        focus_started = elapsed_seconds()
+        focusing = true
+      }
+      if focusing {
+        let focus_elapsed = elapsed_seconds() - focus_started
+        camera_x = smooth_focus_axis(focus_start, focus_target, focus_elapsed, 1.2)
+        if focus_elapsed >= 1.2 { focusing = false }
+      }
+      compose(camera_x, selection, first, second, third)
     }
   }
   close()

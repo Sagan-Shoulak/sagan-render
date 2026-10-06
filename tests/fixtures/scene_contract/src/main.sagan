@@ -6,6 +6,9 @@ import sample from render.scene
 import relative_axis from render.scene
 import perspective_axis from render.scene
 import depth_visible from render.scene
+import SelectionState from render.scene
+import smooth_focus_axis from render.scene
+import pick_circle from render.scene
 
 class PresentationBody has SpatialRenderable {
   let identifier_value: Int64
@@ -37,5 +40,13 @@ fun main(): Int {
   if projected <= 480.0 { return 3 }
   if depth_visible(1000.0 kilometer, frame_sample.radius(),
                    1.0 meter, 2000.0 kilometer) == false { return 4 }
+  let selection = SelectionState()
+  selection.select!(frame_sample.identifier())
+  if selection.is_selected(7) == false { return 5 }
+  if pick_circle(10.0, 10.0, 10.0, 10.0, 4.0) == false { return 6 }
+  let focus = smooth_focus_axis(origin, origin + 1000.0 kilometer, 1.0, 2.0)
+  if focus != origin + 500.0 kilometer { return 7 }
+  selection.clear!()
+  if selection.has_selection() { return 8 }
   return 0
 }

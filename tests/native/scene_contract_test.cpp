@@ -62,6 +62,51 @@ int main(int argc, char **argv)
   const auto precise_projection = project.project(precise);
   assert(precise_projection.logical_x > frame[0].logical_x);
 
+  selection selected;
+  for (std::size_t index = 0; index < 3; ++index)
+  {
+    assert(selected.select_at(frame, {frame[index].logical_x, frame[index].logical_y}));
+    assert(selected.identifier() == frame[index].identifier);
+  }
+  assert(!selected.select_at(frame, {0.0, 0.0}));
+  assert(!selected.identifier());
+  selected.select(3);
+  assert(selected.identifier() == 3);
+  selected.clear();
+  assert(!selected.identifier());
+
+  const length3 focused = focus_camera_position(
+    source.items()[1], view.forward, 500000.0);
+  assert(near(focused.x_metres, source.items()[1].position.x_metres));
+  assert(near(focused.z_metres, source.items()[1].position.z_metres + 500000.0));
+  const focus_transition transition{view.position, focused, 2.0};
+  const length3 focus_start = transition.sample(0.0);
+  const length3 focus_middle = transition.sample(1.0);
+  const length3 focus_end = transition.sample(2.0);
+  assert(near(focus_start.x_metres, view.position.x_metres));
+  assert(near(focus_middle.x_metres,
+              view.position.x_metres + (focused.x_metres - view.position.x_metres) / 2.0));
+  assert(near(focus_end.x_metres, focused.x_metres));
+  assert(!transition.complete(1.999));
+  assert(transition.complete(2.0));
+  assert(source.items()[1].position.x_metres == anchor + 250000.0);
+  const focus_transition scale_transition{
+    {-1.0e15, 0.0, 0.0}, {1.0e15, 1.0e12, -1.0e12}, 4.0};
+  const length3 scale_middle = scale_transition.sample(2.0);
+  assert(near(scale_middle.x_metres, 0.0));
+  assert(near(scale_middle.y_metres, 5.0e11));
+  assert(near(scale_middle.z_metres, -5.0e11));
+
+  const auto labels = place_labels({
+    {1, {480.0, 270.0}, 80.0, 18.0, 0.2},
+    {2, {482.0, 271.0}, 80.0, 18.0, 0.3},
+    {3, {950.0, 535.0}, 80.0, 18.0, 0.4}
+  }, {960.0, 540.0});
+  assert(labels.size() == 3);
+  assert(!labels_overlap(labels[0], labels[1]));
+  assert(labels[2].x + labels[2].width <= 960.0);
+  assert(labels[2].y + labels[2].height <= 540.0);
+
   bool rejected_duplicate = false;
   try
   {
@@ -88,6 +133,10 @@ int main(int argc, char **argv)
             << "\" y=\"" << item.logical_y
             << "\" fill=\"white\" font-family=\"sans-serif\" font-size=\"14\">"
             << item.label << "</text>\n";
+    for (const auto &label : labels)
+      svg << "<rect x=\"" << label.x << "\" y=\"" << label.y
+          << "\" width=\"" << label.width << "\" height=\"" << label.height
+          << "\" fill=\"none\" stroke=\"#ff8bd1\"/>\n";
     svg << "<text x=\"24\" y=\"32\" fill=\"#8ecbff\" font-family=\"sans-serif\" "
            "font-size=\"16\">camera-relative projection near 1e15 metres</text>\n</svg>\n";
   }

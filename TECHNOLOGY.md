@@ -246,6 +246,34 @@ Left and Right change the camera origin. Cross-platform focused tests require
 the initial and reframed captures to differ on D3D12, Vulkan, and Metal; no
 sample position is advanced by the renderer.
 
+### Selection, focus, and spatial labels
+
+Selection owns a stable non-zero render identifier, never a reference to an
+application or physics object. Picking examines the current frame's visible
+projected spheres in logical coordinates. When hit regions overlap, the nearest
+linear depth wins; an identifier tie-break makes the result deterministic.
+Replacing a snapshot therefore cannot leave an object pointer dangling, and a
+missing identifier can be cleared without consulting a solver.
+
+A focus request derives a target camera position from a render sample, the
+camera's normalized forward direction, and an explicitly measured viewing
+distance. `focus_transition` interpolates from the current camera position with
+a cubic smoothstep. It subtracts endpoints before scaling the delta, which
+keeps the transition stable around large coordinates. Only camera state
+changes; render samples and upstream snapshots remain immutable. The public
+Sagan `smooth_focus_axis` exposes the same rule for application composition.
+
+Spatial labels begin with stable projected anchors. The deterministic placement
+pass sorts nearer labels first, uses identifiers as its tie-break, clamps labels
+to the logical viewport, and moves later overlapping labels vertically. It does
+not alter object positions and remains independent of drawable-pixel density.
+Production text shaping may change measured label bounds without changing this
+placement contract.
+
+The interactive scene demo uses Left and Right to select every sample, Enter to
+start a focus transition, and pointer clicks to pick projected samples. Its
+objects remain static; the visual changes are selection and camera state only.
+
 ### Loading-screen example
 
 `examples/loading_sagan_demo` uses the same Sagan UI facade and native GPU host
