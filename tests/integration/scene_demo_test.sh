@@ -35,4 +35,4 @@ if cmp -s build/scene-sagan-demo/scene-idle.bmp build/scene-sagan-demo/scene-ref
   echo "Camera reframe did not change the rendered scene" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on D3D12: huge-coordinate samples rendered and camera reframing changed frame data."
+echo "Sagan scene demo passed on D3D12: huge-coordinate samples rendered and selection changed frame data."

@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
@@ -241,4 +244,186 @@ namespace sagan_render::scene
       return result;
     }
   };
+
+  struct logical_point
+  {
+    scalar x{};
+    scalar y{};
+  };
+
+  inline auto pick(const std::vector<projected_item> &items,
+                   const logical_point pointer,
+                   const scalar minimum_hit_radius = 8.0)
+    -> std::optional<std::uint64_t>
+  {
+    if (!std::isfinite(pointer.x) || !std::isfinite(pointer.y) ||
+        !std::isfinite(minimum_hit_radius) || minimum_hit_radius < 0.0)
+      throw std::invalid_argument("Picking inputs must be finite and radius non-negative");
+    std::optional<std::uint64_t> result;
+    scalar nearest_depth = std::numeric_limits<scalar>::infinity();
+    for (const auto &item : items)
+    {
+      if (!item.visible) continue;
+      const scalar radius = std::max(item.radius_logical, minimum_hit_radius);
+      const scalar dx = pointer.x - item.logical_x;
+      const scalar dy = pointer.y - item.logical_y;
+      if (dx * dx + dy * dy > radius * radius) continue;
+      if (!result || item.linear_depth < nearest_depth ||
+          (item.linear_depth == nearest_depth && item.identifier < *result))
+      {
+        result = item.identifier;
+        nearest_depth = item.linear_depth;
+      }
+    }
+    return result;
+  }
+
+  class selection
+  {
+    std::optional<std::uint64_t> identifier_value;
+
+  public:
+    auto select(const std::uint64_t identifier) -> void
+    {
+      if (identifier == 0) throw std::invalid_argument("Selected identifier must be non-zero");
+      identifier_value = identifier;
+    }
+
+    auto select_at(const std::vector<projected_item> &items,
+                   const logical_point pointer,
+                   const scalar minimum_hit_radius = 8.0) -> bool
+    {
+      identifier_value = pick(items, pointer, minimum_hit_radius);
+      return identifier_value.has_value();
+    }
+
+    auto identifier() const -> std::optional<std::uint64_t> { return identifier_value; }
+    auto clear() -> void { identifier_value.reset(); }
+  };
+
+  inline auto focus_camera_position(const render_item &item,
+                                    const direction3 camera_forward,
+                                    const scalar viewing_distance_metres) -> length3
+  {
+    if (!std::isfinite(viewing_distance_metres) || viewing_distance_metres <= 0.0)
+      throw std::invalid_argument("Focus viewing distance must be finite and positive");
+    const direction3 forward = normalize(camera_forward);
+    return {item.position.x_metres - forward.x * viewing_distance_metres,
+            item.position.y_metres - forward.y * viewing_distance_metres,
+            item.position.z_metres - forward.z * viewing_distance_metres};
+  }
+
+  class focus_transition
+  {
+    length3 start_value;
+    length3 target_value;
+    scalar duration_seconds_value{};
+
+  public:
+    focus_transition(const length3 start, const length3 target,
+                     const scalar duration_seconds)
+      : start_value{start}, target_value{target},
+        duration_seconds_value{duration_seconds}
+    {
+      if (!std::isfinite(start.x_metres) || !std::isfinite(start.y_metres) ||
+          !std::isfinite(start.z_metres) || !std::isfinite(target.x_metres) ||
+          !std::isfinite(target.y_metres) || !std::isfinite(target.z_metres) ||
+          !std::isfinite(duration_seconds) || duration_seconds <= 0.0)
+        throw std::invalid_argument("Focus transition values must be finite and duration positive");
+    }
+
+    auto sample(const scalar elapsed_seconds) const -> length3
+    {
+      if (!std::isfinite(elapsed_seconds))
+        throw std::invalid_argument("Focus elapsed time must be finite");
+      const scalar progress = std::clamp(elapsed_seconds / duration_seconds_value, 0.0, 1.0);
+      const scalar eased = progress * progress * (3.0 - 2.0 * progress);
+      const length3 delta = subtract(target_value, start_value);
+      return {start_value.x_metres + delta.x_metres * eased,
+              start_value.y_metres + delta.y_metres * eased,
+              start_value.z_metres + delta.z_metres * eased};
+    }
+
+    auto complete(const scalar elapsed_seconds) const -> bool
+    {
+      return elapsed_seconds >= duration_seconds_value;
+    }
+  };
+
+  struct label_request
+  {
+    std::uint64_t identifier{};
+    logical_point anchor{};
+    scalar width{};
+    scalar height{};
+    scalar depth{};
+  };
+
+  struct label_placement
+  {
+    std::uint64_t identifier{};
+    scalar x{};
+    scalar y{};
+    scalar width{};
+    scalar height{};
+  };
+
+  inline auto labels_overlap(const label_placement first,
+                             const label_placement second) -> bool
+  {
+    return first.x < second.x + second.width && first.x + first.width > second.x &&
+           first.y < second.y + second.height && first.y + first.height > second.y;
+  }
+
+  inline auto place_labels(std::vector<label_request> requests,
+                           const viewport bounds,
+                           const scalar anchor_gap = 8.0,
+                           const scalar placement_gap = 4.0)
+    -> std::vector<label_placement>
+  {
+    if (bounds.width_logical <= 0.0 || bounds.height_logical <= 0.0 ||
+        anchor_gap < 0.0 || placement_gap < 0.0)
+      throw std::invalid_argument("Label viewport and gaps are invalid");
+    std::stable_sort(requests.begin(), requests.end(),
+      [](const label_request &first, const label_request &second)
+      {
+        if (first.depth != second.depth) return first.depth < second.depth;
+        return first.identifier < second.identifier;
+      });
+    std::vector<label_placement> result;
+    for (const auto &request : requests)
+    {
+      if (request.identifier == 0 || request.width < 0.0 || request.height < 0.0 ||
+          !std::isfinite(request.anchor.x) || !std::isfinite(request.anchor.y) ||
+          !std::isfinite(request.width) || !std::isfinite(request.height) ||
+          !std::isfinite(request.depth))
+        throw std::invalid_argument("Label request values are invalid");
+      label_placement placed{
+        request.identifier,
+        std::clamp(request.anchor.x + anchor_gap, 0.0,
+                   std::max(0.0, bounds.width_logical - request.width)),
+        std::clamp(request.anchor.y - request.height / 2.0, 0.0,
+                   std::max(0.0, bounds.height_logical - request.height)),
+        request.width, request.height
+      };
+      bool moved = true;
+      while (moved)
+      {
+        moved = false;
+        for (const auto &existing : result)
+          if (labels_overlap(placed, existing))
+          {
+            const scalar next_y = std::min(bounds.height_logical - placed.height,
+                                           existing.y + existing.height + placement_gap);
+            if (next_y > placed.y)
+            {
+              placed.y = next_y;
+              moved = true;
+            }
+          }
+      }
+      result.push_back(placed);
+    }
+    return result;
+  }
 }

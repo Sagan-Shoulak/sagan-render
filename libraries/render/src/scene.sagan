@@ -63,9 +63,44 @@ fun depth_visible(forward_depth: Float64<meter>, radius: Float64<meter>,
   return true
 }
 
+class SelectionState {
+  let selected_identifier: Int64
+
+  new() { self.selected_identifier = 0 }
+
+  fun select!(identifier: Int64): Void {
+    if identifier > 0 { self.selected_identifier = identifier }
+  }
+  fun clear!(): Void { self.selected_identifier = 0 }
+  fun identifier(): Int64 => self.selected_identifier
+  fun has_selection(): Bool => self.selected_identifier > 0
+  fun is_selected(identifier: Int64): Bool => self.selected_identifier == identifier
+}
+
+fun smooth_focus_axis(start: Float64<meter>, target: Float64<meter>,
+                      elapsed_seconds: Float64,
+                      duration_seconds: Float64): Float64<meter> {
+  let progress = elapsed_seconds / duration_seconds
+  if progress <= 0.0 { return start }
+  if progress >= 1.0 { return target }
+  let eased = progress * progress * (3.0 - 2.0 * progress)
+  return start + (target - start) * eased
+}
+
+fun pick_circle(pointer_x: Float64, pointer_y: Float64,
+                center_x: Float64, center_y: Float64,
+                radius: Float64): Bool {
+  let difference_x = pointer_x - center_x
+  let difference_y = pointer_y - center_y
+  return difference_x * difference_x + difference_y * difference_y <= radius * radius
+}
+
 export SpatialRenderable
 export RenderSample
 export sample
 export relative_axis
 export perspective_axis
 export depth_visible
+export SelectionState
+export smooth_focus_axis
+export pick_circle

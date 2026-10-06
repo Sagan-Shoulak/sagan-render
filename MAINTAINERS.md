@@ -153,10 +153,11 @@ unit; current package-facing canvas behavior does not depend on them.
 The scene/camera precision demo uses the same GPU host with generic static
 render samples positioned near `1e15 meter`. Run it on Windows with
 `bash scripts/scene_demo.sh`, or on Linux/macOS with
-`bash scripts/scene_demo_portable.sh`. Left and Right reframe the camera without
-changing source samples. Focused CI captures the initial and reframed frames and
-requires them to differ on D3D12, Vulkan, and Metal. The example contains no
-orbital dynamics; its only motion is application-owned camera input.
+`bash scripts/scene_demo_portable.sh`. Left and Right select samples, Enter
+smoothly focuses the selected sample, and pointer clicks pick projected samples.
+Focused CI captures the initial and changed-selection frames and requires them
+to differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;
+its only motion is application-owned camera input.
 
 ## Interactive UI GPU demo
 
