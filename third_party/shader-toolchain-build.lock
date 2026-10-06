@@ -1,0 +1,37 @@
+name = "sagan-render-shader-toolchain"
+generator_host = "linux-x86_64"
+distribution_model = "build-tool-only"
+
+sdl_version = "3.4.16"
+sdl_source_commit = "fa2c02bb6e21974a89ea9824bc53c9932abe5f9c"
+shadercross_source_commit = "1ff05bec573988a98ef9e0260b4da44f512b8367"
+spirv_cross_source_commit = "1a6169566c73d3da552748fc372fe2bbb856e46e"
+
+dxc_release = "v1.9.2602"
+dxc_linux_x64_asset = "linux_dxc_2026_02_20.x86_64.tar.gz"
+dxc_linux_x64_url = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2602/linux_dxc_2026_02_20.x86_64.tar.gz"
+dxc_linux_x64_sha256 = "a1d3e3b5e1c5685b3eb27d5e8890e41d87df45def05112a2d6f1a63a931f7d60"
+
+cmake_SDLSHADERCROSS_VENDORED = "OFF"
+cmake_SDLSHADERCROSS_DXC = "ON"
+cmake_SDLSHADERCROSS_SHARED = "OFF"
+cmake_SDLSHADERCROSS_STATIC = "ON"
+cmake_SDLSHADERCROSS_SPIRVCROSS_SHARED = "OFF"
+cmake_SDLSHADERCROSS_CLI = "ON"
+cmake_SDLSHADERCROSS_CLI_STATIC = "ON"
+cmake_SDLSHADERCROSS_CLI_LEAKCHECK = "OFF"
+cmake_SDLSHADERCROSS_WERROR = "ON"
+cmake_SDLSHADERCROSS_INSTALL = "OFF"
+cmake_SDLSHADERCROSS_INSTALL_RUNTIME = "OFF"
+cmake_SDLSHADERCROSS_TESTS = "OFF"
+
+selected_source_gitlink = "SPIRV-Cross"
+excluded_source_gitlinks = "SPIRV-Headers,SPIRV-Tools,DirectXShaderCompiler"
+generated_formats = "dxil,spirv,msl"
+published_tool_binary = false
+published_runtime_library = false
+
+sdl_license = "Zlib"
+shadercross_license = "Zlib"
+spirv_cross_license = "Apache-2.0 OR MIT"
+dxc_license_notice = "LICENSE.TXT plus ThirdPartyNotices.txt from the pinned release"
