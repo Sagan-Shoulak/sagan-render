@@ -1,12 +1,12 @@
-name: Windows renderer
+name: Renderer foundation
 
 on:
   push:
     branches: [dev, main]
-    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "sagan-source-commit.txt"]
+    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "third_party/**", "sagan-source-commit.txt"]
   pull_request:
     branches: [dev, main]
-    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "sagan-source-commit.txt"]
+    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "third_party/**", "sagan-source-commit.txt"]
   workflow_dispatch:
 
 permissions:
@@ -41,7 +41,7 @@ jobs:
           msystem: UCRT64
           update: true
           install: >-
-            git make mingw-w64-ucrt-x86_64-binutils mingw-w64-ucrt-x86_64-gcc
+            git make unzip mingw-w64-ucrt-x86_64-binutils mingw-w64-ucrt-x86_64-gcc
       - name: Build pinned compiler
         shell: msys2 {0}
         working-directory: sagan-source
@@ -55,3 +55,40 @@ jobs:
           bash tests/integration/window_contract_test.sh
           bash tests/integration/window_bridge_test.sh
           bash tests/integration/shape_text_test.sh
+          bash tests/integration/sdl_window_probe_test.sh
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sdl-window-windows
+          path: render/build/sdl-window/sdl-window.bmp
+          if-no-files-found: error
+
+  portable-sdl-window-probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Linux display and SDL build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build xvfb libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libdbus-1-dev libudev-dev libgl1-mesa-dev libegl1-mesa-dev
+      - name: Install macOS build dependency
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: Build SDL and run Linux window probe under Xvfb
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum bash tests/integration/sdl_window_probe_portable_test.sh
+      - name: Build SDL and run macOS window probe
+        if: runner.os == 'macOS'
+        run: bash tests/integration/sdl_window_probe_portable_test.sh
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sdl-window-${{ runner.os }}
+          path: build/sdl-window/sdl-window.bmp
+          if-no-files-found: error

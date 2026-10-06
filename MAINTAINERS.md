@@ -38,13 +38,17 @@ export SAGAN_EXECUTABLE=/c/Users/joeps/coding/sagan/bin/sagan.exe
 bash tests/integration/window_contract_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
+bash tests/integration/sdl_window_probe_test.sh
 ```
 
 The contract test has no display dependency and validates logical and drawable
 sizes, display scale, focus, resize notification, close, and cleanup state. The
 window test opens and closes its own window after roughly 100 ms. The shape/text
 test closes after roughly 150 ms and checks that its own generated BMP is
-960×540. The window and shape/text checks passed with the extracted package, current Sagan 4.9.5
+960×540. The SDL probe opens a 960×540 high-DPI, resizable SDL3 window,
+paints a recognizable test frame, presents it, saves the surface to BMP, and
+checks clean shutdown. It downloads the official SDL 3.4.16 MinGW archive only
+when absent and rejects a checksum mismatch. The window and shape/text checks passed with the extracted package, current Sagan 4.9.5
 development executable, and no monorepo launcher resource object. If Sagan
 is correctly installed on PATH, omit `SAGAN_EXECUTABLE`; scripts default to
 `sagan`. Set `SAGAN_PACKAGE_INDEX` explicitly only for a reviewed alternate
@@ -65,6 +69,28 @@ a Windows stock icon otherwise. The latter is a compatibility fallback, not
 a decision about final product branding. The current non-Windows backend
 throws an explicit unsupported-platform error; do not claim Linux/macOS
 rendering based on a passing Windows test.
+
+## Cross-platform SDL foundation probe
+
+The `portable-sdl-window-probe` CI matrix builds the pinned SDL 3.4.16 source
+archive and runs the same source probe on Linux and macOS. Linux uses Xvfb;
+macOS uses the runner's Cocoa session. Each job must report window creation and
+cleanup and upload its rendered BMP. These are native-window dependency checks,
+not proof that the Sagan-facing renderer has been ported and not a GPU pipeline
+test.
+
+On a Linux or macOS development machine with CMake, Ninja, a C++23 compiler,
+and the corresponding SDL platform build dependencies:
+
+```bash
+bash tests/integration/sdl_window_probe_portable_test.sh
+```
+
+On headless Linux, run the script through `xvfb-run --auto-servernum`. The
+source archive and its digest are recorded in `third_party/sdl3.lock`; never
+silently substitute a system SDL version. The probe's software-surface drawing
+exists only to provide inspectable pixels while the later SDL GPU work is taught
+and developed separately.
 
 ## Windows dev-channel package
 
