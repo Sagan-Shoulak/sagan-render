@@ -53,9 +53,12 @@ physical orthographic span is independent of display scaling and writes an
 inspectable `build/ui-contract/ui-layout.svg` artifact. The GPU UI demo test
 consumes the same handle-free draw list, composes clipped rectangles and
 deterministic bitmap glyph cells through SDL GPU, checks exact text, overlay,
-and scene pixels, and saves `build/ui-gpu-demo/ui-gpu-demo.bmp`. Its built-in
-font covers only the demonstration text; it validates the shaping and drawing
-seam rather than claiming production Unicode typography. The
+and scene pixels. It saves a fixed 960×540 reference plus an injected 800×600
+logical-target resize capture, proving that reallocation reflows the UI instead
+of stretching the original frame without relying on a headless window manager
+to honor a resize request. Its built-in font covers only the
+demonstration text; it validates the shaping and drawing seam rather than
+claiming production Unicode typography. The
 window test opens and closes its own window after roughly 100 ms. The shape/text
 test closes after roughly 150 ms and checks that its own generated BMP is
 960×540. The SDL probe opens a 960×540 high-DPI, resizable SDL3 window,
@@ -151,12 +154,20 @@ On Linux or macOS with the dependencies required by the portable SDL probe:
 bash scripts/ui_gpu_demo_portable.sh
 ```
 
-The demo presents a 960×540 logical canvas through D3D12, Vulkan, or Metal.
+The demo starts at 960×540 and presents through D3D12, Vulkan, or Metal.
 Use Tab and Shift+Tab to move focus, Enter or Space to activate, P to toggle the
-pause overlay, the mouse to activate buttons, and Escape to close. Its scene
-view is exactly 400,000 km wide regardless of drawable pixel density. The
-capture is written before interaction so CI and local runs compare the same
-focused pause-menu state.
+pause overlay, the mouse to activate buttons, and Escape to close. Resizing
+recomputes logical layout and reallocates the offscreen target, so text retains
+its logical size and aspect. The main view is exactly 200,000,000 km wide and
+includes a derived 50,000,000 km scale bar; an Earth–Moon inset is exactly
+1,000,000 km wide. Interactive runs start with both views exposed. CI explicitly
+starts paused and writes 960×540 and 800×600 captures for comparable menu,
+focus, layout, and resize evidence.
+
+The current composition source is a native backend demonstration, not the
+intended application authoring layer. Before #17 closes, expose the layout,
+draw-list, input, and unit-typed camera contracts as Sagan modules and reproduce
+the demonstration from Sagan. C++ retains SDL/GPU resource ownership only.
 
 ## Windows dev-channel package
 

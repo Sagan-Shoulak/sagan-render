@@ -68,6 +68,7 @@ jobs:
             render/build/sdl-gpu/sdl-gpu-report.txt
             render/build/ui-contract/ui-layout.svg
             render/build/ui-gpu-demo/ui-gpu-demo.bmp
+            render/build/ui-gpu-demo/ui-gpu-demo-resized.bmp
             render/build/ui-gpu-demo/ui-gpu-demo-report.txt
           if-no-files-found: error
 
@@ -113,5 +114,6 @@ jobs:
             build/sdl-gpu/sdl-gpu-report.txt
             build/ui-contract/ui-layout.svg
             build/ui-gpu-demo/ui-gpu-demo.bmp
+            build/ui-gpu-demo/ui-gpu-demo-resized.bmp
             build/ui-gpu-demo/ui-gpu-demo-report.txt
           if-no-files-found: error
