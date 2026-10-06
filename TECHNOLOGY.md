@@ -404,6 +404,13 @@ textures, multiple lights, post-processing, and replacement of the sphere
 impostor remain open under #16. The repository must not claim that handwritten
 source plus a manifest is equivalent to compiled DXIL, SPIR-V, or MSL.
 
+The first shader-toolchain dependency boundary is now pinned in
+`third_party/sdl-shadercross.lock`. `fetch-shadercross-source.sh` checks out
+that exact upstream commit into ignored build storage and rejects a cache whose
+HEAD differs. This initial fetch intentionally leaves submodules uninitialized:
+the next reviewed chunk must pin and inspect the much larger DXC, SPIRV-Tools,
+SPIRV-Headers, and SPIRV-Cross dependency graph before any build begins.
+
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its

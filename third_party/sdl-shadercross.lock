@@ -1,0 +1,7 @@
+name = "SDL_shadercross"
+version = "3.0.0-development"
+source_repository = "https://github.com/libsdl-org/SDL_shadercross.git"
+source_commit = "1ff05bec573988a98ef9e0260b4da44f512b8367"
+source_commit_date = "2026-09-03"
+license = "Zlib"
+submodules_initialized = false
