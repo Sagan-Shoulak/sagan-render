@@ -54,6 +54,7 @@ jobs:
           export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/ui_gpu_demo_test.sh
+          bash tests/integration/loading_demo_test.sh
           bash tests/integration/window_contract_test.sh
           bash tests/integration/window_bridge_test.sh
           bash tests/integration/shape_text_test.sh
@@ -70,6 +71,11 @@ jobs:
             render/build/ui-sagan-demo/ui-sagan-960x540.bmp
             render/build/ui-sagan-demo/ui-sagan-800x600.bmp
             render/build/ui-sagan-demo/ui-sagan-demo-report.txt
+            render/build/loading-sagan-demo/loading-960x540.bmp
+            render/build/loading-sagan-demo/ready-800x600.bmp
+            render/build/loading-sagan-demo/transition-1024x576.bmp
+            render/build/loading-sagan-demo/failed-960x540.bmp
+            render/build/loading-sagan-demo/loading-demo-report.txt
           if-no-files-found: error
 
   portable-sdl-window-probe:
@@ -114,6 +120,7 @@ jobs:
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/ui_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/ui_gpu_demo_portable_test.sh
+          xvfb-run --auto-servernum bash tests/integration/loading_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/sdl_window_probe_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - name: Build SDL and run macOS window probe
@@ -122,6 +129,7 @@ jobs:
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/ui_gpu_demo_portable_test.sh
+          bash tests/integration/loading_demo_portable_test.sh
           bash tests/integration/sdl_window_probe_portable_test.sh
           bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - uses: actions/upload-artifact@v6
@@ -135,4 +143,9 @@ jobs:
             build/ui-sagan-demo/ui-sagan-960x540.bmp
             build/ui-sagan-demo/ui-sagan-800x600.bmp
             build/ui-sagan-demo/ui-sagan-demo-report.txt
+            build/loading-sagan-demo/loading-960x540.bmp
+            build/loading-sagan-demo/ready-800x600.bmp
+            build/loading-sagan-demo/transition-1024x576.bmp
+            build/loading-sagan-demo/failed-960x540.bmp
+            build/loading-sagan-demo/loading-demo-report.txt
           if-no-files-found: error

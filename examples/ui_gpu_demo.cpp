@@ -457,7 +457,12 @@ namespace
         if (value == modal) ++modal_pixels;
         if (value == earth) ++earth_pixels;
       }
-      if (white_pixels < 1000 || earth_pixels < 200)
+      const char *require_earth_value = std::getenv("SAGAN_RENDER_UI_REQUIRE_EARTH");
+      const bool require_earth = !require_earth_value || std::string_view{require_earth_value} != "0";
+      const char *minimum_white_value = std::getenv("SAGAN_RENDER_UI_MIN_WHITE");
+      const std::uint32_t minimum_white = minimum_white_value && *minimum_white_value
+        ? static_cast<std::uint32_t>(std::strtoul(minimum_white_value, nullptr, 10)) : 1000;
+      if (white_pixels < minimum_white || (require_earth && earth_pixels < 200))
         throw std::runtime_error("UI capture is missing expected text or measured-scene pixels");
       SDL_Surface *surface = SDL_CreateSurfaceFrom(target_width, target_height,
         SDL_PIXELFORMAT_RGBA32, pixels, target_width * bytes_per_pixel);
@@ -616,6 +621,8 @@ namespace
   double bridge_pointer_x{};
   double bridge_pointer_y{};
   std::uint64_t bridge_deadline{};
+  std::uint64_t bridge_started_at{};
+  double bridge_elapsed_override{-1.0};
   bool bridge_captured{};
   std::string bridge_driver;
   std::int64_t bridge_width{};
@@ -665,6 +672,12 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   const std::uint64_t autoclose = autoclose_value && *autoclose_value
     ? std::strtoull(autoclose_value, nullptr, 10) : 0;
   bridge_deadline = autoclose == 0 ? 0 : SDL_GetTicks() + autoclose;
+  bridge_started_at = SDL_GetTicks();
+  const char *elapsed_value = std::getenv("SAGAN_RENDER_ELAPSED_SECONDS");
+  bridge_elapsed_override = elapsed_value && *elapsed_value
+    ? std::strtod(elapsed_value, nullptr) : -1.0;
+  const char *test_key = std::getenv("SAGAN_RENDER_TEST_KEY");
+  if (test_key && *test_key) remember_key(test_key);
   return true;
 }
 
@@ -684,6 +697,8 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
       else if (event.key.key == SDLK_RETURN) remember_key("enter");
       else if (event.key.key == SDLK_SPACE) remember_key("space");
       else if (event.key.key == SDLK_P) remember_key("p");
+      else if (event.key.key == SDLK_F) remember_key("f");
+      else if (event.key.key == SDLK_R) remember_key("r");
     }
     else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
@@ -707,9 +722,15 @@ auto sagan_5f5f72656e6465725f75695f636c6f7365() -> void
 {
   bridge_list.reset();
   bridge_gpu.reset();
-  std::cout << "SAGAN_UI_DEMO language=sagan driver=" << bridge_driver
-            << " logical=" << bridge_width << 'x' << bridge_height
-            << " solar_span_km=200000000 lunar_span_km=1000000 cleanup=1\n";
+  const char *kind_value = std::getenv("SAGAN_RENDER_DEMO_KIND");
+  if (kind_value && std::string_view{kind_value} == "loading")
+    std::cout << "SAGAN_LOADING_DEMO language=sagan driver=" << bridge_driver
+              << " logical=" << bridge_width << 'x' << bridge_height
+              << " cleanup=1\n";
+  else
+    std::cout << "SAGAN_UI_DEMO language=sagan driver=" << bridge_driver
+              << " logical=" << bridge_width << 'x' << bridge_height
+              << " solar_span_km=200000000 lunar_span_km=1000000 cleanup=1\n";
 }
 
 auto sagan_5f5f72656e6465725f75695f7769647468() -> double
@@ -719,6 +740,12 @@ auto sagan_5f5f72656e6465725f75695f7769647468() -> double
 auto sagan_5f5f72656e6465725f75695f686569676874() -> double
 {
   return static_cast<double>(bridge_height);
+}
+
+auto sagan_5f5f72656e6465725f656c61707365645f7365636f6e6473() -> double
+{
+  if (bridge_elapsed_override >= 0.0) return bridge_elapsed_override;
+  return static_cast<double>(SDL_GetTicks() - bridge_started_at) / 1000.0;
 }
 
 auto sagan_5f5f72656e6465725f75695f626567696e() -> void
