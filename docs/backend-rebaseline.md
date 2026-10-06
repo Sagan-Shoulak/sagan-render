@@ -148,6 +148,12 @@ Agent-led implementation with explanation and comprehension evidence:
 Completion test: a shader-based effect and modest multi-light scene behave
 consistently across D3D12, Vulkan, and Metal.
 
+The first M5 contract slice is implemented: a project-owned HLSL mesh shader,
+backend-neutral material/light uniform layouts, linear-color conversion, and a
+CPU reference Lambert calculation. It deliberately stops before claiming an
+SDL GPU pipeline: reproducible SDL_shadercross artifacts and actual GPU use are
+the next gate.
+
 ## Deliberate non-decisions
 
 This proposal does not yet select a scene graph, entity system, UI styling

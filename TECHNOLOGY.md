@@ -375,6 +375,35 @@ is SHA-256 checked. This is intentionally a bootstrap path, not the final asset
 pipeline. Issue #16 will own reproducible project shader compilation,
 reflection, materials, color policy, and lighting.
 
+### First project-owned material contract
+
+`shaders/material/lit_mesh.hlsl` is the first renderer-owned 3D shader source.
+Its vertex stage accepts position and normal attributes plus an already-built
+model/view/projection transform. Its fragment stage accepts material and
+lighting uniforms. It does not receive mass, velocity, orbital elements, or
+other simulation state.
+
+The material separates linear base color, linear emissive color, and roughness.
+The initial shader uses ambient plus one clamped Lambert diffuse term; roughness
+is reserved in the stable layout but is not interpreted until the chosen
+specular model is reviewed. Light direction, color, and intensity are frame
+inputs rather than properties of a physics body. This keeps a future Sun light
+or application-authored lights outside the renderer's scene/snapshot contract.
+
+CPU and HLSL layouts use 16-byte groups compatible with SDL GPU's std140
+uniform-data requirement. The vertex uniform occupies `b0, space1`; fragment
+material and lighting occupy consecutive `b0` and `b1` registers in `space3`.
+The companion manifest records entry points, vertex semantics, and resource
+counts needed by `SDL_GPUShaderCreateInfo`. `material_contract_test.sh` checks
+the byte layout, sRGB-to-linear conversion, reference Lambert calculation, and
+SDL binding convention on every supported platform.
+
+This slice defines and tests the source interface only. Ahead-of-time
+SDL_shadercross compilation, reflected artifact validation, GPU pipeline use,
+textures, multiple lights, post-processing, and replacement of the sphere
+impostor remain open under #16. The repository must not claim that handwritten
+source plus a manifest is equivalent to compiled DXIL, SPIR-V, or MSL.
+
 ## Supported foundation and rollback
 
 - Windows validation explicitly requests SDL's `direct3d12` driver and DXIL.
