@@ -209,6 +209,32 @@ state thresholds or geometry. Closing from any state destroys the draw list,
 GPU target, palette, transfer buffer, device claim, and window through the same
 bridge cleanup path.
 
+### Reusable controls and toolbars
+
+`render.controls` implements reusable button state and toolbar focus in Sagan.
+`ButtonState` owns enabled, hovered, pressed, focused, and pending-activation
+state. Pointer release activates only when a press began on an enabled control
+and the pointer is still inside; keyboard activation uses the same pending
+action. Taking an action clears it, and relayout cleanup cancels hover and press
+without discarding focus.
+
+`ToolbarFocus` owns a stable numeric focus position and wraparound traversal.
+The example supplies the enabled-control policy, skipping its disabled entry in
+both directions, then synchronizes each button's focused state. This keeps the
+generic focus object independent of a particular toolbar's labels or actions.
+
+The toolbar example uses the same controls in a horizontal layout at ordinary
+widths and a vertical layout below 760 logical units. Bounds are recomputed
+before hit testing on every frame, and canvas clipping remains in the shared
+draw-list backend. Native code reports pointer motion and button edges but does
+not decide hover, capture, focus, activation, colors, spacing, or orientation.
+
+CI proves behavioral equivalence by comparing complete captures: Enter and a
+pointer click on Primary must be byte-identical, while a disabled click must be
+byte-identical to idle. Forward and reverse traversal must reach the same
+enabled control. Hover and press must each differ from their preceding state,
+and the 640×600 capture must show the vertical layout.
+
 ## Shader formats and temporary bootstrap assets
 
 SDL GPU selects a native desktop backend, not a universal shader bytecode.

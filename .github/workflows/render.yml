@@ -55,6 +55,7 @@ jobs:
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/ui_gpu_demo_test.sh
           bash tests/integration/loading_demo_test.sh
+          bash tests/integration/toolbar_demo_test.sh
           bash tests/integration/window_contract_test.sh
           bash tests/integration/window_bridge_test.sh
           bash tests/integration/shape_text_test.sh
@@ -76,6 +77,14 @@ jobs:
             render/build/loading-sagan-demo/transition-1024x576.bmp
             render/build/loading-sagan-demo/failed-960x540.bmp
             render/build/loading-sagan-demo/loading-demo-report.txt
+            render/build/toolbar-sagan-demo/keyboard-primary-960x540.bmp
+            render/build/toolbar-sagan-demo/pointer-primary-960x540.bmp
+            render/build/toolbar-sagan-demo/focus-forward-960x540.bmp
+            render/build/toolbar-sagan-demo/disabled-960x540.bmp
+            render/build/toolbar-sagan-demo/hover-reset-960x540.bmp
+            render/build/toolbar-sagan-demo/pressed-reset-960x540.bmp
+            render/build/toolbar-sagan-demo/vertical-640x600.bmp
+            render/build/toolbar-sagan-demo/toolbar-demo-report.txt
           if-no-files-found: error
 
   portable-sdl-window-probe:
@@ -121,6 +130,7 @@ jobs:
           bash tests/integration/ui_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/ui_gpu_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/loading_demo_portable_test.sh
+          xvfb-run --auto-servernum bash tests/integration/toolbar_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/sdl_window_probe_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - name: Build SDL and run macOS window probe
@@ -130,6 +140,7 @@ jobs:
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/ui_gpu_demo_portable_test.sh
           bash tests/integration/loading_demo_portable_test.sh
+          bash tests/integration/toolbar_demo_portable_test.sh
           bash tests/integration/sdl_window_probe_portable_test.sh
           bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - uses: actions/upload-artifact@v6
@@ -148,4 +159,12 @@ jobs:
             build/loading-sagan-demo/transition-1024x576.bmp
             build/loading-sagan-demo/failed-960x540.bmp
             build/loading-sagan-demo/loading-demo-report.txt
+            build/toolbar-sagan-demo/keyboard-primary-960x540.bmp
+            build/toolbar-sagan-demo/pointer-primary-960x540.bmp
+            build/toolbar-sagan-demo/focus-forward-960x540.bmp
+            build/toolbar-sagan-demo/disabled-960x540.bmp
+            build/toolbar-sagan-demo/hover-reset-960x540.bmp
+            build/toolbar-sagan-demo/pressed-reset-960x540.bmp
+            build/toolbar-sagan-demo/vertical-640x600.bmp
+            build/toolbar-sagan-demo/toolbar-demo-report.txt
           if-no-files-found: error

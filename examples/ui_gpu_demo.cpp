@@ -678,6 +678,21 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
     ? std::strtod(elapsed_value, nullptr) : -1.0;
   const char *test_key = std::getenv("SAGAN_RENDER_TEST_KEY");
   if (test_key && *test_key) remember_key(test_key);
+  const char *test_pointer_x = std::getenv("SAGAN_RENDER_TEST_POINTER_X");
+  const char *test_pointer_y = std::getenv("SAGAN_RENDER_TEST_POINTER_Y");
+  if (test_pointer_x && *test_pointer_x && test_pointer_y && *test_pointer_y)
+  {
+    bridge_pointer_x = std::strtod(test_pointer_x, nullptr);
+    bridge_pointer_y = std::strtod(test_pointer_y, nullptr);
+    const char *pointer_action = std::getenv("SAGAN_RENDER_TEST_POINTER_ACTION");
+    if (pointer_action && std::string_view{pointer_action} == "down")
+      bridge_pointer_down = true;
+    else if (!pointer_action || std::string_view{pointer_action} != "move")
+    {
+      bridge_pointer_down = true;
+      bridge_pointer_up = true;
+    }
+  }
   return true;
 }
 
@@ -699,6 +714,10 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
       else if (event.key.key == SDLK_P) remember_key("p");
       else if (event.key.key == SDLK_F) remember_key("f");
       else if (event.key.key == SDLK_R) remember_key("r");
+      else if (event.key.key == SDLK_LEFT) remember_key("left");
+      else if (event.key.key == SDLK_RIGHT) remember_key("right");
+      else if (event.key.key == SDLK_UP) remember_key("up");
+      else if (event.key.key == SDLK_DOWN) remember_key("down");
     }
     else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
@@ -725,6 +744,10 @@ auto sagan_5f5f72656e6465725f75695f636c6f7365() -> void
   const char *kind_value = std::getenv("SAGAN_RENDER_DEMO_KIND");
   if (kind_value && std::string_view{kind_value} == "loading")
     std::cout << "SAGAN_LOADING_DEMO language=sagan driver=" << bridge_driver
+              << " logical=" << bridge_width << 'x' << bridge_height
+              << " cleanup=1\n";
+  else if (kind_value && std::string_view{kind_value} == "toolbar")
+    std::cout << "SAGAN_TOOLBAR_DEMO language=sagan driver=" << bridge_driver
               << " logical=" << bridge_width << 'x' << bridge_height
               << " cleanup=1\n";
   else

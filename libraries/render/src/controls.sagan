@@ -1,0 +1,127 @@
+module controls
+
+import fill from ui
+import text from ui
+
+class ButtonState {
+  let enabled: Bool
+  let hovered: Bool
+  let pressed: Bool
+  let focused: Bool
+  let activated: Bool
+
+  new(enabled: Bool = true) {
+    self.enabled = enabled
+    self.hovered = false
+    self.pressed = false
+    self.focused = false
+    self.activated = false
+  }
+
+  fun set_enabled!(enabled: Bool): Void {
+    self.enabled = enabled
+    if enabled == false {
+      self.hovered = false
+      self.pressed = false
+      self.focused = false
+      self.activated = false
+    }
+  }
+
+  fun set_focused!(focused: Bool): Void {
+    if self.enabled { self.focused = focused }
+    if self.enabled == false { self.focused = false }
+  }
+
+  fun update_hover!(hovered: Bool): Void {
+    if self.enabled { self.hovered = hovered }
+    if self.enabled == false { self.hovered = false }
+  }
+
+  fun pointer_down!(): Void {
+    if self.enabled {
+      if self.hovered { self.pressed = true }
+    }
+  }
+
+  fun pointer_up!(): Void {
+    if self.enabled {
+      if self.pressed {
+        if self.hovered { self.activated = true }
+      }
+    }
+    self.pressed = false
+  }
+
+  fun keyboard_activate!(): Void {
+    if self.enabled {
+      if self.focused { self.activated = true }
+    }
+  }
+
+  fun take_activation!(): Bool {
+    let result = self.activated
+    self.activated = false
+    return result
+  }
+
+  fun cancel_interaction!(): Void {
+    self.hovered = false
+    self.pressed = false
+  }
+}
+
+class ToolbarFocus {
+  let index: Int64
+  let count: Int64
+
+  new(count: Int64) {
+    self.index = 0
+    self.count = count
+  }
+
+  fun next!(): Void { self.index = (self.index + 1) % self.count }
+  fun previous!(): Void { self.index = (self.index + self.count - 1) % self.count }
+  fun set!(index: Int64): Void {
+    if index >= 0 {
+      if index < self.count { self.index = index }
+    }
+  }
+}
+
+fun contains(pointer_x: Float64, pointer_y: Float64,
+             x: Float64, y: Float64, width: Float64, height: Float64): Bool {
+  if pointer_x < x { return false }
+  if pointer_y < y { return false }
+  if pointer_x >= x + width { return false }
+  if pointer_y >= y + height { return false }
+  return true
+}
+
+fun draw_button(state: ButtonState, x: Float64, y: Float64,
+                width: Float64, height: Float64, label: String): Void {
+  if state.enabled == false {
+    fill(x, y, width, height, 36, 55, 82)
+    text(x + 18.0, y + 14.0, label, 12.0, 142, 164, 188)
+  } else {
+    if state.pressed {
+      fill(x, y, width, height, 71, 174, 255)
+    } else {
+      if state.focused {
+        fill(x, y, width, height, 55, 125, 181)
+      } else {
+        if state.hovered {
+          fill(x, y, width, height, 23, 59, 94)
+        } else {
+          fill(x, y, width, height, 38, 78, 116)
+        }
+      }
+    }
+    text(x + 18.0, y + 14.0, label, 12.0, 245, 249, 255)
+  }
+}
+
+export ButtonState
+export ToolbarFocus
+export contains
+export draw_button

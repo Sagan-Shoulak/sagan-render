@@ -199,6 +199,32 @@ test hooks, checks captured BMP dimensions and content thresholds, and requires
 cleanup reports on D3D12, Vulkan, and Metal. Captures and the report are under
 ignored `build/loading-sagan-demo/`.
 
+## Toolbar and controls example
+
+On Windows in Git Bash:
+
+```bash
+SAGAN_EXECUTABLE=/path/to/pinned/sagan.exe bash scripts/toolbar_demo.sh
+```
+
+On Linux or macOS:
+
+```bash
+SAGAN_EXECUTABLE=/path/to/pinned/sagan bash scripts/toolbar_demo_portable.sh
+```
+
+The reusable behavior is in `libraries/render/src/controls.sagan`; the example
+composition is in `examples/toolbar_sagan_demo/src/main.sagan`. Tab, Shift+Tab,
+and arrow keys traverse enabled controls; Enter and Space activate; pointer
+motion, press, capture, and release use the same action path. The middle control
+is intentionally disabled. Narrow windows reflow the toolbar vertically.
+
+Focused CI compares captures rather than relying only on process success.
+Keyboard and pointer activation must be byte-identical; disabled activation
+must match idle; forward and reverse traversal must agree; hover and press must
+be visibly distinct; and horizontal/vertical runs must report cleanup. Evidence
+lives under ignored `build/toolbar-sagan-demo/`.
+
 ## Windows dev-channel package
 
 The minimum prerelease distribution is a source package for the compiler's
