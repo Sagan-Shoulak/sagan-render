@@ -12,3 +12,10 @@ AST, diagnostic, generator, and build infrastructure. Sagan Render's package
 and native bridge are consumed through that Sagan toolchain. This notice
 preserves the project lineage without claiming that every renderer file was
 copied from Schematic.
+
+The issue #15 GPU-foundation validation uses minimal compiled shader artifacts
+from TheSpydog/SDL_gpu_examples at the exact commit recorded in
+third_party/sdl-gpu-foundation-shaders.lock. SDL_gpu_examples is distributed
+under the zlib license. The matching HLSL sources are retained under
+shaders/foundation/ for review. These fixtures validate shader loading and are
+scheduled to be replaced by the project's own shader toolchain in issue #16.

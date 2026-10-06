@@ -39,6 +39,7 @@ bash tests/integration/window_contract_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
 bash tests/integration/sdl_window_probe_test.sh
+bash tests/integration/sdl_gpu_triangle_probe_test.sh
 ```
 
 The contract test has no display dependency and validates logical and drawable
@@ -89,8 +90,39 @@ bash tests/integration/sdl_window_probe_portable_test.sh
 On headless Linux, run the script through `xvfb-run --auto-servernum`. The
 source archive and its digest are recorded in `third_party/sdl3.lock`; never
 silently substitute a system SDL version. The probe's software-surface drawing
-exists only to provide inspectable pixels while the later SDL GPU work is taught
-and developed separately.
+exists only to isolate window behavior from the separate GPU validation below.
+
+## Cross-platform SDL GPU foundation
+
+The GPU probe creates a real backend device, renders a bufferless RGB triangle
+into a deterministic 256×256 offscreen texture, blits that texture to the
+window swapchain, downloads it through a transfer buffer, and validates the
+returned pixels before retaining a BMP. Windows explicitly requires D3D12 and
+DXIL; Linux requires Vulkan and SPIR-V; macOS requires Metal and MSL.
+
+On Windows in Git Bash:
+
+```bash
+bash tests/integration/sdl_gpu_triangle_probe_test.sh
+```
+
+On Linux or macOS after installing the platform dependencies described above:
+
+```bash
+bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
+```
+
+Headless Linux must run the portable test through `xvfb-run --auto-servernum`
+and have a Vulkan implementation such as Mesa lavapipe. Both scripts download
+only the pinned bootstrap shader fixtures and reject checksum mismatches. The
+fixtures validate shader loading; issue #16 replaces them with the project's
+own ahead-of-time shader toolchain.
+
+The generated capture and report live under ignored `build/sdl-gpu/`. A passing
+test requires device, command-buffer, render-pass, swapchain, triangle, fence,
+readback, and cleanup evidence. If the SDL foundation must be rolled back,
+retain the current Win32 bridge and revert the SDL probe/shader changes as one
+unit; current package-facing canvas behavior does not depend on them.
 
 ## Windows dev-channel package
 

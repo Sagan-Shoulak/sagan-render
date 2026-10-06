@@ -3,10 +3,10 @@ name: Renderer foundation
 on:
   push:
     branches: [dev, main]
-    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "third_party/**", "sagan-source-commit.txt"]
+    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "shaders/**", "tests/**", "scripts/**", "third_party/**", "sagan-source-commit.txt"]
   pull_request:
     branches: [dev, main]
-    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "tests/**", "scripts/**", "third_party/**", "sagan-source-commit.txt"]
+    paths: [".github/workflows/render.yml", "libraries/**", "examples/**", "shaders/**", "tests/**", "scripts/**", "third_party/**", "sagan-source-commit.txt"]
   workflow_dispatch:
 
 permissions:
@@ -56,10 +56,14 @@ jobs:
           bash tests/integration/window_bridge_test.sh
           bash tests/integration/shape_text_test.sh
           bash tests/integration/sdl_window_probe_test.sh
+          bash tests/integration/sdl_gpu_triangle_probe_test.sh
       - uses: actions/upload-artifact@v6
         with:
-          name: sdl-window-windows
-          path: render/build/sdl-window/sdl-window.bmp
+          name: renderer-foundation-windows
+          path: |
+            render/build/sdl-window/sdl-window.bmp
+            render/build/sdl-gpu/sdl-gpu-triangle.bmp
+            render/build/sdl-gpu/sdl-gpu-report.txt
           if-no-files-found: error
 
   portable-sdl-window-probe:
@@ -77,18 +81,25 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build xvfb libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libdbus-1-dev libudev-dev libgl1-mesa-dev libegl1-mesa-dev
+          sudo apt-get install -y ninja-build xvfb mesa-vulkan-drivers vulkan-tools libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libdbus-1-dev libudev-dev libgl1-mesa-dev libegl1-mesa-dev
       - name: Install macOS build dependency
         if: runner.os == 'macOS'
         run: brew install ninja
       - name: Build SDL and run Linux window probe under Xvfb
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum bash tests/integration/sdl_window_probe_portable_test.sh
+        run: |
+          xvfb-run --auto-servernum bash tests/integration/sdl_window_probe_portable_test.sh
+          xvfb-run --auto-servernum bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - name: Build SDL and run macOS window probe
         if: runner.os == 'macOS'
-        run: bash tests/integration/sdl_window_probe_portable_test.sh
+        run: |
+          bash tests/integration/sdl_window_probe_portable_test.sh
+          bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - uses: actions/upload-artifact@v6
         with:
-          name: sdl-window-${{ runner.os }}
-          path: build/sdl-window/sdl-window.bmp
+          name: renderer-foundation-${{ runner.os }}
+          path: |
+            build/sdl-window/sdl-window.bmp
+            build/sdl-gpu/sdl-gpu-triangle.bmp
+            build/sdl-gpu/sdl-gpu-report.txt
           if-no-files-found: error
