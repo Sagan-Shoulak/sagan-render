@@ -81,7 +81,16 @@ deleting or repairing it. After building the static CLI, it executes
 `build/shader-toolchain/toolchain-report.txt`.
 
 CI runs this complete build and smoke test on Ubuntu. The report explicitly
-states that runtime artifacts were not replaced. The next chunk must compile
-the project-owned material shader into all three formats and add deterministic
-artifact and reflection validation before any generated files replace the
-bootstrap fixtures.
+states that runtime artifacts were not replaced.
+
+`scripts/generate-material-shaders-linux.sh` then compiles both stages of
+`shaders/material/lit_mesh.hlsl` to DXIL, SPIR-V, MSL, and reflection JSON. It
+records source, manifest, tool, and artifact hashes beside those outputs. CI
+generates the complete set twice, validates each binary or textual format and
+the declared resource counts, and requires the two directories to be
+byte-identical. The reviewed output directory is retained as CI evidence.
+
+These generated files still do not replace the bootstrap runtime fixtures.
+The next boundary is to review the backend entry-point metadata, commit an
+artifact-consumption policy, and load the project-owned shaders in an actual
+depth-tested GPU pipeline.
