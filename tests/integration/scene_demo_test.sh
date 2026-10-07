@@ -25,6 +25,12 @@ fingerprint() {
   read -r checksum bytes ignored < <(cksum "$1")
   printf '%s:%s' "$checksum" "$bytes"
 }
+require_capture() {
+  if [[ ! -f "$1" ]]; then
+    echo "Expected scene capture was not created: $1" >&2
+    exit 1
+  fi
+}
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-reframed.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
@@ -45,6 +51,10 @@ export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bm
 export SAGAN_RENDER_TEST_KEY=right
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
+require_capture build/scene-sagan-demo-test/scene-idle.bmp
+require_capture build/scene-sagan-demo-test/scene-reframed.bmp
+require_capture build/scene-sagan-demo-test/scene-camera-turned.bmp
+require_capture build/scene-sagan-demo-test/scene-zoomed.bmp
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=direct3d12 logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
 [[ "$(od -An -td4 -j18 -N8 build/scene-sagan-demo-test/scene-idle.bmp | tr -s ' ' | sed 's/^ //;s/ $//')" == "960 540" ]]
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \

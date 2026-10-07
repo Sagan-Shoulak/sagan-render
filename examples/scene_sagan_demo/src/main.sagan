@@ -48,6 +48,15 @@ fun wrapped_angle(value: Float64): Float64 {
 /// in sagan-physics; the renderer receives only the resulting snapshots.
 fun demo_sine(value: Float64): Float64 {
   let angle = wrapped_angle(value)
+  // Reduce to [-pi/2, pi/2] before evaluating the polynomial. Evaluating the
+  // truncated series near +/-pi produced a visible seam and a non-circular
+  // orbit guide even though the body and guide shared the same nominal radius.
+  if angle > 1.5707963267948966 {
+    angle = 3.141592653589793 - angle
+  }
+  if angle < 0.0 - 1.5707963267948966 {
+    angle = 0.0 - 3.141592653589793 - angle
+  }
   let squared = angle * angle
   return angle * (1.0 - squared / 6.0 + squared * squared / 120.0 -
                   squared * squared * squared / 5040.0)
@@ -55,9 +64,18 @@ fun demo_sine(value: Float64): Float64 {
 
 fun demo_cosine(value: Float64): Float64 {
   let angle = wrapped_angle(value)
+  let sign = 1.0
+  if angle > 1.5707963267948966 {
+    angle = 3.141592653589793 - angle
+    sign = 0.0 - 1.0
+  }
+  if angle < 0.0 - 1.5707963267948966 {
+    angle = 0.0 - 3.141592653589793 - angle
+    sign = 0.0 - 1.0
+  }
   let squared = angle * angle
-  return 1.0 - squared / 2.0 + squared * squared / 24.0 -
-         squared * squared * squared / 720.0
+  return sign * (1.0 - squared / 2.0 + squared * squared / 24.0 -
+                 squared * squared * squared / 720.0)
 }
 
 fun clamp_pitch(value: Float64): Float64 {
@@ -140,7 +158,8 @@ fun draw_object(value: SpatialRenderable,
   if depth_visible(forward_depth, item.radius(),
                    1.0 kilometer, 1000000000.0 kilometer) {
     let logical_x = viewport_x + perspective_axis(
-      camera_right, forward_depth, 0.577350269, viewport_width)
+      camera_right * viewport_height / viewport_width,
+      forward_depth, 0.577350269, viewport_width)
     let logical_y = viewport_y + perspective_axis(
       0.0 meter - camera_up, forward_depth,
       0.577350269, viewport_height)
@@ -167,7 +186,8 @@ fun draw_object(value: SpatialRenderable,
 fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
                 camera_y: Float64<meter>, camera_z: Float64<meter>,
                 camera_yaw: Float64, camera_pitch: Float64,
-                viewport_x: Float64, viewport_width: Float64): Float64 {
+                viewport_x: Float64, viewport_width: Float64,
+                viewport_height: Float64): Float64 {
   let item: RenderSample = sample(value)
   let pitch_cosine = demo_cosine(camera_pitch)
   let pitch_sine = demo_sine(camera_pitch)
@@ -181,7 +201,8 @@ fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
                       relative_y * pitch_sine -
                       relative_z * yaw_cosine * pitch_cosine
   return viewport_x + perspective_axis(
-    camera_right, forward_depth, 0.577350269, viewport_width)
+    camera_right * viewport_height / viewport_width,
+    forward_depth, 0.577350269, viewport_width)
 }
 
 fun projected_y(value: SpatialRenderable, camera_x: Float64<meter>,
@@ -247,11 +268,13 @@ fun draw_orbit(center_x: Float64<meter>, center_y: Float64<meter>,
     if previous_depth > 1000.0 kilometer {
       if current_depth > 1000.0 kilometer {
         line(projected_x(previous, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_x, viewport_width),
+                         camera_yaw, camera_pitch, viewport_x,
+                         viewport_width, viewport_height),
              projected_y(previous, camera_x, camera_y, camera_z,
                          camera_yaw, camera_pitch, viewport_y, viewport_height),
              projected_x(current, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_x, viewport_width),
+                         camera_yaw, camera_pitch, viewport_x,
+                         viewport_width, viewport_height),
              projected_y(current, camera_x, camera_y, camera_z,
                          camera_yaw, camera_pitch, viewport_y, viewport_height),
              1.25, viewport_x, viewport_y, viewport_width, viewport_height,
@@ -429,7 +452,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if pick_circle(click_x, click_y,
                        projected_x(first, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,
-                                   viewport_x, viewport_width),
+                                   viewport_x, viewport_width, viewport_height),
                        projected_y(first, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),
@@ -437,7 +460,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if pick_circle(click_x, click_y,
                        projected_x(second, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,
-                                   viewport_x, viewport_width),
+                                   viewport_x, viewport_width, viewport_height),
                        projected_y(second, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),
@@ -445,7 +468,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if pick_circle(click_x, click_y,
                        projected_x(third, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,
-                                   viewport_x, viewport_width) +
+                                   viewport_x, viewport_width, viewport_height) +
                          moon_marker_offset(camera_z, third),
                        projected_y(third, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,

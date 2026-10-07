@@ -306,9 +306,11 @@ and the final lighting pipeline. Replacing the impostor must not change stable
 IDs, unit-typed positions/radii, camera focus, or snapshot ownership.
 
 The demonstration advances an Earth phase and a faster Moon phase with a
-bounded Taylor approximation of sine and cosine, then constructs fresh
-presentation objects for the frame. This is intentionally bare-bones circular
-motion, not an orbital integrator: it has no masses, forces, energy model,
+quadrant-reduced Taylor approximation of sine and cosine, then constructs fresh
+presentation objects for the frame. Reducing each angle to the polynomial's
+accurate interval prevents a seam where a sampled path wraps through pi. This is
+intentionally bare-bones circular motion, not an orbital integrator: it has no
+masses, forces, energy model,
 ephemeris, error control, or persistent mutable body state. A later application
 can replace the generator with versioned `sagan-physics` snapshots without
 changing renderer APIs.
@@ -553,6 +555,10 @@ projects adjacent samples and submits clipped logical line segments. The
 renderer knows only line geometry; it contains no period, eccentricity,
 gravity, or integration rule. These circular demo paths appear as ellipses
 under perspective and can later be replaced by conic samples from physics.
+Their logical projection uses the viewport center from its width but the same
+height-based focal scale and aspect correction as the GPU mesh projection;
+therefore a body's center and the matching sampled guide share one screen
+position even when the window is not square.
 
 The native queue boundary culls any sphere whose center is at or behind the
 camera near plane. A large radius can geometrically cross that plane while its
