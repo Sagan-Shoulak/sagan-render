@@ -571,18 +571,20 @@ continuously from its starting position toward center and cannot grow beyond
 its initially visible position. Squaring the eased scale progress tempers the
 initial acceleration across very large family-scale changes without adding a
 new phase boundary. Ancestor focus uses leading zoom and trailing pan, since
-revealing more context cannot hide the selected destination: zoom-out finishes over the
-first 75 percent of eased progress and pan begins only after 70 percent. The
-narrow overlap avoids a stop. Both ends of the interpolation are refreshed
-from live presentation snapshots, so an orbiting descendant cannot leave the
-viewport merely because the camera remained at its activation-time position.
+revealing more context cannot hide the selected destination: zoom-out finishes
+over the first 75 percent of eased progress and pan begins only after 70
+percent. The narrow overlap avoids a stop. Both ends of the interpolation are
+refreshed from live presentation snapshots, so an orbiting descendant cannot
+leave the viewport merely because the camera remained at its activation-time
+position. An ancestor transition expanding camera distance by more than 1,000
+times uses 4.5 seconds, giving the late pan enough time at Moon-to-Sun scale.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.
 
 The demo starts 30 degrees above the orbital horizon. Vertical right-drag uses
 the owner's inverted pitch direction, while horizontal right-drag remains yaw.
-A focus transition lasts three seconds so its eased motion is plainly visible.
+An ordinary focus transition lasts three seconds so its eased motion is plainly visible.
 Pressing Enter for the already active focus is a no-op: it neither restarts the
 ease nor resets a user-adjusted zoom distance.
 

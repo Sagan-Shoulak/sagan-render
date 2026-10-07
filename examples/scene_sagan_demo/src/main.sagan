@@ -38,6 +38,7 @@ const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
 const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
+const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 4.5
 
 fun wrapped_angle(value: Float64): Float64 {
   let result = value
@@ -433,6 +434,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focus_target_z = orbit_target_z
   let focus_target_distance = camera_distance
   let focus_started = 0.0
+  let focus_duration = FOCUS_DURATION_SECONDS
   let focusing = false
   let focus_source_identifier: Int64 = 0
   let focused_identifier: Int64 = 0
@@ -526,6 +528,10 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           focus_target_y = selected_target_y(selection.identifier(), first, second, third)
           focus_target_z = selected_target_z(selection.identifier(), first, second, third)
           focus_target_distance = selected_view_distance(selection.identifier())
+          focus_duration = FOCUS_DURATION_SECONDS
+          if focus_target_distance > focus_start_distance * 1000.0 {
+            focus_duration = LARGE_SCALE_FOCUS_DURATION_SECONDS
+          }
           focus_started = elapsed_seconds()
           focusing = true
           focus_source_identifier = focused_identifier
@@ -541,6 +547,10 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         focus_target_y = system_target_y
         focus_target_z = system_target_z
         focus_target_distance = CAMERA_DEPTH
+        focus_duration = FOCUS_DURATION_SECONDS
+        if focus_target_distance > focus_start_distance * 1000.0 {
+          focus_duration = LARGE_SCALE_FOCUS_DURATION_SECONDS
+        }
         focus_started = elapsed_seconds()
         focusing = true
         focus_source_identifier = focused_identifier
@@ -556,7 +566,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           focus_target_y = selected_target_y(focused_identifier, first, second, third)
           focus_target_z = selected_target_z(focused_identifier, first, second, third)
         }
-        let base_progress = focus_progress(focus_elapsed, FOCUS_DURATION_SECONDS)
+        let base_progress = focus_progress(focus_elapsed, focus_duration)
         let pan_progress = base_progress
         let zoom_progress = base_progress
         if focus_target_distance < focus_start_distance {
@@ -596,7 +606,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         orbit_target_x = focus_axis_at(live_start_x, focus_target_x, pan_progress)
         orbit_target_y = focus_axis_at(live_start_y, focus_target_y, pan_progress)
         orbit_target_z = focus_axis_at(live_start_z, focus_target_z, pan_progress)
-        if focus_elapsed >= FOCUS_DURATION_SECONDS { focusing = false }
+        if focus_elapsed >= focus_duration { focusing = false }
       }
       if focusing == false {
         if focused_identifier > 0 {
