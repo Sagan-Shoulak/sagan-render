@@ -8,6 +8,7 @@ import height from render.ui
 import begin from render.ui
 import fill from render.ui
 import text from render.ui
+import mesh_sphere from render.ui
 import present from render.ui
 import key_pressed from render.ui
 import pointer_pressed from render.ui
@@ -23,7 +24,6 @@ import depth_visible from render.scene
 import SelectionState from render.scene
 import smooth_focus_axis from render.scene
 import pick_circle from render.scene
-import draw_sphere_impostor from render.bodies
 
 const DISTANT_ORIGIN: Float64<meter> = 1000000000000.0 kilometer
 const CAMERA_DEPTH: Float64<meter> = 200000000.0 kilometer
@@ -54,6 +54,12 @@ fun demo_cosine(value: Float64): Float64 {
   let squared = angle * angle
   return 1.0 - squared / 2.0 + squared * squared / 24.0 -
          squared * squared * squared / 720.0
+}
+
+fun clamp_pitch(value: Float64): Float64 {
+  if value > 1.45 { return 1.45 }
+  if value < 0.0 - 1.45 { return 0.0 - 1.45 }
+  return value
 }
 
 class PresentationObject has SpatialRenderable {
@@ -94,17 +100,32 @@ fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float
 
 fun draw_object(value: SpatialRenderable,
                 camera_x: Float64<meter>, camera_y: Float64<meter>,
-                camera_z: Float64<meter>, viewport_x: Float64,
+                camera_z: Float64<meter>, camera_yaw: Float64,
+                camera_pitch: Float64, viewport_x: Float64,
                 viewport_y: Float64, viewport_width: Float64,
                 viewport_height: Float64, selected: Bool): Void {
   let item: RenderSample = sample(value)
-  let forward_depth = camera_z - item.z()
+  let pitch_cosine = demo_cosine(camera_pitch)
+  let pitch_sine = demo_sine(camera_pitch)
+  let yaw_cosine = demo_cosine(camera_yaw)
+  let yaw_sine = demo_sine(camera_yaw)
+  let forward_x = yaw_sine * pitch_cosine
+  let forward_y = pitch_sine
+  let forward_z = 0.0 - yaw_cosine * pitch_cosine
+  let relative_x = relative_axis(item.x(), camera_x)
+  let relative_y = relative_axis(item.y(), camera_y)
+  let relative_z = relative_axis(item.z(), camera_z)
+  let camera_right = relative_x * yaw_cosine + relative_z * yaw_sine
+  let camera_up = relative_x * (0.0 - yaw_sine * pitch_sine) +
+                  relative_y * pitch_cosine + relative_z * yaw_cosine * pitch_sine
+  let forward_depth = relative_x * forward_x + relative_y * forward_y +
+                      relative_z * forward_z
   if depth_visible(forward_depth, item.radius(),
                    1.0 kilometer, 1000000000.0 kilometer) {
     let logical_x = viewport_x + perspective_axis(
-      relative_axis(item.x(), camera_x), forward_depth, 0.577350269, viewport_width)
+      camera_right, forward_depth, 0.577350269, viewport_width)
     let logical_y = viewport_y + perspective_axis(
-      0.0 meter - relative_axis(item.y(), camera_y), forward_depth,
+      0.0 meter - camera_up, forward_depth,
       0.577350269, viewport_height)
     let minimum_radius = 7.0
     if item.identifier() == 1 { minimum_radius = 22.0 }
@@ -114,29 +135,57 @@ fun draw_object(value: SpatialRenderable,
     }
     let projected_radius = maximum(minimum_radius,
       (item.radius() / forward_depth) / 0.577350269 * viewport_height / 2.0)
-    draw_sphere_impostor(logical_x, logical_y, projected_radius,
-                         item.identifier(), selected)
+    mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
+                camera_x, camera_y, camera_z,
+                forward_x, forward_y, forward_z,
+                0.0, 1.0, 0.0, 1.0471975511965976,
+                1000.0 kilometer, 500000000.0 kilometer,
+                item.x(), item.y(), item.z(), item.radius(),
+                item.identifier(), minimum_radius, selected)
     text(logical_x + projected_radius + 7.0, logical_y - 5.0,
          item.label(), 10.0, 245, 249, 255)
   }
 }
 
 fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
-                camera_z: Float64<meter>,
+                camera_y: Float64<meter>, camera_z: Float64<meter>,
+                camera_yaw: Float64, camera_pitch: Float64,
                 viewport_x: Float64, viewport_width: Float64): Float64 {
   let item: RenderSample = sample(value)
-  let forward_depth = camera_z - item.z()
+  let pitch_cosine = demo_cosine(camera_pitch)
+  let pitch_sine = demo_sine(camera_pitch)
+  let yaw_cosine = demo_cosine(camera_yaw)
+  let yaw_sine = demo_sine(camera_yaw)
+  let relative_x = relative_axis(item.x(), camera_x)
+  let relative_y = relative_axis(item.y(), camera_y)
+  let relative_z = relative_axis(item.z(), camera_z)
+  let camera_right = relative_x * yaw_cosine + relative_z * yaw_sine
+  let forward_depth = relative_x * yaw_sine * pitch_cosine +
+                      relative_y * pitch_sine -
+                      relative_z * yaw_cosine * pitch_cosine
   return viewport_x + perspective_axis(
-    relative_axis(item.x(), camera_x), forward_depth, 0.577350269, viewport_width)
+    camera_right, forward_depth, 0.577350269, viewport_width)
 }
 
-fun projected_y(value: SpatialRenderable, camera_y: Float64<meter>,
-                camera_z: Float64<meter>,
+fun projected_y(value: SpatialRenderable, camera_x: Float64<meter>,
+                camera_y: Float64<meter>, camera_z: Float64<meter>,
+                camera_yaw: Float64, camera_pitch: Float64,
                 viewport_y: Float64, viewport_height: Float64): Float64 {
   let item: RenderSample = sample(value)
-  let forward_depth = camera_z - item.z()
+  let pitch_cosine = demo_cosine(camera_pitch)
+  let pitch_sine = demo_sine(camera_pitch)
+  let yaw_cosine = demo_cosine(camera_yaw)
+  let yaw_sine = demo_sine(camera_yaw)
+  let relative_x = relative_axis(item.x(), camera_x)
+  let relative_y = relative_axis(item.y(), camera_y)
+  let relative_z = relative_axis(item.z(), camera_z)
+  let camera_up = relative_x * (0.0 - yaw_sine * pitch_sine) +
+                  relative_y * pitch_cosine + relative_z * yaw_cosine * pitch_sine
+  let forward_depth = relative_x * yaw_sine * pitch_cosine +
+                      relative_y * pitch_sine -
+                      relative_z * yaw_cosine * pitch_cosine
   return viewport_y + perspective_axis(
-    0.0 meter - relative_axis(item.y(), camera_y), forward_depth,
+    0.0 meter - camera_up, forward_depth,
     0.577350269, viewport_height)
 }
 
@@ -165,7 +214,8 @@ fun selected_camera_z(identifier: Int64,
 }
 
 fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
-            camera_z: Float64<meter>, selection: SelectionState,
+            camera_z: Float64<meter>, camera_yaw: Float64,
+            camera_pitch: Float64, selection: SelectionState,
             first: SpatialRenderable, second: SpatialRenderable,
             third: SpatialRenderable): Void {
   let window_width = width()
@@ -177,18 +227,40 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(24.0, 22.0, "SUN - EARTH - MOON SNAPSHOT", 16.0, 245, 249, 255)
-  text(24.0, 48.0, "LEFT/RIGHT: SELECT | ENTER: FOCUS | R: SYSTEM | CLICK: PICK", 10.0,
+  text(24.0, 48.0, "LEFT/RIGHT: SELECT | ENTER: FOCUS | WASD: LOOK | Q/E: DOLLY", 10.0,
        142, 203, 255)
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
-  draw_object(first, camera_x, camera_y, camera_z,
+  draw_object(first, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(1))
-  draw_object(second, camera_x, camera_y, camera_z,
+  draw_object(second, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(2))
-  draw_object(third, camera_x, camera_y, camera_z,
+  draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(3))
+  let earth_sample = sample(second)
+  let moon_sample = sample(third)
+  let inset_width = 300.0
+  let inset_height = 150.0
+  let inset_x = viewport_x + viewport_width - inset_width - 16.0
+  let inset_y = viewport_y + viewport_height - inset_height - 16.0
+  fill(inset_x - 3.0, inset_y - 3.0, inset_width + 6.0, inset_height + 6.0,
+       142, 203, 255)
+  fill(inset_x, inset_y, inset_width, inset_height, 2, 6, 11)
+  let inset_camera_x = earth_sample.x() +
+                       (moon_sample.x() - earth_sample.x()) / 2.0
+  let inset_camera_y = earth_sample.y() +
+                       (moon_sample.y() - earth_sample.y()) / 2.0
+  let inset_camera_z = earth_sample.z() + 1000000.0 kilometer
+  draw_object(second, inset_camera_x, inset_camera_y, inset_camera_z, 0.0, 0.0,
+              inset_x, inset_y, inset_width, inset_height,
+              selection.is_selected(2))
+  draw_object(third, inset_camera_x, inset_camera_y, inset_camera_z, 0.0, 0.0,
+              inset_x, inset_y, inset_width, inset_height,
+              selection.is_selected(3))
+  text(inset_x + 10.0, inset_y + 10.0, "EARTH-MOON PHYSICAL INSET", 8.0,
+       245, 249, 255)
   text(24.0, window_height - 28.0,
        "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
        142, 164, 188)
@@ -201,6 +273,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let camera_x = DISTANT_ORIGIN + EARTH_DISTANCE / 2.0
   let camera_y = DISTANT_ORIGIN
   let camera_z = DISTANT_ORIGIN
+  let camera_yaw = 0.0
+  let camera_pitch = 0.0
   let system_camera_x = camera_x
   let system_camera_y = camera_y
   let system_camera_z = camera_z
@@ -243,6 +317,26 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if next > 3 { next = 1 }
         selection.select!(next)
       }
+      if key_pressed("a") { camera_yaw = wrapped_angle(camera_yaw - 0.12) }
+      if key_pressed("d") { camera_yaw = wrapped_angle(camera_yaw + 0.12) }
+      if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
+      if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
+      let look_pitch_cosine = demo_cosine(camera_pitch)
+      let look_forward_x = demo_sine(camera_yaw) * look_pitch_cosine
+      let look_forward_y = demo_sine(camera_pitch)
+      let look_forward_z = 0.0 - demo_cosine(camera_yaw) * look_pitch_cosine
+      if key_pressed("q") {
+        camera_x = camera_x - look_forward_x * 10000000.0 kilometer
+        camera_y = camera_y - look_forward_y * 10000000.0 kilometer
+        camera_z = camera_z - look_forward_z * 10000000.0 kilometer
+        focused_identifier = 0
+      }
+      if key_pressed("e") {
+        camera_x = camera_x + look_forward_x * 10000000.0 kilometer
+        camera_y = camera_y + look_forward_y * 10000000.0 kilometer
+        camera_z = camera_z + look_forward_z * 10000000.0 kilometer
+        focused_identifier = 0
+      }
       let viewport_x = 24.0
       let viewport_y = 76.0
       let viewport_width = width() - 48.0
@@ -251,22 +345,28 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let click_x = pointer_x()
         let click_y = pointer_y()
         if pick_circle(click_x, click_y,
-                       projected_x(first, camera_x, camera_z,
+                       projected_x(first, camera_x, camera_y, camera_z,
+                                   camera_yaw, camera_pitch,
                                    viewport_x, viewport_width),
-                       projected_y(first, camera_y, camera_z,
+                       projected_y(first, camera_x, camera_y, camera_z,
+                                   camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),
                        34.0) { selection.select!(1) }
         if pick_circle(click_x, click_y,
-                       projected_x(second, camera_x, camera_z,
+                       projected_x(second, camera_x, camera_y, camera_z,
+                                   camera_yaw, camera_pitch,
                                    viewport_x, viewport_width),
-                       projected_y(second, camera_y, camera_z,
+                       projected_y(second, camera_x, camera_y, camera_z,
+                                   camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(2) }
         if pick_circle(click_x, click_y,
-                       projected_x(third, camera_x, camera_z,
+                       projected_x(third, camera_x, camera_y, camera_z,
+                                   camera_yaw, camera_pitch,
                                    viewport_x, viewport_width) +
                          moon_marker_offset(camera_z, third),
-                       projected_y(third, camera_y, camera_z,
+                       projected_y(third, camera_x, camera_y, camera_z,
+                                   camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(3) }
       }
@@ -305,7 +405,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           camera_y = selected_target_y(focused_identifier, first, second, third)
         }
       }
-      compose(camera_x, camera_y, camera_z, selection, first, second, third)
+      compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              selection, first, second, third)
     }
   }
   close()

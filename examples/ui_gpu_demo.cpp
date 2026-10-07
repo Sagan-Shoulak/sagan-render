@@ -4,11 +4,13 @@
 #include "../libraries/render/native/ui_contract.hpp"
 #include "../libraries/render/native/ui_draw_list.hpp"
 #include "../libraries/render/native/ui_gpu_bridge.hpp"
+#include "../libraries/render/native/scene_gpu_pass.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -261,6 +263,8 @@ namespace
     SDL_GPUTexture *target{};
     SDL_GPUTexture *palette_texture{};
     SDL_GPUTransferBuffer *download{};
+    std::unique_ptr<sagan_render::scene_gpu::indexed_sphere_pass> scene_pass;
+    std::vector<sagan_render::scene_gpu::sphere_draw> scene_draws;
     bool claimed{};
     std::uint32_t target_width{};
     std::uint32_t target_height{};
@@ -362,6 +366,7 @@ namespace
     ~gpu_compositor()
     {
       if (device) SDL_WaitForGPUIdle(device);
+      scene_pass.reset();
       if (download) SDL_ReleaseGPUTransferBuffer(device, download);
       if (palette_texture) SDL_ReleaseGPUTexture(device, palette_texture);
       if (target) SDL_ReleaseGPUTexture(device, target);
@@ -373,6 +378,15 @@ namespace
 
     auto native_window() const -> SDL_Window * { return window; }
     auto driver() const -> const char * { return SDL_GetGPUDeviceDriver(device); }
+
+    auto begin_scene() -> void { scene_draws.clear(); }
+
+    auto mesh_sphere(sagan_render::scene_gpu::sphere_draw draw) -> void
+    {
+      if (!scene_pass)
+        scene_pass = std::make_unique<sagan_render::scene_gpu::indexed_sphere_pass>(device);
+      scene_draws.push_back(std::move(draw));
+    }
 
     auto resize(const std::uint32_t width, const std::uint32_t height) -> bool
     {
@@ -413,6 +427,31 @@ namespace
           blit.load_op = SDL_GPU_LOADOP_LOAD;
           blit.filter = SDL_GPU_FILTER_NEAREST;
           SDL_BlitGPUTexture(commands, &blit);
+        }
+        if (scene_pass && !scene_draws.empty())
+        {
+          const sagan::render::LightingUniform lighting{
+            {0.28F, 0.28F, 0.3F, 0.0F},
+            {-0.45F, 0.55F, 0.7F, 0.95F},
+            {1.0F, 0.95F, 0.86F, 0.0F}};
+          std::size_t first{};
+          while (first < scene_draws.size())
+          {
+            std::size_t last = first + 1;
+            const auto viewport = scene_draws[first].target;
+            while (last < scene_draws.size() &&
+                   scene_draws[last].target.x == viewport.x &&
+                   scene_draws[last].target.y == viewport.y &&
+                   scene_draws[last].target.width == viewport.width &&
+                   scene_draws[last].target.height == viewport.height)
+              ++last;
+            const std::vector<sagan_render::scene_gpu::sphere_draw> view_draws{
+              scene_draws.begin() + static_cast<std::ptrdiff_t>(first),
+              scene_draws.begin() + static_cast<std::ptrdiff_t>(last)};
+            scene_pass->render(
+              commands, target, target_width, target_height, view_draws, lighting);
+            first = last;
+          }
         }
       }
 
@@ -459,7 +498,9 @@ namespace
                           pixels[index * bytes_per_pixel + 2], pixels[index * bytes_per_pixel + 3]};
         if (value == white) ++white_pixels;
         if (value == modal) ++modal_pixels;
-        if (value == earth) ++earth_pixels;
+        if (value == earth ||
+            (value.blue > value.red + 25 && value.blue > value.green + 20))
+          ++earth_pixels;
       }
       const char *require_earth_value = std::getenv("SAGAN_RENDER_UI_REQUIRE_EARTH");
       const bool require_earth = !require_earth_value || std::string_view{require_earth_value} != "0";
@@ -722,6 +763,12 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
       else if (event.key.key == SDLK_RIGHT) remember_key("right");
       else if (event.key.key == SDLK_UP) remember_key("up");
       else if (event.key.key == SDLK_DOWN) remember_key("down");
+      else if (event.key.key == SDLK_A) remember_key("a");
+      else if (event.key.key == SDLK_D) remember_key("d");
+      else if (event.key.key == SDLK_W) remember_key("w");
+      else if (event.key.key == SDLK_S) remember_key("s");
+      else if (event.key.key == SDLK_Q) remember_key("q");
+      else if (event.key.key == SDLK_E) remember_key("e");
     }
     else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
@@ -785,6 +832,7 @@ auto sagan_5f5f72656e6465725f75695f626567696e() -> void
   update_bridge_size();
   bridge_list = std::make_unique<draw_list>(
     rectangle{0.0, 0.0, static_cast<double>(bridge_width), static_cast<double>(bridge_height)});
+  bridge_gpu->begin_scene();
 }
 
 auto sagan_5f5f72656e6465725f75695f66696c6c(
@@ -802,6 +850,46 @@ auto sagan_5f5f72656e6465725f75695f74657874(
   if (!bridge_list) throw std::runtime_error("UI text requires begin");
   draw_text(*bridge_list, bridge_shaper, {x, y}, value, height,
             bridge_color(red, green, blue));
+}
+
+auto sagan_5f5f72656e6465725f75695f6d6573685f737068657265(
+  const double viewport_x, const double viewport_y,
+  const double viewport_width, const double viewport_height,
+  const double camera_x, const double camera_y, const double camera_z,
+  const double forward_x, const double forward_y, const double forward_z,
+  const double up_x, const double up_y, const double up_z,
+  const double field_of_view, const double near_distance,
+  const double far_distance, const double body_x, const double body_y,
+  const double body_z, const double radius, const std::int64_t appearance,
+  const double minimum_radius, const bool selected) -> void
+{
+  if (!bridge_gpu || !bridge_list)
+    throw std::runtime_error("UI mesh sphere requires begin");
+  const sagan_render::scene::direction3 forward{forward_x, forward_y, forward_z};
+  const sagan_render::scene::length3 relative{
+    body_x - camera_x, body_y - camera_y, body_z - camera_z};
+  if (sagan_render::scene::dot(relative, forward) + radius <= near_distance)
+    return;
+  sagan::render::MaterialUniform material{};
+  if (appearance == 1)
+    material = {{0.95F, 0.48F, 0.03F, 1.0F}, {0.43F, 0.22F, 0.01F, 0.55F}};
+  else if (appearance == 2)
+    material = {{0.04F, 0.18F, 0.92F, 1.0F}, {0.0F, 0.01F, 0.03F, 0.7F}};
+  else
+    material = {{0.48F, 0.52F, 0.58F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.85F}};
+  if (selected)
+  {
+    material.emissive_linear_and_roughness.x += 0.04F;
+    material.emissive_linear_and_roughness.y += 0.08F;
+    material.emissive_linear_and_roughness.z += 0.14F;
+  }
+  bridge_gpu->mesh_sphere({
+    {static_cast<std::uint64_t>(appearance), {body_x, body_y, body_z}, radius, ""},
+    {{camera_x, camera_y, camera_z}, {forward_x, forward_y, forward_z},
+     {up_x, up_y, up_z}, field_of_view, near_distance, far_distance},
+    {static_cast<float>(viewport_x), static_cast<float>(viewport_y),
+     static_cast<float>(viewport_width), static_cast<float>(viewport_height)},
+    {minimum_radius}, material});
 }
 
 auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void

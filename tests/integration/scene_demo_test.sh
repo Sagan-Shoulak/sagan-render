@@ -20,10 +20,15 @@ TMPDIR="$native_tmp" TMP="$native_tmp" TEMP="$native_tmp" \
 cp "$sdl_root/bin/SDL3.dll" build/scene-sagan-demo-test/SDL3.dll
 
 report="build/scene-sagan-demo-test/scene-demo-report.txt"
-rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-reframed.bmp
+rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
+  build/scene-sagan-demo-test/scene-reframed.bmp \
+  build/scene-sagan-demo-test/scene-camera-turned.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-camera-turned.bmp
+export SAGAN_RENDER_TEST_KEY=d
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bmp
 export SAGAN_RENDER_TEST_KEY=right
@@ -35,4 +40,8 @@ if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test
   echo "Camera reframe did not change the rendered scene" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on D3D12: huge-coordinate samples rendered and selection changed frame data."
+if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-camera-turned.bmp; then
+  echo "Horizon-locked camera turn did not change the rendered 3D scene" >&2
+  exit 1
+fi
+echo "Sagan scene demo passed on D3D12: indexed Sun, Earth, and Moon models rendered; selection and horizon-locked camera input changed frame data."
