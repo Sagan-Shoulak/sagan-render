@@ -663,6 +663,7 @@ namespace
   bool bridge_running{};
   bool bridge_pointer_down{};
   bool bridge_pointer_up{};
+  bool bridge_pointer_test_override{};
   bool bridge_orbit_dragging{};
   double bridge_pointer_x{};
   double bridge_pointer_y{};
@@ -731,6 +732,7 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   const char *test_pointer_y = std::getenv("SAGAN_RENDER_TEST_POINTER_Y");
   if (test_pointer_x && *test_pointer_x && test_pointer_y && *test_pointer_y)
   {
+    bridge_pointer_test_override = true;
     bridge_pointer_x = std::strtod(test_pointer_x, nullptr);
     bridge_pointer_y = std::strtod(test_pointer_y, nullptr);
     const char *pointer_action = std::getenv("SAGAN_RENDER_TEST_POINTER_ACTION");
@@ -804,8 +806,11 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
     }
     else if (event.type == SDL_EVENT_MOUSE_MOTION)
     {
-      bridge_pointer_x = event.motion.x;
-      bridge_pointer_y = event.motion.y;
+      if (!bridge_pointer_test_override)
+      {
+        bridge_pointer_x = event.motion.x;
+        bridge_pointer_y = event.motion.y;
+      }
       if (bridge_orbit_dragging)
       {
         bridge_orbit_delta_x += event.motion.xrel;
