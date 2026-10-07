@@ -570,14 +570,14 @@ same smooth progress. The selected body's projected offset therefore shrinks
 continuously from its starting position toward center and cannot grow beyond
 its initially visible position. Squaring the eased scale progress tempers the
 initial acceleration across very large family-scale changes without adding a
-new phase boundary. Ancestor focus uses leading zoom and trailing pan, since
-revealing more context cannot hide the selected destination: zoom-out finishes
-over the first 75 percent of eased progress and pan begins only after 70
-percent. The narrow overlap avoids a stop. Both ends of the interpolation are
-refreshed from live presentation snapshots, so an orbiting descendant cannot
-leave the viewport merely because the camera remained at its activation-time
-position. An ancestor transition expanding camera distance by more than 1,000
-times uses 4.5 seconds, giving the late pan enough time at Moon-to-Sun scale.
+new phase boundary. Ancestor focus uses the inverse coupling: pan progress is
+the eased progress multiplied by current distance over final distance. The
+descendant therefore moves from viewport center to its final system-view
+position along one continuous screen-space curve while zoom naturally leads;
+there is no zoom-to-pan mode switch. Both ends use live presentation snapshots,
+so an orbiting descendant cannot leave merely because the camera retained its
+activation-time position. A transition expanding camera distance by more than
+1,000 times uses 4.5 seconds to temper Moon-to-Sun scale changes.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.

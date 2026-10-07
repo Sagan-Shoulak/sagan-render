@@ -110,14 +110,6 @@ fun focus_progress(elapsed_seconds: Float64,
   return progress * progress * (3.0 - 2.0 * progress)
 }
 
-fun focus_phase(progress: Float64, start: Float64,
-                finish: Float64): Float64 {
-  let phase = (progress - start) / (finish - start)
-  if phase <= 0.0 { return 0.0 }
-  if phase >= 1.0 { return 1.0 }
-  return phase * phase * (3.0 - 2.0 * phase)
-}
-
 fun focus_axis_at(start: Float64<meter>, target: Float64<meter>,
                   progress: Float64): Float64<meter> {
   return start + (target - start) * progress
@@ -576,11 +568,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           zoom_progress = base_progress * base_progress
         }
         if focus_target_distance > focus_start_distance {
-          // Ancestor focus keeps the descendant centered while zooming out.
-          // Zoom is effectively complete before pan begins; the narrow overlap
-          // avoids a visible stop while preserving descendant visibility.
-          zoom_progress = focus_phase(base_progress, 0.0, 0.75)
-          pan_progress = focus_phase(base_progress, 0.70, 1.0)
+          // Ancestor focus derives pan from zoom below; there is no separate
+          // pan phase or handoff that could read as two back-to-back focuses.
+          zoom_progress = base_progress
         }
         camera_distance = focus_distance_at(
           focus_start_distance, focus_target_distance, zoom_progress)
@@ -591,6 +581,13 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           // zero endpoint velocity.
           pan_progress = 1.0 -
             (camera_distance / focus_start_distance) * (1.0 - base_progress)
+        }
+        if focus_target_distance > focus_start_distance {
+          // Keep the descendant's projected motion on one smooth curve. At
+          // close distance the ratio holds pan near its live source; as zoom
+          // reveals context, pan grows continuously to the final framing.
+          pan_progress = base_progress *
+            camera_distance / focus_target_distance
         }
         let live_start_x = focus_start_x
         let live_start_y = focus_start_y
