@@ -576,8 +576,10 @@ descendant therefore moves from viewport center to its final system-view
 position along one continuous screen-space curve while zoom naturally leads;
 there is no zoom-to-pan mode switch. Both ends use live presentation snapshots,
 so an orbiting descendant cannot leave merely because the camera retained its
-activation-time position. A transition expanding camera distance by more than
-1,000 times uses 4.5 seconds to temper Moon-to-Sun scale changes.
+activation-time position. Ancestor focus uses four seconds, and a transition
+expanding camera distance by more than 1,000 times uses six seconds. The longer
+durations give the coupled curve more time to settle through its final pan
+without slowing three-second focus-in transitions.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.

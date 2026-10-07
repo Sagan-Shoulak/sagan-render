@@ -38,7 +38,8 @@ const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
 const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
-const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 4.5
+const ANCESTOR_FOCUS_DURATION_SECONDS: Float64 = 4.0
+const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 6.0
 
 fun wrapped_angle(value: Float64): Float64 {
   let result = value
@@ -521,6 +522,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           focus_target_z = selected_target_z(selection.identifier(), first, second, third)
           focus_target_distance = selected_view_distance(selection.identifier())
           focus_duration = FOCUS_DURATION_SECONDS
+          if focus_target_distance > focus_start_distance {
+            focus_duration = ANCESTOR_FOCUS_DURATION_SECONDS
+          }
           if focus_target_distance > focus_start_distance * 1000.0 {
             focus_duration = LARGE_SCALE_FOCUS_DURATION_SECONDS
           }
@@ -540,6 +544,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         focus_target_z = system_target_z
         focus_target_distance = CAMERA_DEPTH
         focus_duration = FOCUS_DURATION_SECONDS
+        if focus_target_distance > focus_start_distance {
+          focus_duration = ANCESTOR_FOCUS_DURATION_SECONDS
+        }
         if focus_target_distance > focus_start_distance * 1000.0 {
           focus_duration = LARGE_SCALE_FOCUS_DURATION_SECONDS
         }
