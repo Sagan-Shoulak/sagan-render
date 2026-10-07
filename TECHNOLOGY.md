@@ -476,10 +476,12 @@ Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its
 interactive perspective camera will expose yaw, pitch, translation or dolly,
 and focus/orbit behavior while remaining horizon locked: camera right and
-forward are rebuilt from a declared world-up axis, roll is not an input, and
-pitch is clamped before forward becomes parallel to world up. The Sagan scene
-demo now uses indexed models; the older strip-composited helper remains only as
-bootstrap history for simpler UI composition.
+forward are rebuilt without a roll input. The interactive orbit reaches the
+exact top-down and horizon views, then continues into the lower hemisphere but
+clamps about 22 degrees before the exact bottom view. This intentional unequal
+top/bottom access makes camera behavior communicate which side is up. The Sagan
+scene demo now uses indexed models; the older strip-composited helper remains
+only as bootstrap history for simpler UI composition.
 
 The native `horizon_locked_camera` contract now supplies the camera-side math.
 It stores a physical position, normalized world-up direction, yaw, and clamped
@@ -493,6 +495,12 @@ a KSP-style target camera: right-button drag changes yaw and clamped pitch
 around the current target, while the wheel changes the measured target
 distance. A/D, W/S, and Q/E remain keyboard-accessible yaw, pitch, and zoom
 fallbacks.
+
+At the horizon, a fixed world-up vector would be parallel to camera forward
+and could not define a view basis. The demo instead supplies the analytical
+pitch tangent as camera up. It is perpendicular to forward at every allowed
+pitch, including the exact horizon, remains roll-free, and changes orientation
+continuously as the camera enters the limited underside range.
 
 The native `prepare_sphere_draw` contract owns the precision-sensitive seam
 between a measured scene sample and the reviewed mesh shader. It subtracts the

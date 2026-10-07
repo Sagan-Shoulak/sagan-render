@@ -79,8 +79,10 @@ fun demo_cosine(value: Float64): Float64 {
 }
 
 fun clamp_pitch(value: Float64): Float64 {
-  if value > 1.45 { return 1.45 }
-  if value < 0.0 - 1.45 { return 0.0 - 1.45 }
+  // Zero is the exact top-down view, +/-pi/2 is the horizon, and the
+  // polar limit stops short of the exact bottom at +/-pi.
+  if value > 2.75 { return 2.75 }
+  if value < 0.0 - 2.75 { return 0.0 - 2.75 }
   return value
 }
 
@@ -147,6 +149,12 @@ fun draw_object(value: SpatialRenderable,
   let forward_x = yaw_sine * pitch_cosine
   let forward_y = pitch_sine
   let forward_z = 0.0 - yaw_cosine * pitch_cosine
+  // This is the pitch tangent, not a fixed world-up vector. It stays
+  // perpendicular to forward at the exact horizon and remains horizon locked
+  // while the camera moves into the deliberately limited underside range.
+  let camera_up_x = 0.0 - yaw_sine * pitch_sine
+  let camera_up_y = pitch_cosine
+  let camera_up_z = yaw_cosine * pitch_sine
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
@@ -174,7 +182,7 @@ fun draw_object(value: SpatialRenderable,
     mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
                 camera_x, camera_y, camera_z,
                 forward_x, forward_y, forward_z,
-                0.0, 1.0, 0.0, 1.0471975511965976,
+                camera_up_x, camera_up_y, camera_up_z, 1.0471975511965976,
                 1000.0 kilometer, 500000000.0 kilometer,
                 item.x(), item.y(), item.z(), item.radius(),
                 item.identifier(), minimum_radius, selected)

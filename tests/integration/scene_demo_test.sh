@@ -33,6 +33,8 @@ require_capture() {
 }
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-reframed.bmp \
+  build/scene-sagan-demo-test/scene-horizon.bmp \
+  build/scene-sagan-demo-test/scene-underside.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
@@ -47,12 +49,21 @@ export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_TEST_SCROLL_Y=2
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 unset SAGAN_RENDER_TEST_SCROLL_Y
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-horizon.bmp
+export SAGAN_RENDER_TEST_ORBIT_DY=-261.79938779914943
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-underside.bmp
+export SAGAN_RENDER_TEST_ORBIT_DY=-1000
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+unset SAGAN_RENDER_TEST_ORBIT_DY
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bmp
 export SAGAN_RENDER_TEST_KEY=right
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
 require_capture build/scene-sagan-demo-test/scene-idle.bmp
 require_capture build/scene-sagan-demo-test/scene-reframed.bmp
+require_capture build/scene-sagan-demo-test/scene-horizon.bmp
+require_capture build/scene-sagan-demo-test/scene-underside.bmp
 require_capture build/scene-sagan-demo-test/scene-camera-turned.bmp
 require_capture build/scene-sagan-demo-test/scene-zoomed.bmp
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=direct3d12 logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
@@ -65,6 +76,11 @@ fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
       "$(fingerprint build/scene-sagan-demo-test/scene-camera-turned.bmp)" ]]; then
   echo "Right-drag orbit did not change the rendered 3D scene" >&2
+  exit 1
+fi
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-horizon.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-underside.bmp)" ]]; then
+  echo "Horizon and limited-underside camera views did not differ" >&2
   exit 1
 fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
