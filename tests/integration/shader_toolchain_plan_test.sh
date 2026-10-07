@@ -65,6 +65,16 @@ grep -q -- '-DSDLSHADERCROSS_VENDORED=OFF' "$generator"
 grep -q -- '-DSDLSHADERCROSS_CLI_STATIC=ON' "$generator"
 grep -q -- '-DSDLSHADERCROSS_INSTALL=OFF' "$generator"
 grep -q 'runtime_artifacts_replaced=false' "$generator"
+grep -q 'dxc_library_path=.*dxc_root/lib' "$generator"
+
+artifact_generator=scripts/generate-material-shaders-linux.sh
+artifact_test=tests/integration/material_shader_artifacts_test.sh
+bash -n "$artifact_generator"
+bash -n "$artifact_test"
+grep -q -- '--dest "\$format"' "$artifact_generator"
+grep -q 'for format in DXIL SPIRV MSL JSON' "$artifact_generator"
+grep -q 'compile_stage vertex VSMain vert' "$artifact_generator"
+grep -q 'compile_stage fragment PSMain frag' "$artifact_generator"
 
 for excluded in external/SPIRV-Headers external/SPIRV-Tools external/DirectXShaderCompiler; do
     if grep -q "submodule update.*$excluded" "$generator"; then

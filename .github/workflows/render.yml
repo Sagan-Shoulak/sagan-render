@@ -28,6 +28,20 @@ jobs:
         run: bash scripts/build-shader-toolchain-linux.sh
       - name: Verify generator did not replace runtime artifacts
         run: grep -q '^runtime_artifacts_replaced=false$' build/shader-toolchain/toolchain-report.txt
+      - name: Generate material artifacts twice
+        run: |
+          bash scripts/generate-material-shaders-linux.sh build/generated-shaders/first
+          bash scripts/generate-material-shaders-linux.sh build/generated-shaders/second
+      - name: Validate formats, reflection, provenance, and determinism
+        run: |
+          bash tests/integration/material_shader_artifacts_test.sh build/generated-shaders/first
+          bash tests/integration/material_shader_artifacts_test.sh build/generated-shaders/second
+          diff -qr build/generated-shaders/first build/generated-shaders/second
+      - uses: actions/upload-artifact@v6
+        with:
+          name: material-shader-artifacts
+          path: build/generated-shaders/first/
+          if-no-files-found: error
 
   windows-window-tests:
     runs-on: windows-latest

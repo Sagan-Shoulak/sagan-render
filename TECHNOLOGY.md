@@ -445,6 +445,14 @@ cross-platform plan test separately prevents configuration drift on every
 runner. This still does not replace the bootstrap runtime shaders: project
 artifact generation and reflection checks are the next boundary.
 
+The material artifact generator compiles `VSMain` and `PSMain` from that one
+HLSL source into DXIL, SPIR-V, MSL, and reflection JSON. The focused test checks
+container magic, textual MSL stages, vertex inputs, uniform-buffer counts, and
+source/tool provenance. CI runs the generation twice and rejects any byte
+difference, then retains one set as inspectable evidence. Runtime pipelines do
+not consume these files yet; generation proof and backend integration remain
+separate review boundaries.
+
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its

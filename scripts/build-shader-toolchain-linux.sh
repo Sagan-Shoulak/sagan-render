@@ -145,6 +145,7 @@ LD_LIBRARY_PATH="$dxc_root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
   echo "dxc_sha256=$actual_dxc_sha256"
   echo "generated_formats=dxil,spirv,msl"
   echo "cli=$shadercross_cli"
+  echo "dxc_library_path=$dxc_root/lib"
   echo "runtime_artifacts_replaced=false"
 } > "$report"
 
