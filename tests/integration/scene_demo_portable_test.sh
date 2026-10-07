@@ -27,10 +27,15 @@ case "$(uname -s)" in
 esac
 
 report=build/scene-sagan-demo-test/scene-demo-report.txt
-rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-reframed.bmp
+rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
+  build/scene-sagan-demo-test/scene-reframed.bmp \
+  build/scene-sagan-demo-test/scene-camera-turned.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
+"$executable" | tee -a "$report"
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-camera-turned.bmp
+export SAGAN_RENDER_TEST_KEY=d
 "$executable" | tee -a "$report"
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bmp
 export SAGAN_RENDER_TEST_KEY=right
@@ -41,4 +46,8 @@ if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test
   echo "Camera reframe did not change the rendered scene" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on $expected: huge-coordinate samples rendered and selection changed frame data."
+if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-camera-turned.bmp; then
+  echo "Horizon-locked camera turn did not change the rendered 3D scene" >&2
+  exit 1
+fi
+echo "Sagan scene demo passed on $expected: indexed Sun, Earth, and Moon models rendered; selection and horizon-locked camera input changed frame data."

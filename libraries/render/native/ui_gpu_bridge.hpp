@@ -17,6 +17,14 @@ auto sagan_5f5f72656e6465725f75695f66696c6c(
 auto sagan_5f5f72656e6465725f75695f74657874(
   double x, double y, const std::string &value, double height,
   std::int64_t red, std::int64_t green, std::int64_t blue) -> void;
+auto sagan_5f5f72656e6465725f75695f6d6573685f737068657265(
+  double viewport_x, double viewport_y, double viewport_width, double viewport_height,
+  double camera_x, double camera_y, double camera_z,
+  double forward_x, double forward_y, double forward_z,
+  double up_x, double up_y, double up_z, double field_of_view,
+  double near_distance, double far_distance,
+  double body_x, double body_y, double body_z, double radius,
+  std::int64_t appearance, double minimum_radius, bool selected) -> void;
 auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void;
 auto sagan_5f5f72656e6465725f75695f6b65795f70726573736564(
   const std::string &key) -> bool;

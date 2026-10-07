@@ -475,8 +475,9 @@ geometry, transformed and depth-tested by the shared 3D pipeline. Its
 interactive perspective camera will expose yaw, pitch, translation or dolly,
 and focus/orbit behavior while remaining horizon locked: camera right and
 forward are rebuilt from a declared world-up axis, roll is not an input, and
-pitch is clamped before forward becomes parallel to world up. The current
-strip-composited discs remain bootstrap evidence only.
+pitch is clamped before forward becomes parallel to world up. The Sagan scene
+demo now uses indexed models; the older strip-composited helper remains only as
+bootstrap history for simpler UI composition.
 
 The native `horizon_locked_camera` contract now supplies the camera-side math.
 It stores a physical position, normalized world-up direction, yaw, and clamped
@@ -485,8 +486,8 @@ incremental floating-point rotations cannot accumulate roll. Strafe follows
 camera right, lift follows world up, dolly follows camera forward, and orbit
 places the camera at a measured distance behind its facing direction. The
 contract accepts generic measured targets and does not know what kind of entity
-is being viewed. Public Sagan controls and the mesh demo still remain to be
-wired after the GPU mesh path exists.
+is being viewed. The Sagan demo exposes the same horizon lock through A/D yaw,
+W/S clamped pitch, Q/E forward dolly, selection, and focus controls.
 
 The native `prepare_sphere_draw` contract owns the precision-sensitive seam
 between a measured scene sample and the reviewed mesh shader. It subtracts the
@@ -501,8 +502,11 @@ physics state.
 The focused scene contract test exercises that conversion around a
 `1e15 metre` origin, verifies an exact nearby offset survives rebasing, checks
 minimum-radius scaling at long range, and rejects geometry behind the camera.
-Connecting this contract to the Sagan-authored scene is waiting on the
-package-scoped typed-native declaration mechanism tracked in `sagan#30`.
+The package-scoped typed-native declaration mechanism delivered by `sagan#30`
+connects this contract to Sagan without adding another compiler builtin. The
+renderer manifest declares the complete twice-typed bridge signature, including
+camera, body, near-plane, far-plane, and radius lengths. The compiler therefore
+rejects unit, type, or arity drift before native compilation.
 
 `scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
 contract. It owns the shared octahedral sphere vertex/index buffers, reviewed
@@ -519,6 +523,14 @@ the three differently lit indexed models survive GPU readback. The test also
 keeps the camera far plane close to each view's actual scale: an excessively
 distant far plane can round projected depth to the clear value after GPU
 narrowing and make strict `LESS` depth testing reject valid geometry.
+
+The interactive Sagan demo uses the same pass for a full system viewport and a
+physical Earth-Moon inset. Every frame is composed in Sagan from immutable
+presentation objects; the native host receives only queued sphere draws and UI
+commands. It groups draws by viewport so each camera receives a fresh depth
+clear, then blits the completed logical target to the platform swapchain. This
+keeps resizing independent of drawable pixel density and keeps all camera and
+body lengths unit checked on the Sagan side of the bridge.
 
 ## Supported foundation and rollback
 
