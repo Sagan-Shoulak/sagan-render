@@ -88,6 +88,7 @@ jobs:
           bash tests/integration/shader_toolchain_plan_test.sh
           bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
+          bash tests/integration/material_depth_probe_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_test.sh
@@ -106,6 +107,8 @@ jobs:
             render/build/sdl-window/sdl-window.bmp
             render/build/sdl-gpu/sdl-gpu-triangle.bmp
             render/build/sdl-gpu/sdl-gpu-report.txt
+            render/build/material-depth/material-depth.bmp
+            render/build/material-depth/material-depth-report.txt
             render/build/ui-contract/ui-layout.svg
             render/build/scene-contract/scene-camera.svg
             render/build/scene-sagan-demo-test/scene-idle.bmp
@@ -174,6 +177,7 @@ jobs:
           bash tests/integration/shader_toolchain_plan_test.sh
           bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
+          xvfb-run --auto-servernum bash tests/integration/material_depth_probe_portable_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/scene_demo_portable_test.sh
@@ -191,6 +195,7 @@ jobs:
           bash tests/integration/shader_toolchain_plan_test.sh
           bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
+          bash tests/integration/material_depth_probe_portable_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_portable_test.sh
@@ -206,6 +211,8 @@ jobs:
             build/sdl-window/sdl-window.bmp
             build/sdl-gpu/sdl-gpu-triangle.bmp
             build/sdl-gpu/sdl-gpu-report.txt
+            build/material-depth/material-depth.bmp
+            build/material-depth/material-depth-report.txt
             build/ui-contract/ui-layout.svg
             build/scene-contract/scene-camera.svg
             build/scene-sagan-demo-test/scene-idle.bmp
