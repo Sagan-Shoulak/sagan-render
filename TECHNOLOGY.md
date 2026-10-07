@@ -488,6 +488,22 @@ contract accepts generic measured targets and does not know what kind of entity
 is being viewed. Public Sagan controls and the mesh demo still remain to be
 wired after the GPU mesh path exists.
 
+The native `prepare_sphere_draw` contract owns the precision-sensitive seam
+between a measured scene sample and the reviewed mesh shader. It subtracts the
+camera origin while positions are still 64-bit physical lengths, constructs the
+camera basis in double precision, and only then narrows camera-relative matrix
+terms for the GPU uniform. A caller may request a minimum logical presentation
+radius for bodies whose physically accurate angular size would be sub-pixel;
+the returned draw records both the unchanged physical radius and the larger
+presentation radius. This is a rendering policy, not a change to snapshot or
+physics state.
+
+The focused scene contract test exercises that conversion around a
+`1e15 metre` origin, verifies an exact nearby offset survives rebasing, checks
+minimum-radius scaling at long range, and rejects geometry behind the camera.
+Connecting this contract to the Sagan-authored scene is waiting on the
+package-scoped typed-native declaration mechanism tracked in `sagan#30`.
+
 ## Supported foundation and rollback
 
 - Windows validation explicitly requests SDL's `direct3d12` driver and DXIL.

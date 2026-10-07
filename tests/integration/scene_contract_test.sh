@@ -28,4 +28,4 @@ TMPDIR="$native_tmp" TMP="$native_tmp" TEMP="$native_tmp" \
   SAGAN_PACKAGE_INDEX="$package_index" "$sagan_executable" \
   --run-package tests/fixtures/scene_contract/sagan.toml
 
-echo "Scene contract test passed: Sagan adapter, immutable snapshot, picking, selection, smooth focus, horizon-locked 3D camera, label placement, projection, visibility, and reframing verified."
+echo "Scene contract test passed: Sagan adapter, immutable snapshot, picking, selection, smooth focus, horizon-locked 3D camera, precision-safe mesh preparation, scale-aware presentation, label placement, projection, visibility, and reframing verified."
