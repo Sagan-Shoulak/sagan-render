@@ -432,8 +432,18 @@ The selected build initializes only the pinned SPIRV-Cross source gitlink. It
 does not build the vendored SPIRV-Headers, SPIRV-Tools, or DXC source graph,
 and it does not install or publish compiler libraries or executables. SDL and
 SDL_shadercross are zlib licensed; SPIRV-Cross files use Apache-2.0 OR MIT;
-the DXC package retains its complete license and third-party notices. Any
-future redistribution of these tools requires a separate license review.
+the exact DXC Linux archive retains both `LICENSE-LLVM.txt` and
+`LICENSE-MS.txt`. Any future redistribution of these tools requires a separate
+license review.
+
+The Linux generator now implements that plan in
+`scripts/build-shader-toolchain-linux.sh`. It cross-checks all three source
+pins, verifies the DXC archive digest before extraction, initializes only the
+SPIRV-Cross gitlink, builds each dependency into ignored isolated directories,
+and smoke-tests the resulting CLI. Linux CI performs the real build; the
+cross-platform plan test separately prevents configuration drift on every
+runner. This still does not replace the bootstrap runtime shaders: project
+artifact generation and reflection checks are the next boundary.
 
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index

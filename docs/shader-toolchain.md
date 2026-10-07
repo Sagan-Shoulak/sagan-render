@@ -6,9 +6,8 @@ and MSL for Metal. Windows, Linux, and macOS renderer builds consume those
 generated artifacts; they do not compile shaders or require DXC or
 SDL_shadercross at runtime.
 
-This is a build plan, not yet a functioning artifact generator. The current
-chunk initializes no submodules, downloads no binaries, and changes no runtime
-shader path.
+The isolated generator is implemented by
+`scripts/build-shader-toolchain-linux.sh`. It changes no runtime shader path.
 
 ## Selected build graph
 
@@ -52,9 +51,9 @@ to consume MSL generated and reviewed by the tool host.
 ## License and installation boundary
 
 SDL and SDL_shadercross use the zlib license. SPIRV-Cross source files identify
-their license as `Apache-2.0 OR MIT`. The pinned Microsoft DXC release carries
-its own `LICENSE.TXT` and third-party notices; its license must not be reduced
-to a single shorthand label.
+their license as `Apache-2.0 OR MIT`. The exact pinned Linux DXC archive carries
+`LICENSE-LLVM.txt` and `LICENSE-MS.txt`; its licensing must not be reduced to a
+single shorthand label.
 
 The initial generator treats these components as build tools and does not ship
 their executables or libraries with Sagan Render. Build caches and provenance
@@ -62,10 +61,27 @@ must retain the upstream license and notice files. If a future package starts
 redistributing a tool binary or runtime library, that is a new distribution
 decision and requires a fresh license/install review before the lock changes.
 
-## Next implementation chunk
+## Running the generator
 
-The next chunk may create the isolated Linux generator script. It must verify
-all downloads, initialize only the selected SPIRV-Cross gitlink, configure the
-locked CMake values exactly, compile the CLI, and record tool versions. It must
-stop before replacing bootstrap shaders until generated artifacts and
-reflection metadata have deterministic tests.
+On an x86-64 Linux host with CMake, Ninja, Git, curl, a C/C++ compiler, and
+SDL's Linux development dependencies:
+
+```bash
+bash scripts/build-shader-toolchain-linux.sh
+```
+
+The script reads the lock, cross-checks the existing SDL and SDL_shadercross
+locks, verifies the DXC archive digest, initializes only the selected
+SPIRV-Cross gitlink, and builds each dependency in an ignored directory under
+`build/shader-toolchain/`. The verified DXC archive is extracted at
+SDL_shadercross's fixed non-vendored lookup path inside that ignored source
+checkout. The script rejects an incomplete DXC cache instead of silently
+deleting or repairing it. After building the static CLI, it executes
+`shadercross --help` with the pinned DXC library path and writes
+`build/shader-toolchain/toolchain-report.txt`.
+
+CI runs this complete build and smoke test on Ubuntu. The report explicitly
+states that runtime artifacts were not replaced. The next chunk must compile
+the project-owned material shader into all three formats and add deterministic
+artifact and reflection validation before any generated files replace the
+bootstrap fixtures.
