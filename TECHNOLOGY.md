@@ -460,6 +460,15 @@ without installing a compiler; Linux also regenerates it and requires a
 byte-identical comparison. A runtime pipeline may select only the backend
 format reported by SDL while preserving one shared material contract.
 
+The first runtime consumer is an indexed material/depth probe. It uploads one
+low-poly sphere mesh into vertex and index buffers, binds the reviewed material
+shaders, pushes camera, material, and lighting uniform blocks, and draws a near
+blue body before a farther orange body. The orange body is submitted last, so
+blue pixels surviving in their overlap prove that a `LESS` depth test, rather
+than painter's order, controls visibility. D3D12 consumes DXIL, Vulkan consumes
+SPIR-V, and Metal consumes MSL from the same reviewed package. Each platform
+saves and inspects the same 256x256 offscreen capture.
+
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its
