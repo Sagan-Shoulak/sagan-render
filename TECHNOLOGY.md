@@ -570,10 +570,12 @@ same smooth progress. The selected body's projected offset therefore shrinks
 continuously from its starting position toward center and cannot grow beyond
 its initially visible position. Squaring the eased scale progress tempers the
 initial acceleration across very large family-scale changes without adding a
-new phase boundary. Focus-out uses continuous leading zoom and trailing pan
-curves, since revealing more context cannot hide the selected destination.
-Its fourth-power complement makes zoom-out substantially lead, while cubic pan
-holds near the smaller family's center until the larger context is visible.
+new phase boundary. Ancestor focus uses leading zoom and trailing pan, since
+revealing more context cannot hide the selected destination: zoom-out finishes over the
+first 75 percent of eased progress and pan begins only after 70 percent. The
+narrow overlap avoids a stop. Both ends of the interpolation are refreshed
+from live presentation snapshots, so an orbiting descendant cannot leave the
+viewport merely because the camera remained at its activation-time position.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.

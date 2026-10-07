@@ -662,6 +662,9 @@ namespace
   std::unique_ptr<draw_list> bridge_list;
   bitmap_shaper bridge_shaper;
   std::vector<std::string> bridge_keys;
+  std::vector<std::string> bridge_delayed_keys;
+  std::uint64_t bridge_delayed_keys_at{};
+  bool bridge_delayed_keys_delivered{};
   bool bridge_running{};
   bool bridge_pointer_down{};
   bool bridge_pointer_up{};
@@ -732,6 +735,10 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   bridge_driver = bridge_gpu->driver();
   bridge_running = true;
   bridge_captured = false;
+  bridge_keys.clear();
+  bridge_delayed_keys.clear();
+  bridge_delayed_keys_at = 0;
+  bridge_delayed_keys_delivered = false;
   update_bridge_size();
   const char *autoclose_value = std::getenv("SAGAN_RENDER_AUTOCLOSE_MS");
   const std::uint64_t autoclose = autoclose_value && *autoclose_value
@@ -745,6 +752,22 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   if (test_key && *test_key) remember_key(test_key);
   const char *test_keys = std::getenv("SAGAN_RENDER_TEST_KEYS");
   if (test_keys && *test_keys) remember_keys(test_keys);
+  const char *delayed_keys = std::getenv("SAGAN_RENDER_TEST_DELAYED_KEYS");
+  const char *delayed_keys_at = std::getenv("SAGAN_RENDER_TEST_DELAYED_KEYS_AFTER_MS");
+  if (delayed_keys && *delayed_keys && delayed_keys_at && *delayed_keys_at)
+  {
+    std::size_t first{};
+    const std::string_view values{delayed_keys};
+    while (first < values.size())
+    {
+      const std::size_t comma = values.find(',', first);
+      const std::size_t last = comma == std::string_view::npos ? values.size() : comma;
+      if (last > first) bridge_delayed_keys.emplace_back(values.substr(first, last - first));
+      if (comma == std::string_view::npos) break;
+      first = comma + 1;
+    }
+    bridge_delayed_keys_at = std::strtoull(delayed_keys_at, nullptr, 10);
+  }
   const char *test_pointer_x = std::getenv("SAGAN_RENDER_TEST_POINTER_X");
   const char *test_pointer_y = std::getenv("SAGAN_RENDER_TEST_POINTER_Y");
   if (test_pointer_x && *test_pointer_x && test_pointer_y && *test_pointer_y)
@@ -773,6 +796,12 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
 auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
 {
   if (!bridge_gpu || !bridge_running) return false;
+  if (!bridge_delayed_keys_delivered && !bridge_delayed_keys.empty() &&
+      SDL_GetTicks() - bridge_started_at >= bridge_delayed_keys_at)
+  {
+    for (const auto &key : bridge_delayed_keys) remember_key(key);
+    bridge_delayed_keys_delivered = true;
+  }
   SDL_Event event{};
   while (SDL_PollEvent(&event))
   {

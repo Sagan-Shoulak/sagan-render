@@ -38,6 +38,7 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-horizon.bmp \
   build/scene-sagan-demo-test/scene-underside.bmp \
   build/scene-sagan-demo-test/scene-focus-transition.bmp \
+  build/scene-sagan-demo-test/scene-ancestor-transition.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
@@ -79,6 +80,16 @@ export SAGAN_RENDER_AUTOCLOSE_MS=1200
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 unset SAGAN_RENDER_TEST_KEYS SAGAN_RENDER_UI_CAPTURE_AFTER_MS
 
+export SAGAN_RENDER_TEST_KEYS=right,enter
+export SAGAN_RENDER_TEST_DELAYED_KEYS=left,enter
+export SAGAN_RENDER_TEST_DELAYED_KEYS_AFTER_MS=3300
+export SAGAN_RENDER_UI_CAPTURE_AFTER_MS=4600
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-ancestor-transition.bmp
+export SAGAN_RENDER_AUTOCLOSE_MS=5100
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+unset SAGAN_RENDER_TEST_KEYS SAGAN_RENDER_TEST_DELAYED_KEYS \
+  SAGAN_RENDER_TEST_DELAYED_KEYS_AFTER_MS SAGAN_RENDER_UI_CAPTURE_AFTER_MS
+
 require_capture build/scene-sagan-demo-test/scene-idle.bmp
 require_capture build/scene-sagan-demo-test/scene-top-locked.bmp
 require_capture build/scene-sagan-demo-test/scene-top-overdrag.bmp
@@ -86,6 +97,7 @@ require_capture build/scene-sagan-demo-test/scene-reframed.bmp
 require_capture build/scene-sagan-demo-test/scene-horizon.bmp
 require_capture build/scene-sagan-demo-test/scene-underside.bmp
 require_capture build/scene-sagan-demo-test/scene-focus-transition.bmp
+require_capture build/scene-sagan-demo-test/scene-ancestor-transition.bmp
 require_capture build/scene-sagan-demo-test/scene-camera-turned.bmp
 require_capture build/scene-sagan-demo-test/scene-zoomed.bmp
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=direct3d12 logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
