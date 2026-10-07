@@ -57,7 +57,9 @@ spirv_cross_source="$shadercross_source/external/SPIRV-Cross"
 [[ "$(git -C "$spirv_cross_source" rev-parse HEAD)" == "$spirv_cross_commit" ]]
 
 dxc_archive="$dependency_root/$dxc_asset"
-dxc_root="$dependency_root/DirectXShaderCompiler-$dxc_release"
+# SDL_shadercross intentionally fixes this non-vendored lookup path in its
+# CMakeLists.txt, so place the verified binary package exactly there.
+dxc_root="$shadercross_source/external/DirectXShaderCompiler-binaries"
 if [[ ! -f "$dxc_archive" ]]; then
   curl --fail --location --output "$dxc_archive" "$dxc_url"
 fi

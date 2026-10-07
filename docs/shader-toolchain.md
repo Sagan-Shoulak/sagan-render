@@ -73,8 +73,10 @@ bash scripts/build-shader-toolchain-linux.sh
 The script reads the lock, cross-checks the existing SDL and SDL_shadercross
 locks, verifies the DXC archive digest, initializes only the selected
 SPIRV-Cross gitlink, and builds each dependency in an ignored directory under
-`build/shader-toolchain/`. It rejects an incomplete DXC cache instead of
-silently deleting or repairing it. After building the static CLI, it executes
+`build/shader-toolchain/`. The verified DXC archive is extracted at
+SDL_shadercross's fixed non-vendored lookup path inside that ignored source
+checkout. The script rejects an incomplete DXC cache instead of silently
+deleting or repairing it. After building the static CLI, it executes
 `shadercross --help` with the pinned DXC library path and writes
 `build/shader-toolchain/toolchain-report.txt`.
 
