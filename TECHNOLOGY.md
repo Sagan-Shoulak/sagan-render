@@ -453,6 +453,13 @@ difference, then retains one set as inspectable evidence. Runtime pipelines do
 not consume these files yet; generation proof and backend integration remain
 separate review boundaries.
 
+The exact reviewed outputs are versioned in `shaders/generated/material/`.
+Their inventory binds them to the source, manifest, SDL, SDL_shadercross,
+SPIRV-Cross, and DXC revisions. Every supported platform validates the package
+without installing a compiler; Linux also regenerates it and requires a
+byte-identical comparison. A runtime pipeline may select only the backend
+format reported by SDL while preserving one shared material contract.
+
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its

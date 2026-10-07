@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
-artifact_root="${1:-build/generated-shaders/material/lit_mesh}"
+artifact_root="${1:-shaders/generated/material}"
 for artifact in \
   lit_mesh.vert.dxil lit_mesh.vert.spv lit_mesh.vert.msl lit_mesh.vert.json \
   lit_mesh.frag.dxil lit_mesh.frag.spv lit_mesh.frag.msl lit_mesh.frag.json \
@@ -34,5 +34,10 @@ grep -q '"location": 1' "$artifact_root/lit_mesh.vert.json"
 grep -q '^source_sha256=[0-9a-f]\{64\}$' "$artifact_root/lit_mesh.artifacts.sha256"
 grep -q '^shadercross_commit=[0-9a-f]\{40\}$' "$artifact_root/lit_mesh.artifacts.sha256"
 grep -q '^dxc_sha256=[0-9a-f]\{64\}$' "$artifact_root/lit_mesh.artifacts.sha256"
+
+(
+  cd "$artifact_root"
+  tail -n 8 lit_mesh.artifacts.sha256 | sha256sum --check --status
+)
 
 echo "Material artifacts passed: DXIL and SPIR-V magic, MSL stages, reflected resources, and provenance verified."
