@@ -555,9 +555,12 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           zoom_progress = base_progress * base_progress
         }
         if focus_target_distance > focus_start_distance {
-          // Reveal context ahead of translation when leaving a small family.
-          zoom_progress = 1.0 - (1.0 - base_progress) * (1.0 - base_progress)
-          pan_progress = base_progress * base_progress
+          // Reveal the larger family well before translating toward its center.
+          // Both curves inherit smooth endpoint velocity from base_progress,
+          // but fourth-power zoom-out leads cubic pan by a wide margin.
+          let remaining = 1.0 - base_progress
+          zoom_progress = 1.0 - remaining * remaining * remaining * remaining
+          pan_progress = base_progress * base_progress * base_progress
         }
         camera_distance = focus_distance_at(
           focus_start_distance, focus_target_distance, zoom_progress)

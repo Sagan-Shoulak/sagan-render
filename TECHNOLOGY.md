@@ -572,6 +572,8 @@ its initially visible position. Squaring the eased scale progress tempers the
 initial acceleration across very large family-scale changes without adding a
 new phase boundary. Focus-out uses continuous leading zoom and trailing pan
 curves, since revealing more context cannot hide the selected destination.
+Its fourth-power complement makes zoom-out substantially lead, while cubic pan
+holds near the smaller family's center until the larger context is visible.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.
