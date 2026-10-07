@@ -90,7 +90,11 @@ generates the complete set twice, validates each binary or textual format and
 the declared resource counts, and requires the two directories to be
 byte-identical. The reviewed output directory is retained as CI evidence.
 
-These generated files still do not replace the bootstrap runtime fixtures.
-The next boundary is to review the backend entry-point metadata, commit an
-artifact-consumption policy, and load the project-owned shaders in an actual
-depth-tested GPU pipeline.
+The reviewed outputs are committed under `shaders/generated/material/` with
+their provenance and SHA-256 inventory. Every platform validates the package
+without needing a shader compiler, while Linux additionally requires a fresh
+generation to match the committed directory byte for byte.
+
+These files still do not replace the bootstrap runtime fixtures. The next
+boundary is to load this package in an indexed, depth-tested GPU pipeline using
+the reflected entry points and resource counts.

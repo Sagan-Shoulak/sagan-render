@@ -37,6 +37,7 @@ jobs:
           bash tests/integration/material_shader_artifacts_test.sh build/generated-shaders/first
           bash tests/integration/material_shader_artifacts_test.sh build/generated-shaders/second
           diff -qr build/generated-shaders/first build/generated-shaders/second
+          diff -qr build/generated-shaders/first shaders/generated/material
       - uses: actions/upload-artifact@v6
         with:
           name: material-shader-artifacts
@@ -85,6 +86,7 @@ jobs:
           bash tests/integration/compiler_resolver_test.sh
           bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/shader_toolchain_plan_test.sh
+          bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
@@ -170,6 +172,7 @@ jobs:
           bash tests/integration/compiler_resolver_test.sh
           bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/shader_toolchain_plan_test.sh
+          bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
@@ -186,6 +189,7 @@ jobs:
           bash tests/integration/compiler_resolver_test.sh
           bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/shader_toolchain_plan_test.sh
+          bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh

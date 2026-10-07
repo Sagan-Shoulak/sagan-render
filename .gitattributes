@@ -1,3 +1,8 @@
 *.sh text eol=lf
 *.hlsl text eol=lf
 *.lock text eol=lf
+*.dxil binary
+*.spv binary
+shaders/generated/**/*.msl text eol=lf
+shaders/generated/**/*.json text eol=lf
+shaders/generated/**/*.sha256 text eol=lf
