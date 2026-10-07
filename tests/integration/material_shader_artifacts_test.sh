@@ -37,7 +37,14 @@ grep -q '^dxc_sha256=[0-9a-f]\{64\}$' "$artifact_root/lit_mesh.artifacts.sha256"
 
 (
   cd "$artifact_root"
-  tail -n 8 lit_mesh.artifacts.sha256 | sha256sum -c >/dev/null
+  tail -n 8 lit_mesh.artifacts.sha256 | while read -r expected filename; do
+    if command -v shasum >/dev/null 2>&1; then
+      actual="$(shasum -a 256 "$filename" | cut -d ' ' -f1)"
+    else
+      actual="$(sha256sum "$filename" | cut -d ' ' -f1)"
+    fi
+    [[ "$actual" == "$expected" ]]
+  done
 )
 
 echo "Material artifacts passed: DXIL and SPIR-V magic, MSL stages, reflected resources, and provenance verified."
