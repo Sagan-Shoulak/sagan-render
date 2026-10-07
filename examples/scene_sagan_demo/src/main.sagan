@@ -25,13 +25,13 @@ import SelectionState from render.scene
 import smooth_focus_axis from render.scene
 import pick_circle from render.scene
 
-const DISTANT_ORIGIN: Float64<meter> = 1000000000000.0 kilometer
-const CAMERA_DEPTH: Float64<meter> = 200000000.0 kilometer
-const EARTH_DISTANCE: Float64<meter> = 149597870.7 kilometer
-const MOON_DISTANCE: Float64<meter> = 384400.0 kilometer
-const SUN_VIEW_DISTANCE: Float64<meter> = 8000000.0 kilometer
-const EARTH_VIEW_DISTANCE: Float64<meter> = 90000.0 kilometer
-const MOON_VIEW_DISTANCE: Float64<meter> = 30000.0 kilometer
+const DISTANT_ORIGIN: Float64<meter> = 1e12 kilometer
+const CAMERA_DEPTH: Float64<meter> = 2e8 kilometer
+const EARTH_DISTANCE: Float64<meter> = 1.495978707e8 kilometer
+const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
+const SUN_VIEW_DISTANCE: Float64<meter> = 8e6 kilometer
+const EARTH_VIEW_DISTANCE: Float64<meter> = 9e4 kilometer
+const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 
 fun wrapped_angle(value: Float64): Float64 {
   let result = value
