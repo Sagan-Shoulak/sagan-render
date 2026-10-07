@@ -478,8 +478,10 @@ interactive perspective camera will expose yaw, pitch, translation or dolly,
 and focus/orbit behavior while remaining horizon locked: camera right and
 forward are rebuilt without a roll input. The interactive orbit reaches the
 exact top-down and horizon views, then continues into the lower hemisphere but
-clamps about 22 degrees before the exact bottom view. This intentional unequal
-top/bottom access makes camera behavior communicate which side is up. The Sagan
+clamps about 22 degrees before the exact bottom view. Upward pitch locks at the
+top pole rather than crossing it. Horizontal drag remains yaw around world +Z,
+so it cannot turn into roll. This intentional unequal top/bottom access makes
+camera behavior communicate which side is up. The Sagan
 scene demo now uses indexed models; the older strip-composited helper remains
 only as bootstrap history for simpler UI composition.
 
@@ -496,11 +498,11 @@ around the current target, while the wheel changes the measured target
 distance. A/D, W/S, and Q/E remain keyboard-accessible yaw, pitch, and zoom
 fallbacks.
 
-At the horizon, a fixed world-up vector would be parallel to camera forward
-and could not define a view basis. The demo instead supplies the analytical
-pitch tangent as camera up. It is perpendicular to forward at every allowed
-pitch, including the exact horizon, remains roll-free, and changes orientation
-continuously as the camera enters the limited underside range.
+At the exact top pole, camera forward is parallel to world +Z and a cross-product
+basis alone would be undefined. The demo instead derives right from yaw around
++Z and derives camera up analytically. The basis stays orthogonal at the pole
+and horizon, contains no roll state or roll input, and changes continuously as
+the camera enters the limited underside range.
 
 The native `prepare_sphere_draw` contract owns the precision-sensitive seam
 between a measured scene sample and the reviewed mesh shader. It subtracts the

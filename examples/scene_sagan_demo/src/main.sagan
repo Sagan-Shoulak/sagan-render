@@ -79,10 +79,10 @@ fun demo_cosine(value: Float64): Float64 {
 }
 
 fun clamp_pitch(value: Float64): Float64 {
-  // Zero is the exact top-down view, +/-pi/2 is the horizon, and the
-  // polar limit stops short of the exact bottom at +/-pi.
-  if value > 2.75 { return 2.75 }
-  if value < 0.0 - 2.75 { return 0.0 - 2.75 }
+  // Elevation is measured from the orbital horizon: +pi/2 is exact top-down,
+  // zero is the horizon, and -1.18 stops about 22 degrees before full bottom.
+  if value > 1.5707963267948966 { return 1.5707963267948966 }
+  if value < 0.0 - 1.18 { return 0.0 - 1.18 }
   return value
 }
 
@@ -146,21 +146,20 @@ fun draw_object(value: SpatialRenderable,
   let pitch_sine = demo_sine(camera_pitch)
   let yaw_cosine = demo_cosine(camera_yaw)
   let yaw_sine = demo_sine(camera_yaw)
-  let forward_x = yaw_sine * pitch_cosine
-  let forward_y = pitch_sine
-  let forward_z = 0.0 - yaw_cosine * pitch_cosine
-  // This is the pitch tangent, not a fixed world-up vector. It stays
-  // perpendicular to forward at the exact horizon and remains horizon locked
-  // while the camera moves into the deliberately limited underside range.
-  let camera_up_x = 0.0 - yaw_sine * pitch_sine
-  let camera_up_y = pitch_cosine
-  let camera_up_z = yaw_cosine * pitch_sine
+  let forward_x = 0.0 - yaw_cosine * pitch_cosine
+  let forward_y = 0.0 - yaw_sine * pitch_cosine
+  let forward_z = 0.0 - pitch_sine
+  // Yaw rotates around world +Z. These analytical right/up vectors remain
+  // orthogonal at the exact top pole, so horizontal drag never becomes roll.
+  let camera_up_x = 0.0 - yaw_cosine * pitch_sine
+  let camera_up_y = 0.0 - yaw_sine * pitch_sine
+  let camera_up_z = pitch_cosine
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_right = relative_x * yaw_cosine + relative_z * yaw_sine
-  let camera_up = relative_x * (0.0 - yaw_sine * pitch_sine) +
-                  relative_y * pitch_cosine + relative_z * yaw_cosine * pitch_sine
+  let camera_right = relative_x * (0.0 - yaw_sine) + relative_y * yaw_cosine
+  let camera_up = relative_x * camera_up_x + relative_y * camera_up_y +
+                  relative_z * camera_up_z
   let forward_depth = relative_x * forward_x + relative_y * forward_y +
                       relative_z * forward_z
   if depth_visible(forward_depth, item.radius(),
@@ -204,10 +203,10 @@ fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_right = relative_x * yaw_cosine + relative_z * yaw_sine
-  let forward_depth = relative_x * yaw_sine * pitch_cosine +
-                      relative_y * pitch_sine -
-                      relative_z * yaw_cosine * pitch_cosine
+  let camera_right = relative_x * (0.0 - yaw_sine) + relative_y * yaw_cosine
+  let forward_depth = relative_x * (0.0 - yaw_cosine * pitch_cosine) +
+                      relative_y * (0.0 - yaw_sine * pitch_cosine) -
+                      relative_z * pitch_sine
   return viewport_x + perspective_axis(
     camera_right * viewport_height / viewport_width,
     forward_depth, 0.577350269, viewport_width)
@@ -225,11 +224,12 @@ fun projected_y(value: SpatialRenderable, camera_x: Float64<meter>,
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_up = relative_x * (0.0 - yaw_sine * pitch_sine) +
-                  relative_y * pitch_cosine + relative_z * yaw_cosine * pitch_sine
-  let forward_depth = relative_x * yaw_sine * pitch_cosine +
-                      relative_y * pitch_sine -
-                      relative_z * yaw_cosine * pitch_cosine
+  let camera_up = relative_x * (0.0 - yaw_cosine * pitch_sine) +
+                  relative_y * (0.0 - yaw_sine * pitch_sine) +
+                  relative_z * pitch_cosine
+  let forward_depth = relative_x * (0.0 - yaw_cosine * pitch_cosine) +
+                      relative_y * (0.0 - yaw_sine * pitch_cosine) -
+                      relative_z * pitch_sine
   return viewport_y + perspective_axis(
     0.0 meter - camera_up, forward_depth,
     0.577350269, viewport_height)
@@ -244,9 +244,9 @@ fun projected_depth(value: SpatialRenderable,
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  return relative_x * demo_sine(camera_yaw) * pitch_cosine +
-         relative_y * demo_sine(camera_pitch) -
-         relative_z * demo_cosine(camera_yaw) * pitch_cosine
+  return relative_x * (0.0 - demo_cosine(camera_yaw) * pitch_cosine) +
+         relative_y * (0.0 - demo_sine(camera_yaw) * pitch_cosine) -
+         relative_z * demo_sine(camera_pitch)
 }
 
 /// Demo-owned presentation of a circular path in physical XY space. The
@@ -384,7 +384,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let camera_y = DISTANT_ORIGIN
   let camera_z = DISTANT_ORIGIN
   let camera_yaw = 0.0
-  let camera_pitch = 0.0
+  let camera_pitch = 1.5707963267948966
   let orbit_target_x = camera_x
   let orbit_target_y = camera_y
   let orbit_target_z = DISTANT_ORIGIN - CAMERA_DEPTH
@@ -441,9 +441,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       camera_pitch = clamp_pitch(camera_pitch - orbit_delta_y() * 0.006)
       camera_distance = zoom_distance(camera_distance, scroll_y())
       let look_pitch_cosine = demo_cosine(camera_pitch)
-      let look_forward_x = demo_sine(camera_yaw) * look_pitch_cosine
-      let look_forward_y = demo_sine(camera_pitch)
-      let look_forward_z = 0.0 - demo_cosine(camera_yaw) * look_pitch_cosine
+      let look_forward_x = 0.0 - demo_cosine(camera_yaw) * look_pitch_cosine
+      let look_forward_y = 0.0 - demo_sine(camera_yaw) * look_pitch_cosine
+      let look_forward_z = 0.0 - demo_sine(camera_pitch)
       if key_pressed("q") {
         camera_distance = zoom_distance(camera_distance, -1.0)
       }
