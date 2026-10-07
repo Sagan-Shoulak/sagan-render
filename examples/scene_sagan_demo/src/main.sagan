@@ -592,8 +592,12 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if focus_target_distance > focus_start_distance {
           // Keep the descendant's projected motion on one smooth curve. At
           // close distance the ratio holds pan near its live source; as zoom
-          // reveals context, pan grows continuously to the final framing.
-          pan_progress = base_progress *
+          // reveals context, pan grows continuously to the final framing. The
+          // squared remaining fraction advances the middle sooner while giving
+          // the final approach a visibly longer ease-out tail.
+          let remaining_pan = 1.0 - base_progress
+          let pan_curve = 1.0 - remaining_pan * remaining_pan
+          pan_progress = pan_curve *
             camera_distance / focus_target_distance
         }
         let live_start_x = focus_start_x

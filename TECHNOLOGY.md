@@ -570,10 +570,12 @@ same smooth progress. The selected body's projected offset therefore shrinks
 continuously from its starting position toward center and cannot grow beyond
 its initially visible position. Squaring the eased scale progress tempers the
 initial acceleration across very large family-scale changes without adding a
-new phase boundary. Ancestor focus uses the inverse coupling: pan progress is
-the eased progress multiplied by current distance over final distance. The
-descendant therefore moves from viewport center to its final system-view
-position along one continuous screen-space curve while zoom naturally leads;
+new phase boundary. Ancestor focus uses the inverse coupling: an ease-out
+screen-space curve is multiplied by current distance over final distance.
+Squaring its remaining fraction advances more pan earlier and creates a longer
+visible deceleration tail near the destination. The descendant therefore moves
+from viewport center to its final system-view position along one continuous
+screen-space curve while zoom naturally leads;
 there is no zoom-to-pan mode switch. Both ends use live presentation snapshots,
 so an orbiting descendant cannot leave merely because the camera retained its
 activation-time position. Ancestor focus uses four seconds, and a transition
