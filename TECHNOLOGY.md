@@ -563,15 +563,15 @@ target snapshot. During the transition, the eased destination is refreshed
 from each new immutable body snapshot; otherwise the camera would ease toward
 the position captured at activation and snap to the live position at the end.
 Camera distance is interpolated in reciprocal-distance space because projected
-scale is proportional to reciprocal distance. Target translation and zoom use
-overlapping but distinct phases. Entering a smaller family pans during the
-first 65 percent and starts zooming after 20 percent; leaving a smaller family
-zooms out during the first 65 percent and starts panning after 35 percent. This
-keeps useful context in frame while avoiding a visibly hard pan-then-zoom cut.
-During a focus-in, the demo also solves the minimum camera distance needed to
-keep the destination inside 82 percent of both viewport half-spans. The planned
-zoom cannot cross that geometric visibility bound until translation has caught
-up, so an initially visible destination remains visible throughout the move.
+scale is proportional to reciprocal distance. Focus-in uses one coupled path
+rather than adjoining pan and zoom sections: after solving the eased camera
+distance, it derives the remaining target offset from that distance and the
+same smooth progress. The selected body's projected offset therefore shrinks
+continuously from its starting position toward center and cannot grow beyond
+its initially visible position. Squaring the eased scale progress tempers the
+initial acceleration across very large family-scale changes without adding a
+new phase boundary. Focus-out uses continuous leading zoom and trailing pan
+curves, since revealing more context cannot hide the selected destination.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.
