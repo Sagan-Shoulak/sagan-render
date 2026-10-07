@@ -504,6 +504,22 @@ minimum-radius scaling at long range, and rejects geometry behind the camera.
 Connecting this contract to the Sagan-authored scene is waiting on the
 package-scoped typed-native declaration mechanism tracked in `sagan#30`.
 
+`scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
+contract. It owns the shared octahedral sphere vertex/index buffers, reviewed
+backend shader selection, material pipeline, and resize-aware D32 depth target.
+Callers provide immutable render items, cameras, target viewports, presentation
+policies, and materials; the pass does not store or advance simulation state.
+
+The first deterministic capture renders the same measured Sun, Earth, and Moon
+snapshot through two cameras. A system viewport preserves the physical
+Sun-Earth separation, while a lunar inset uses the physical Earth-Moon
+separation so both smaller bodies remain inspectable without moving either
+body or inventing orbital dynamics. D3D12, Vulkan, and Metal each validate that
+the three differently lit indexed models survive GPU readback. The test also
+keeps the camera far plane close to each view's actual scale: an excessively
+distant far plane can round projected depth to the clear value after GPU
+narrowing and make strict `LESS` depth testing reject valid geometry.
+
 ## Supported foundation and rollback
 
 - Windows validation explicitly requests SDL's `direct3d12` driver and DXIL.
