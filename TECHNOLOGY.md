@@ -284,6 +284,10 @@ to pick projected samples. Focusing interpolates all three measured camera
 axes, then follows the selected object's fresh presentation snapshots. The
 Sun, Earth, and Moon viewing distances are demo-owned presentation choices;
 the generic scene library neither selects them nor changes a body position.
+The Sun distance contains the demonstrated Earth-Moon family, the Earth
+distance contains the lunar orbit, and the Moon distance frames the leaf body.
+These are hierarchy-aware camera policies in the demo, not orbital knowledge
+inside the renderer.
 
 ### Sun-Earth-Moon bootstrap
 
@@ -555,7 +559,14 @@ The UI bridge reports accumulated right-drag deltas and wheel movement rather
 than exposing SDL event structures. Sagan consumes each delta once and owns the
 orbit target, yaw, pitch, and unit-typed camera distance. Focusing changes the
 target and distance smoothly; following a moving selected body updates only the
-target snapshot. This preserves the boundary: native code gathers platform
+target snapshot. During the transition, the eased destination is refreshed
+from each new immutable body snapshot; otherwise the camera would ease toward
+the position captured at activation and snap to the live position at the end.
+Camera distance uses the same smoothstep timing in reciprocal-distance space,
+because projected scale is proportional to reciprocal distance. This avoids a
+large system-to-family transition appearing nearly stationary before rushing
+through most of its visible zoom at the end.
+This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.
 

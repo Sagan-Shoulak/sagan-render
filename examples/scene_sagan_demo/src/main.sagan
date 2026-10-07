@@ -30,11 +30,13 @@ import smooth_focus_axis from render.scene
 import pick_circle from render.scene
 
 const DISTANT_ORIGIN: Float64<meter> = 1e12 kilometer
-const CAMERA_DEPTH: Float64<meter> = 3e8 kilometer
+const CAMERA_DEPTH: Float64<meter> = 3.3e8 kilometer
 const EARTH_DISTANCE: Float64<meter> = 1.495978707e8 kilometer
 const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
-const SUN_VIEW_DISTANCE: Float64<meter> = 8e6 kilometer
-const EARTH_VIEW_DISTANCE: Float64<meter> = 9e4 kilometer
+// Family framing includes a margin beyond the outermost demonstrated child
+// orbit at the 60-degree vertical field of view.
+const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
+const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 
 fun wrapped_angle(value: Float64): Float64 {
@@ -97,6 +99,19 @@ fun zoom_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
   if factor < 0.25 { factor = 0.25 }
   if factor > 4.0 { factor = 4.0 }
   return clamp_distance(value * factor)
+}
+
+/// Ease reciprocal distance so apparent scale changes smoothly. A linear
+/// distance ease would save almost the entire visible zoom for the end when
+/// moving from the system view to the much closer Earth family view.
+fun smooth_focus_distance(start: Float64<meter>, target: Float64<meter>,
+                          elapsed_seconds: Float64,
+                          duration_seconds: Float64): Float64<meter> {
+  let progress = elapsed_seconds / duration_seconds
+  if progress <= 0.0 { return start }
+  if progress >= 1.0 { return target }
+  let eased = progress * progress * (3.0 - 2.0 * progress)
+  return start * target / (target + (start - target) * eased)
 }
 
 class PresentationObject has SpatialRenderable {
@@ -511,10 +526,18 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       }
       if focusing {
         let focus_elapsed = elapsed_seconds() - focus_started
+        // The destination is a live presentation snapshot. Refresh it during
+        // the ease so a moving body cannot leave behind the position captured
+        // when Enter was pressed and then snap at transition completion.
+        if focused_identifier > 0 {
+          focus_target_x = selected_target_x(focused_identifier, first, second, third)
+          focus_target_y = selected_target_y(focused_identifier, first, second, third)
+          focus_target_z = selected_target_z(focused_identifier, first, second, third)
+        }
         orbit_target_x = smooth_focus_axis(focus_start_x, focus_target_x, focus_elapsed, 1.2)
         orbit_target_y = smooth_focus_axis(focus_start_y, focus_target_y, focus_elapsed, 1.2)
         orbit_target_z = smooth_focus_axis(focus_start_z, focus_target_z, focus_elapsed, 1.2)
-        camera_distance = smooth_focus_axis(
+        camera_distance = smooth_focus_distance(
           focus_start_distance, focus_target_distance, focus_elapsed, 1.2)
         if focus_elapsed >= 1.2 { focusing = false }
       }
