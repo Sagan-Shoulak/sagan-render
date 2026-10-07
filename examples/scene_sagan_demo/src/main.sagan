@@ -340,29 +340,6 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(3))
-  let inset_width = 300.0
-  let inset_height = 150.0
-  let inset_x = viewport_x + viewport_width - inset_width - 16.0
-  let inset_y = viewport_y + viewport_height - inset_height - 16.0
-  fill(inset_x - 3.0, inset_y - 3.0, inset_width + 6.0, inset_height + 6.0,
-       142, 203, 255)
-  fill(inset_x, inset_y, inset_width, inset_height, 2, 6, 11)
-  let inset_camera_x = earth_sample.x() +
-                       (moon_sample.x() - earth_sample.x()) / 2.0
-  let inset_camera_y = earth_sample.y() +
-                       (moon_sample.y() - earth_sample.y()) / 2.0
-  let inset_camera_z = earth_sample.z() + 1000000.0 kilometer
-  draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
-             inset_camera_x, inset_camera_y, inset_camera_z, 0.0, 0.0,
-             inset_x, inset_y, inset_width, inset_height, 70, 92, 118)
-  draw_object(second, inset_camera_x, inset_camera_y, inset_camera_z, 0.0, 0.0,
-              inset_x, inset_y, inset_width, inset_height,
-              selection.is_selected(2))
-  draw_object(third, inset_camera_x, inset_camera_y, inset_camera_z, 0.0, 0.0,
-              inset_x, inset_y, inset_width, inset_height,
-              selection.is_selected(3))
-  text(inset_x + 10.0, inset_y + 10.0, "EARTH-MOON PHYSICAL INSET", 8.0,
-       245, 249, 255)
   text(24.0, window_height - 28.0,
        "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
        142, 164, 188)

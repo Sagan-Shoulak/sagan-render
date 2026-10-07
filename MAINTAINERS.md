@@ -166,7 +166,9 @@ render samples positioned near `1e15 meter`. Run it on Windows with
 its current target, the wheel zooms by changing measured target distance, Left
 and Right select samples, Enter smoothly focuses the selected sample, and
 pointer clicks pick projected samples. The demo draws presentation-only Earth
-and Moon orbit guides from unit-typed sampled paths; no Sun orbit is drawn.
+and Moon orbit guides from unit-typed sampled paths; no Sun orbit or secondary
+inset camera is drawn. Focus and wheel zoom expose the lunar scale in the main
+viewport.
 Focused CI captures initial, selected,
 right-dragged, and wheel-zoomed frames and requires the relevant frames to
 differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;

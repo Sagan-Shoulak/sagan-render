@@ -530,13 +530,14 @@ keeps the camera far plane close to each view's actual scale: an excessively
 distant far plane can round projected depth to the clear value after GPU
 narrowing and make strict `LESS` depth testing reject valid geometry.
 
-The interactive Sagan demo uses the same pass for a full system viewport and a
-physical Earth-Moon inset. Every frame is composed in Sagan from immutable
-presentation objects; the native host receives only queued sphere draws and UI
-commands. It groups draws by viewport so each camera receives a fresh depth
-clear, then blits the completed logical target to the platform swapchain. This
-keeps resizing independent of drawable pixel density and keeps all camera and
-body lengths unit checked on the Sagan side of the bridge.
+The interactive Sagan demo uses the same pass for one full 3D system viewport.
+Every frame is composed in Sagan from immutable presentation objects; the
+native host receives only queued sphere draws and UI commands. Focusing and
+zooming reveal the Earth-Moon scale in that same camera instead of duplicating
+the scene through an inset. The completed logical target is then blitted to the
+platform swapchain. This keeps resizing independent of drawable pixel density
+and keeps all camera and body lengths unit checked on the Sagan side of the
+bridge.
 
 The UI bridge reports accumulated right-drag deltas and wheel movement rather
 than exposing SDL event structures. Sagan consumes each delta once and owns the
