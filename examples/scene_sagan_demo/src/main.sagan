@@ -14,6 +14,9 @@ import key_pressed from render.ui
 import pointer_pressed from render.ui
 import pointer_x from render.ui
 import pointer_y from render.ui
+import orbit_delta_x from render.ui
+import orbit_delta_y from render.ui
+import scroll_y from render.ui
 import elapsed_seconds from render.ui
 import SpatialRenderable from render.scene
 import RenderSample from render.scene
@@ -60,6 +63,19 @@ fun clamp_pitch(value: Float64): Float64 {
   if value > 1.45 { return 1.45 }
   if value < 0.0 - 1.45 { return 0.0 - 1.45 }
   return value
+}
+
+fun clamp_distance(value: Float64<meter>): Float64<meter> {
+  if value < 12000.0 kilometer { return 12000.0 kilometer }
+  if value > 600000000.0 kilometer { return 600000000.0 kilometer }
+  return value
+}
+
+fun zoom_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
+  let factor = 1.0 - wheel * 0.12
+  if factor < 0.25 { factor = 0.25 }
+  if factor > 4.0 { factor = 4.0 }
+  return clamp_distance(value * factor)
 }
 
 class PresentationObject has SpatialRenderable {
@@ -205,6 +221,20 @@ fun selected_target_y(identifier: Int64,
   return sample(first).y()
 }
 
+fun selected_target_z(identifier: Int64,
+                      first: SpatialRenderable, second: SpatialRenderable,
+                      third: SpatialRenderable): Float64<meter> {
+  if identifier == 2 { return sample(second).z() }
+  if identifier == 3 { return sample(third).z() }
+  return sample(first).z()
+}
+
+fun selected_view_distance(identifier: Int64): Float64<meter> {
+  if identifier == 2 { return EARTH_VIEW_DISTANCE }
+  if identifier == 3 { return MOON_VIEW_DISTANCE }
+  return SUN_VIEW_DISTANCE
+}
+
 fun selected_camera_z(identifier: Int64,
                       first: SpatialRenderable, second: SpatialRenderable,
                       third: SpatialRenderable): Float64<meter> {
@@ -227,7 +257,7 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(24.0, 22.0, "SUN - EARTH - MOON SNAPSHOT", 16.0, 245, 249, 255)
-  text(24.0, 48.0, "LEFT/RIGHT: SELECT | ENTER: FOCUS | WASD: LOOK | Q/E: DOLLY", 10.0,
+  text(24.0, 48.0, "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CLICK: SELECT | ENTER: FOCUS", 10.0,
        142, 203, 255)
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
   draw_object(first, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
@@ -275,15 +305,21 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let camera_z = DISTANT_ORIGIN
   let camera_yaw = 0.0
   let camera_pitch = 0.0
-  let system_camera_x = camera_x
-  let system_camera_y = camera_y
-  let system_camera_z = camera_z
-  let focus_start_x = camera_x
-  let focus_start_y = camera_y
-  let focus_start_z = camera_z
-  let focus_target_x = camera_x
-  let focus_target_y = camera_y
-  let focus_target_z = camera_z
+  let orbit_target_x = camera_x
+  let orbit_target_y = camera_y
+  let orbit_target_z = DISTANT_ORIGIN - CAMERA_DEPTH
+  let camera_distance = CAMERA_DEPTH
+  let system_target_x = orbit_target_x
+  let system_target_y = orbit_target_y
+  let system_target_z = orbit_target_z
+  let focus_start_x = orbit_target_x
+  let focus_start_y = orbit_target_y
+  let focus_start_z = orbit_target_z
+  let focus_start_distance = camera_distance
+  let focus_target_x = orbit_target_x
+  let focus_target_y = orbit_target_y
+  let focus_target_z = orbit_target_z
+  let focus_target_distance = camera_distance
   let focus_started = 0.0
   let focusing = false
   let focused_identifier: Int64 = 0
@@ -321,21 +357,18 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       if key_pressed("d") { camera_yaw = wrapped_angle(camera_yaw + 0.12) }
       if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
       if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
+      camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
+      camera_pitch = clamp_pitch(camera_pitch - orbit_delta_y() * 0.006)
+      camera_distance = zoom_distance(camera_distance, scroll_y())
       let look_pitch_cosine = demo_cosine(camera_pitch)
       let look_forward_x = demo_sine(camera_yaw) * look_pitch_cosine
       let look_forward_y = demo_sine(camera_pitch)
       let look_forward_z = 0.0 - demo_cosine(camera_yaw) * look_pitch_cosine
       if key_pressed("q") {
-        camera_x = camera_x - look_forward_x * 10000000.0 kilometer
-        camera_y = camera_y - look_forward_y * 10000000.0 kilometer
-        camera_z = camera_z - look_forward_z * 10000000.0 kilometer
-        focused_identifier = 0
+        camera_distance = zoom_distance(camera_distance, -1.0)
       }
       if key_pressed("e") {
-        camera_x = camera_x + look_forward_x * 10000000.0 kilometer
-        camera_y = camera_y + look_forward_y * 10000000.0 kilometer
-        camera_z = camera_z + look_forward_z * 10000000.0 kilometer
-        focused_identifier = 0
+        camera_distance = zoom_distance(camera_distance, 1.0)
       }
       let viewport_x = 24.0
       let viewport_y = 76.0
@@ -371,40 +404,50 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
                        24.0) { selection.select!(3) }
       }
       if key_pressed("enter") {
-        focus_start_x = camera_x
-        focus_start_y = camera_y
-        focus_start_z = camera_z
+        focus_start_x = orbit_target_x
+        focus_start_y = orbit_target_y
+        focus_start_z = orbit_target_z
+        focus_start_distance = camera_distance
         focus_target_x = selected_target_x(selection.identifier(), first, second, third)
         focus_target_y = selected_target_y(selection.identifier(), first, second, third)
-        focus_target_z = selected_camera_z(selection.identifier(), first, second, third)
+        focus_target_z = selected_target_z(selection.identifier(), first, second, third)
+        focus_target_distance = selected_view_distance(selection.identifier())
         focus_started = elapsed_seconds()
         focusing = true
         focused_identifier = selection.identifier()
       }
       if key_pressed("r") {
-        focus_start_x = camera_x
-        focus_start_y = camera_y
-        focus_start_z = camera_z
-        focus_target_x = system_camera_x
-        focus_target_y = system_camera_y
-        focus_target_z = system_camera_z
+        focus_start_x = orbit_target_x
+        focus_start_y = orbit_target_y
+        focus_start_z = orbit_target_z
+        focus_start_distance = camera_distance
+        focus_target_x = system_target_x
+        focus_target_y = system_target_y
+        focus_target_z = system_target_z
+        focus_target_distance = CAMERA_DEPTH
         focus_started = elapsed_seconds()
         focusing = true
         focused_identifier = 0
       }
       if focusing {
         let focus_elapsed = elapsed_seconds() - focus_started
-        camera_x = smooth_focus_axis(focus_start_x, focus_target_x, focus_elapsed, 1.2)
-        camera_y = smooth_focus_axis(focus_start_y, focus_target_y, focus_elapsed, 1.2)
-        camera_z = smooth_focus_axis(focus_start_z, focus_target_z, focus_elapsed, 1.2)
+        orbit_target_x = smooth_focus_axis(focus_start_x, focus_target_x, focus_elapsed, 1.2)
+        orbit_target_y = smooth_focus_axis(focus_start_y, focus_target_y, focus_elapsed, 1.2)
+        orbit_target_z = smooth_focus_axis(focus_start_z, focus_target_z, focus_elapsed, 1.2)
+        camera_distance = smooth_focus_axis(
+          focus_start_distance, focus_target_distance, focus_elapsed, 1.2)
         if focus_elapsed >= 1.2 { focusing = false }
       }
       if focusing == false {
         if focused_identifier > 0 {
-          camera_x = selected_target_x(focused_identifier, first, second, third)
-          camera_y = selected_target_y(focused_identifier, first, second, third)
+          orbit_target_x = selected_target_x(focused_identifier, first, second, third)
+          orbit_target_y = selected_target_y(focused_identifier, first, second, third)
+          orbit_target_z = selected_target_z(focused_identifier, first, second, third)
         }
       }
+      camera_x = orbit_target_x - look_forward_x * camera_distance
+      camera_y = orbit_target_y - look_forward_y * camera_distance
+      camera_z = orbit_target_z - look_forward_z * camera_distance
       compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               selection, first, second, third)
     }

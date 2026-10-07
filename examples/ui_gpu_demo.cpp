@@ -663,8 +663,12 @@ namespace
   bool bridge_running{};
   bool bridge_pointer_down{};
   bool bridge_pointer_up{};
+  bool bridge_orbit_dragging{};
   double bridge_pointer_x{};
   double bridge_pointer_y{};
+  double bridge_orbit_delta_x{};
+  double bridge_orbit_delta_y{};
+  double bridge_scroll_y{};
   std::uint64_t bridge_deadline{};
   std::uint64_t bridge_started_at{};
   double bridge_elapsed_override{-1.0};
@@ -738,6 +742,12 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
       bridge_pointer_up = true;
     }
   }
+  const char *orbit_x = std::getenv("SAGAN_RENDER_TEST_ORBIT_DX");
+  const char *orbit_y = std::getenv("SAGAN_RENDER_TEST_ORBIT_DY");
+  if (orbit_x && *orbit_x) bridge_orbit_delta_x = std::strtod(orbit_x, nullptr);
+  if (orbit_y && *orbit_y) bridge_orbit_delta_y = std::strtod(orbit_y, nullptr);
+  const char *scroll_y = std::getenv("SAGAN_RENDER_TEST_SCROLL_Y");
+  if (scroll_y && *scroll_y) bridge_scroll_y = std::strtod(scroll_y, nullptr);
   return true;
 }
 
@@ -772,15 +782,39 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
     }
     else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
-      bridge_pointer_down = true;
       bridge_pointer_x = event.button.x;
       bridge_pointer_y = event.button.y;
+      if (event.button.button == SDL_BUTTON_LEFT) bridge_pointer_down = true;
+      if (event.button.button == SDL_BUTTON_RIGHT)
+      {
+        bridge_orbit_dragging = true;
+        SDL_CaptureMouse(true);
+      }
     }
     else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP)
     {
-      bridge_pointer_up = true;
       bridge_pointer_x = event.button.x;
       bridge_pointer_y = event.button.y;
+      if (event.button.button == SDL_BUTTON_LEFT) bridge_pointer_up = true;
+      if (event.button.button == SDL_BUTTON_RIGHT)
+      {
+        bridge_orbit_dragging = false;
+        SDL_CaptureMouse(false);
+      }
+    }
+    else if (event.type == SDL_EVENT_MOUSE_MOTION)
+    {
+      bridge_pointer_x = event.motion.x;
+      bridge_pointer_y = event.motion.y;
+      if (bridge_orbit_dragging)
+      {
+        bridge_orbit_delta_x += event.motion.xrel;
+        bridge_orbit_delta_y += event.motion.yrel;
+      }
+    }
+    else if (event.type == SDL_EVENT_MOUSE_WHEEL)
+    {
+      bridge_scroll_y += event.wheel.y;
     }
   }
   update_bridge_size();
@@ -933,5 +967,26 @@ auto sagan_5f5f72656e6465725f75695f706f696e7465725f78() -> double
 auto sagan_5f5f72656e6465725f75695f706f696e7465725f79() -> double
 {
   return bridge_pointer_y;
+}
+
+auto sagan_5f5f72656e6465725f75695f6f726269745f64656c74615f78() -> double
+{
+  const double result = bridge_orbit_delta_x;
+  bridge_orbit_delta_x = 0.0;
+  return result;
+}
+
+auto sagan_5f5f72656e6465725f75695f6f726269745f64656c74615f79() -> double
+{
+  const double result = bridge_orbit_delta_y;
+  bridge_orbit_delta_y = 0.0;
+  return result;
+}
+
+auto sagan_5f5f72656e6465725f75695f7363726f6c6c5f79() -> double
+{
+  const double result = bridge_scroll_y;
+  bridge_scroll_y = 0.0;
+  return result;
 }
 #endif

@@ -486,8 +486,11 @@ incremental floating-point rotations cannot accumulate roll. Strafe follows
 camera right, lift follows world up, dolly follows camera forward, and orbit
 places the camera at a measured distance behind its facing direction. The
 contract accepts generic measured targets and does not know what kind of entity
-is being viewed. The Sagan demo exposes the same horizon lock through A/D yaw,
-W/S clamped pitch, Q/E forward dolly, selection, and focus controls.
+is being viewed. The Sagan demo exposes the same horizon lock primarily through
+a KSP-style target camera: right-button drag changes yaw and clamped pitch
+around the current target, while the wheel changes the measured target
+distance. A/D, W/S, and Q/E remain keyboard-accessible yaw, pitch, and zoom
+fallbacks.
 
 The native `prepare_sphere_draw` contract owns the precision-sensitive seam
 between a measured scene sample and the reviewed mesh shader. It subtracts the
@@ -509,8 +512,11 @@ camera, body, near-plane, far-plane, and radius lengths. The compiler therefore
 rejects unit, type, or arity drift before native compilation.
 
 `scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
-contract. It owns the shared octahedral sphere vertex/index buffers, reviewed
-backend shader selection, material pipeline, and resize-aware D32 depth target.
+contract. It builds one shared UV sphere with 16 latitude bands, 32 longitude
+segments, 561 smooth-normal vertices, and 1,024 indexed triangles. It also owns
+reviewed backend shader selection, the material pipeline, and a resize-aware
+D32 depth target. Tessellation changes presentation geometry only; entity
+radii and positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, presentation
 policies, and materials; the pass does not store or advance simulation state.
 
@@ -531,6 +537,14 @@ commands. It groups draws by viewport so each camera receives a fresh depth
 clear, then blits the completed logical target to the platform swapchain. This
 keeps resizing independent of drawable pixel density and keeps all camera and
 body lengths unit checked on the Sagan side of the bridge.
+
+The UI bridge reports accumulated right-drag deltas and wheel movement rather
+than exposing SDL event structures. Sagan consumes each delta once and owns the
+orbit target, yaw, pitch, and unit-typed camera distance. Focusing changes the
+target and distance smoothly; following a moving selected body updates only the
+target snapshot. This preserves the boundary: native code gathers platform
+input, rendering code defines camera presentation, and physics supplies body
+state without depending on either.
 
 ## Supported foundation and rollback
 

@@ -55,6 +55,16 @@ fun pointer_released(): Bool => __render_ui_pointer_released()
 fun pointer_x(): Float64 => __render_ui_pointer_x()
 fun pointer_y(): Float64 => __render_ui_pointer_y()
 
+/// Consume accumulated right-button drag motion since the previous call.
+/// These logical-pixel deltas let applications implement target-centered
+/// orbit cameras without exposing native SDL events.
+fun orbit_delta_x(): Float64 => __render_ui_orbit_delta_x()
+fun orbit_delta_y(): Float64 => __render_ui_orbit_delta_y()
+
+/// Consume accumulated vertical wheel movement. Positive values zoom inward
+/// by convention; applications retain control of physical distance limits.
+fun scroll_y(): Float64 => __render_ui_scroll_y()
+
 /// Monotonic seconds since the UI host opened.
 fun elapsed_seconds(): Float64 => __render_elapsed_seconds()
 
@@ -73,4 +83,7 @@ export pointer_pressed
 export pointer_released
 export pointer_x
 export pointer_y
+export orbit_delta_x
+export orbit_delta_y
+export scroll_y
 export elapsed_seconds

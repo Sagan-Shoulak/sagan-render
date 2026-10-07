@@ -22,14 +22,20 @@ cp "$sdl_root/bin/SDL3.dll" build/scene-sagan-demo-test/SDL3.dll
 report="build/scene-sagan-demo-test/scene-demo-report.txt"
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-reframed.bmp \
-  build/scene-sagan-demo-test/scene-camera-turned.bmp
+  build/scene-sagan-demo-test/scene-camera-turned.bmp \
+  build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-camera-turned.bmp
-export SAGAN_RENDER_TEST_KEY=d
+export SAGAN_RENDER_TEST_ORBIT_DX=48 SAGAN_RENDER_TEST_ORBIT_DY=-24
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+unset SAGAN_RENDER_TEST_ORBIT_DX SAGAN_RENDER_TEST_ORBIT_DY
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-zoomed.bmp
+export SAGAN_RENDER_TEST_SCROLL_Y=2
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+unset SAGAN_RENDER_TEST_SCROLL_Y
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bmp
 export SAGAN_RENDER_TEST_KEY=right
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
@@ -41,7 +47,11 @@ if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test
   exit 1
 fi
 if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-camera-turned.bmp; then
-  echo "Horizon-locked camera turn did not change the rendered 3D scene" >&2
+  echo "Right-drag orbit did not change the rendered 3D scene" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on D3D12: indexed Sun, Earth, and Moon models rendered; selection and horizon-locked camera input changed frame data."
+if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-zoomed.bmp; then
+  echo "Mouse-wheel zoom did not change the rendered 3D scene" >&2
+  exit 1
+fi
+echo "Sagan scene demo passed on D3D12: smooth indexed bodies rendered; selection, right-drag orbit, and wheel zoom changed frame data."
