@@ -20,6 +20,11 @@ TMPDIR="$native_tmp" TMP="$native_tmp" TEMP="$native_tmp" \
 cp "$sdl_root/bin/SDL3.dll" build/scene-sagan-demo-test/SDL3.dll
 
 report="build/scene-sagan-demo-test/scene-demo-report.txt"
+fingerprint() {
+  local checksum bytes ignored
+  read -r checksum bytes ignored < <(cksum "$1")
+  printf '%s:%s' "$checksum" "$bytes"
+}
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-reframed.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
@@ -42,15 +47,18 @@ build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=direct3d12 logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
 [[ "$(od -An -td4 -j18 -N8 build/scene-sagan-demo-test/scene-idle.bmp | tr -s ' ' | sed 's/^ //;s/ $//')" == "960 540" ]]
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-reframed.bmp; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-reframed.bmp)" ]]; then
   echo "Camera reframe did not change the rendered scene" >&2
   exit 1
 fi
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-camera-turned.bmp; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-camera-turned.bmp)" ]]; then
   echo "Right-drag orbit did not change the rendered 3D scene" >&2
   exit 1
 fi
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-zoomed.bmp; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-zoomed.bmp)" ]]; then
   echo "Mouse-wheel zoom did not change the rendered 3D scene" >&2
   exit 1
 fi

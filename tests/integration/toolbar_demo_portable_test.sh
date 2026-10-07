@@ -35,6 +35,20 @@ fingerprint() {
   read -r checksum bytes ignored < <(cksum "$1")
   printf '%s:%s' "$checksum" "$bytes"
 }
+require_same() {
+  local description="$1" first="$2" second="$3"
+  if [[ "$(fingerprint "$first")" != "$(fingerprint "$second")" ]]; then
+    echo "$description should match: $first and $second" >&2
+    return 1
+  fi
+}
+require_different() {
+  local description="$1" first="$2" second="$3"
+  if [[ "$(fingerprint "$first")" == "$(fingerprint "$second")" ]]; then
+    echo "$description should differ: $first and $second" >&2
+    return 1
+  fi
+}
 run_case() {
   local name="$1" width="$2" height="$3" key="${4:-}" x="${5:-}" y="${6:-}" action="${7:-}"
   export SAGAN_RENDER_LOGICAL_WIDTH="$width" SAGAN_RENDER_LOGICAL_HEIGHT="$height"
@@ -52,18 +66,24 @@ run_case disabled-960x540 960 540 "" 400 250 click
 run_case hover-reset-960x540 960 540 "" 600 250 move
 run_case pressed-reset-960x540 960 540 "" 600 250 down
 run_case vertical-640x600 640 600
-[[ "$(fingerprint build/toolbar-sagan-demo/keyboard-primary-960x540.bmp)" == \
-   "$(fingerprint build/toolbar-sagan-demo/pointer-primary-960x540.bmp)" ]]
-[[ "$(fingerprint build/toolbar-sagan-demo/focus-forward-960x540.bmp)" == \
-   "$(fingerprint build/toolbar-sagan-demo/focus-reverse-960x540.bmp)" ]]
-[[ "$(fingerprint build/toolbar-sagan-demo/idle-960x540.bmp)" != \
-   "$(fingerprint build/toolbar-sagan-demo/focus-forward-960x540.bmp)" ]]
-[[ "$(fingerprint build/toolbar-sagan-demo/idle-960x540.bmp)" == \
-   "$(fingerprint build/toolbar-sagan-demo/disabled-960x540.bmp)" ]]
-[[ "$(fingerprint build/toolbar-sagan-demo/idle-960x540.bmp)" != \
-   "$(fingerprint build/toolbar-sagan-demo/hover-reset-960x540.bmp)" ]]
-[[ "$(fingerprint build/toolbar-sagan-demo/hover-reset-960x540.bmp)" != \
-   "$(fingerprint build/toolbar-sagan-demo/pressed-reset-960x540.bmp)" ]]
+require_same "keyboard and pointer activation" \
+  build/toolbar-sagan-demo/keyboard-primary-960x540.bmp \
+  build/toolbar-sagan-demo/pointer-primary-960x540.bmp
+require_same "forward and reverse focus traversal" \
+  build/toolbar-sagan-demo/focus-forward-960x540.bmp \
+  build/toolbar-sagan-demo/focus-reverse-960x540.bmp
+require_different "idle and focused states" \
+  build/toolbar-sagan-demo/idle-960x540.bmp \
+  build/toolbar-sagan-demo/focus-forward-960x540.bmp
+require_same "disabled activation" \
+  build/toolbar-sagan-demo/idle-960x540.bmp \
+  build/toolbar-sagan-demo/disabled-960x540.bmp
+require_different "idle and hover states" \
+  build/toolbar-sagan-demo/idle-960x540.bmp \
+  build/toolbar-sagan-demo/hover-reset-960x540.bmp
+require_different "hover and pressed states" \
+  build/toolbar-sagan-demo/hover-reset-960x540.bmp \
+  build/toolbar-sagan-demo/pressed-reset-960x540.bmp
 grep -q "SAGAN_TOOLBAR_DEMO language=sagan driver=$expected logical=960x540 cleanup=1" "$report"
 grep -q "SAGAN_TOOLBAR_DEMO language=sagan driver=$expected logical=640x600 cleanup=1" "$report"
 echo "Sagan toolbar passed keyboard-pointer equivalence, disabled, hover, press, resize, and cleanup checks on $expected."

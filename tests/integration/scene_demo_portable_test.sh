@@ -27,6 +27,11 @@ case "$(uname -s)" in
 esac
 
 report=build/scene-sagan-demo-test/scene-demo-report.txt
+fingerprint() {
+  local checksum bytes ignored
+  read -r checksum bytes ignored < <(cksum "$1")
+  printf '%s:%s' "$checksum" "$bytes"
+}
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-reframed.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
@@ -48,15 +53,18 @@ export SAGAN_RENDER_TEST_KEY=right
 "$executable" | tee -a "$report"
 
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=$expected logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-reframed.bmp; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-reframed.bmp)" ]]; then
   echo "Camera reframe did not change the rendered scene" >&2
   exit 1
 fi
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-camera-turned.bmp; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-camera-turned.bmp)" ]]; then
   echo "Right-drag orbit did not change the rendered 3D scene" >&2
   exit 1
 fi
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-zoomed.bmp; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-zoomed.bmp)" ]]; then
   echo "Mouse-wheel zoom did not change the rendered 3D scene" >&2
   exit 1
 fi
