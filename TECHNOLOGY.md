@@ -284,6 +284,10 @@ to pick projected samples. Focusing interpolates all three measured camera
 axes, then follows the selected object's fresh presentation snapshots. The
 Sun, Earth, and Moon viewing distances are demo-owned presentation choices;
 the generic scene library neither selects them nor changes a body position.
+The Sun distance contains the demonstrated Earth-Moon family, the Earth
+distance contains the lunar orbit, and the Moon distance frames the leaf body.
+These are hierarchy-aware camera policies in the demo, not orbital knowledge
+inside the renderer.
 
 ### Sun-Earth-Moon bootstrap
 
@@ -306,9 +310,11 @@ and the final lighting pipeline. Replacing the impostor must not change stable
 IDs, unit-typed positions/radii, camera focus, or snapshot ownership.
 
 The demonstration advances an Earth phase and a faster Moon phase with a
-bounded Taylor approximation of sine and cosine, then constructs fresh
-presentation objects for the frame. This is intentionally bare-bones circular
-motion, not an orbital integrator: it has no masses, forces, energy model,
+quadrant-reduced Taylor approximation of sine and cosine, then constructs fresh
+presentation objects for the frame. Reducing each angle to the polynomial's
+accurate interval prevents a seam where a sampled path wraps through pi. This is
+intentionally bare-bones circular motion, not an orbital integrator: it has no
+masses, forces, energy model,
 ephemeris, error control, or persistent mutable body state. A later application
 can replace the generator with versioned `sagan-physics` snapshots without
 changing renderer APIs.
@@ -474,10 +480,14 @@ Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its
 interactive perspective camera will expose yaw, pitch, translation or dolly,
 and focus/orbit behavior while remaining horizon locked: camera right and
-forward are rebuilt from a declared world-up axis, roll is not an input, and
-pitch is clamped before forward becomes parallel to world up. The Sagan scene
-demo now uses indexed models; the older strip-composited helper remains only as
-bootstrap history for simpler UI composition.
+forward are rebuilt without a roll input. The interactive orbit reaches the
+exact top-down and horizon views, then continues into the lower hemisphere but
+clamps about 22 degrees before the exact bottom view. Upward pitch locks at the
+top pole rather than crossing it. Horizontal drag remains yaw around world +Z,
+so it cannot turn into roll. This intentional unequal top/bottom access makes
+camera behavior communicate which side is up. The Sagan
+scene demo now uses indexed models; the older strip-composited helper remains
+only as bootstrap history for simpler UI composition.
 
 The native `horizon_locked_camera` contract now supplies the camera-side math.
 It stores a physical position, normalized world-up direction, yaw, and clamped
@@ -486,8 +496,17 @@ incremental floating-point rotations cannot accumulate roll. Strafe follows
 camera right, lift follows world up, dolly follows camera forward, and orbit
 places the camera at a measured distance behind its facing direction. The
 contract accepts generic measured targets and does not know what kind of entity
-is being viewed. The Sagan demo exposes the same horizon lock through A/D yaw,
-W/S clamped pitch, Q/E forward dolly, selection, and focus controls.
+is being viewed. The Sagan demo exposes the same horizon lock primarily through
+a KSP-style target camera: right-button drag changes yaw and clamped pitch
+around the current target, while the wheel changes the measured target
+distance. A/D, W/S, and Q/E remain keyboard-accessible yaw, pitch, and zoom
+fallbacks.
+
+At the exact top pole, camera forward is parallel to world +Z and a cross-product
+basis alone would be undefined. The demo instead derives right from yaw around
++Z and derives camera up analytically. The basis stays orthogonal at the pole
+and horizon, contains no roll state or roll input, and changes continuously as
+the camera enters the limited underside range.
 
 The native `prepare_sphere_draw` contract owns the precision-sensitive seam
 between a measured scene sample and the reviewed mesh shader. It subtracts the
@@ -509,8 +528,11 @@ camera, body, near-plane, far-plane, and radius lengths. The compiler therefore
 rejects unit, type, or arity drift before native compilation.
 
 `scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
-contract. It owns the shared octahedral sphere vertex/index buffers, reviewed
-backend shader selection, material pipeline, and resize-aware D32 depth target.
+contract. It builds one shared UV sphere with 16 latitude bands, 32 longitude
+segments, 561 smooth-normal vertices, and 1,024 indexed triangles. It also owns
+reviewed backend shader selection, the material pipeline, and a resize-aware
+D32 depth target. Tessellation changes presentation geometry only; entity
+radii and positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, presentation
 policies, and materials; the pass does not store or advance simulation state.
 
@@ -524,13 +546,68 @@ keeps the camera far plane close to each view's actual scale: an excessively
 distant far plane can round projected depth to the clear value after GPU
 narrowing and make strict `LESS` depth testing reject valid geometry.
 
-The interactive Sagan demo uses the same pass for a full system viewport and a
-physical Earth-Moon inset. Every frame is composed in Sagan from immutable
-presentation objects; the native host receives only queued sphere draws and UI
-commands. It groups draws by viewport so each camera receives a fresh depth
-clear, then blits the completed logical target to the platform swapchain. This
-keeps resizing independent of drawable pixel density and keeps all camera and
-body lengths unit checked on the Sagan side of the bridge.
+The interactive Sagan demo uses the same pass for one full 3D system viewport.
+Every frame is composed in Sagan from immutable presentation objects; the
+native host receives only queued sphere draws and UI commands. Focusing and
+zooming reveal the Earth-Moon scale in that same camera instead of duplicating
+the scene through an inset. The completed logical target is then blitted to the
+platform swapchain. This keeps resizing independent of drawable pixel density
+and keeps all camera and body lengths unit checked on the Sagan side of the
+bridge.
+
+The UI bridge reports accumulated right-drag deltas and wheel movement rather
+than exposing SDL event structures. Sagan consumes each delta once and owns the
+orbit target, yaw, pitch, and unit-typed camera distance. Focusing changes the
+target and distance smoothly; following a moving selected body updates only the
+target snapshot. During the transition, the eased destination is refreshed
+from each new immutable body snapshot; otherwise the camera would ease toward
+the position captured at activation and snap to the live position at the end.
+Camera distance is interpolated in reciprocal-distance space because projected
+scale is proportional to reciprocal distance. Focus-in uses one coupled path
+rather than adjoining pan and zoom sections: after solving the eased camera
+distance, it derives the remaining target offset from that distance and the
+same smooth progress. The selected body's projected offset therefore shrinks
+continuously from its starting position toward center and cannot grow beyond
+its initially visible position. Squaring the eased scale progress tempers the
+initial acceleration across very large family-scale changes without adding a
+new phase boundary. Ancestor focus uses the inverse coupling: an ease-out
+screen-space curve is multiplied by current distance over final distance.
+Squaring its remaining fraction advances more pan earlier and creates a longer
+visible deceleration tail near the destination. The descendant therefore moves
+from viewport center to its final system-view position along one continuous
+screen-space curve while zoom naturally leads;
+there is no zoom-to-pan mode switch. Both ends use live presentation snapshots,
+so an orbiting descendant cannot leave merely because the camera retained its
+activation-time position. Ancestor focus uses four seconds, and a transition
+expanding camera distance by more than 1,000 times uses six seconds. The longer
+durations give the coupled curve more time to settle through its final pan
+without slowing three-second focus-in transitions.
+This preserves the boundary: native code gathers platform
+input, rendering code defines camera presentation, and physics supplies body
+state without depending on either.
+
+The demo starts 30 degrees above the orbital horizon. Vertical right-drag uses
+the owner's inverted pitch direction, while horizontal right-drag remains yaw.
+An ordinary focus transition lasts three seconds so its eased motion is plainly visible.
+Pressing Enter for the already active focus is a no-op: it neither restarts the
+ease nor resets a user-adjusted zoom distance.
+
+Orbit guides follow the same separation. The demo samples an Earth path around
+the Sun and a Moon path around Earth in unit-typed physical coordinates, then
+projects adjacent samples and submits clipped logical line segments. The
+renderer knows only line geometry; it contains no period, eccentricity,
+gravity, or integration rule. These circular demo paths appear as ellipses
+under perspective and can later be replaced by conic samples from physics.
+Their logical projection uses the viewport center from its width but the same
+height-based focal scale and aspect correction as the GPU mesh projection;
+therefore a body's center and the matching sampled guide share one screen
+position even when the window is not square.
+
+The native queue boundary culls any sphere whose center is at or behind the
+camera near plane. A large radius can geometrically cross that plane while its
+center remains behind the viewer, but the current center-based perspective
+transform cannot represent that case. Culling it is ordinary visibility
+behavior; invalid finite/unit inputs remain contract errors.
 
 ## Supported foundation and rollback
 

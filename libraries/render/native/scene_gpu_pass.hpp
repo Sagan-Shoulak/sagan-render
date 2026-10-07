@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -38,15 +39,10 @@ namespace sagan_render::scene_gpu
 
   class indexed_sphere_pass
   {
-    static constexpr std::array<vertex, 6> vertices{{
-      {{0, 1, 0}, {0, 1, 0}}, {{1, 0, 0}, {1, 0, 0}},
-      {{0, 0, 1}, {0, 0, 1}}, {{-1, 0, 0}, {-1, 0, 0}},
-      {{0, 0, -1}, {0, 0, -1}}, {{0, -1, 0}, {0, -1, 0}}
-    }};
-    static constexpr std::array<std::uint16_t, 24> indices{{
-      0, 2, 1, 0, 3, 2, 0, 4, 3, 0, 1, 4,
-      5, 1, 2, 5, 2, 3, 5, 3, 4, 5, 4, 1
-    }};
+    static constexpr std::uint32_t latitude_segments = 16;
+    static constexpr std::uint32_t longitude_segments = 32;
+    std::vector<vertex> vertices;
+    std::vector<std::uint16_t> indices;
 
     SDL_GPUDevice *device{};
     SDL_GPUGraphicsPipeline *pipeline{};
@@ -65,6 +61,41 @@ namespace sagan_render::scene_gpu
     static auto fail(const std::string &message) -> void
     {
       throw std::runtime_error(message + ": " + SDL_GetError());
+    }
+
+    auto build_sphere_mesh() -> void
+    {
+      constexpr float pi = 3.14159265358979323846F;
+      vertices.reserve((latitude_segments + 1) * (longitude_segments + 1));
+      indices.reserve(latitude_segments * longitude_segments * 6);
+      for (std::uint32_t latitude = 0; latitude <= latitude_segments; ++latitude)
+      {
+        const float polar = pi * static_cast<float>(latitude) /
+                            static_cast<float>(latitude_segments);
+        const float ring = std::sin(polar);
+        const float y = std::cos(polar);
+        for (std::uint32_t longitude = 0; longitude <= longitude_segments; ++longitude)
+        {
+          const float azimuth = 2.0F * pi * static_cast<float>(longitude) /
+                                static_cast<float>(longitude_segments);
+          const float x = ring * std::cos(azimuth);
+          const float z = ring * std::sin(azimuth);
+          vertices.push_back({{x, y, z}, {x, y, z}});
+        }
+      }
+      for (std::uint32_t latitude = 0; latitude < latitude_segments; ++latitude)
+      {
+        for (std::uint32_t longitude = 0; longitude < longitude_segments; ++longitude)
+        {
+          const auto first = static_cast<std::uint16_t>(
+            latitude * (longitude_segments + 1) + longitude);
+          const auto second = static_cast<std::uint16_t>(first + longitude_segments + 1);
+          indices.insert(indices.end(), {
+            first, second, static_cast<std::uint16_t>(first + 1),
+            static_cast<std::uint16_t>(first + 1), second,
+            static_cast<std::uint16_t>(second + 1)});
+        }
+      }
     }
 
     auto select_format() const -> shader_format
@@ -157,31 +188,33 @@ namespace sagan_render::scene_gpu
     {
       SDL_GPUBufferCreateInfo buffer{};
       buffer.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-      buffer.size = sizeof(vertices);
+      const auto vertex_bytes = static_cast<std::uint32_t>(vertices.size() * sizeof(vertex));
+      const auto index_bytes = static_cast<std::uint32_t>(indices.size() * sizeof(std::uint16_t));
+      buffer.size = vertex_bytes;
       vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
       buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-      buffer.size = sizeof(indices);
+      buffer.size = index_bytes;
       index_buffer = SDL_CreateGPUBuffer(device, &buffer);
       SDL_GPUTransferBufferCreateInfo transfer{
         SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        static_cast<std::uint32_t>(sizeof(vertices) + sizeof(indices)), 0};
+        vertex_bytes + index_bytes, 0};
       auto *upload = SDL_CreateGPUTransferBuffer(device, &transfer);
       if (!vertex_buffer || !index_buffer || !upload)
         fail("Could not create indexed scene buffers");
       auto *mapped = static_cast<std::uint8_t *>(
         SDL_MapGPUTransferBuffer(device, upload, false));
       if (!mapped) fail("Could not map indexed scene upload");
-      std::memcpy(mapped, vertices.data(), sizeof(vertices));
-      std::memcpy(mapped + sizeof(vertices), indices.data(), sizeof(indices));
+      std::memcpy(mapped, vertices.data(), vertex_bytes);
+      std::memcpy(mapped + vertex_bytes, indices.data(), index_bytes);
       SDL_UnmapGPUTransferBuffer(device, upload);
       auto *commands = SDL_AcquireGPUCommandBuffer(device);
       if (!commands) fail("Could not acquire indexed scene upload commands");
       auto *copy = SDL_BeginGPUCopyPass(commands);
       SDL_GPUTransferBufferLocation source{upload, 0};
-      SDL_GPUBufferRegion destination{vertex_buffer, 0, sizeof(vertices)};
+      SDL_GPUBufferRegion destination{vertex_buffer, 0, vertex_bytes};
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
-      source.offset = sizeof(vertices);
-      destination = {index_buffer, 0, sizeof(indices)};
+      source.offset = vertex_bytes;
+      destination = {index_buffer, 0, index_bytes};
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
       SDL_EndGPUCopyPass(copy);
       auto *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
@@ -213,6 +246,7 @@ namespace sagan_render::scene_gpu
   public:
     explicit indexed_sphere_pass(SDL_GPUDevice *value) : device{value}
     {
+      build_sphere_mesh();
       create_pipeline();
       upload_mesh();
     }

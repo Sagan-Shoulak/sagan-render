@@ -162,18 +162,24 @@ unit; current package-facing canvas behavior does not depend on them.
 The scene/camera precision demo uses the same GPU host with generic static
 render samples positioned near `1e15 meter`. Run it on Windows with
 `bash scripts/scene_demo.sh`, or on Linux/macOS with
-`bash scripts/scene_demo_portable.sh`. Left and Right select samples, Enter
-smoothly focuses the selected sample, and pointer clicks pick projected samples.
-Focused CI captures the initial and changed-selection frames and requires them
-to differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;
+`bash scripts/scene_demo_portable.sh`. Right-button drag orbits the camera around
+its current target, the wheel zooms by changing measured target distance, Left
+and Right select samples, Enter smoothly focuses the selected sample, and
+pointer clicks pick projected samples. The demo draws presentation-only Earth
+and Moon orbit guides from unit-typed sampled paths; no Sun orbit or secondary
+inset camera is drawn. Focus and wheel zoom expose the lunar scale in the main
+viewport.
+Focused CI captures initial, selected,
+right-dragged, and wheel-zoomed frames and requires the relevant frames to
+differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;
 its only motion is application-owned camera input.
 
-The current #29 bootstrap names the three fixture samples Sun, Earth, and Moon,
-uses their approximate mean radii and separations, and draws shaded sphere
-impostors through the GPU compositor. It is not evidence that #16's mesh,
-material, shader, color-space, or lighting work is complete. The Moon callout
-offset is presentation-only at system scale; its stored position remains the
-measured fixture coordinate.
+The scene names the three fixture samples Sun, Earth, and Moon, uses their
+approximate mean radii and separations, and draws a shared 1,024-triangle
+smooth-normal UV sphere through the GPU compositor. It proves the indexed mesh,
+depth, material, and camera seams, not production model loading, textures, or
+multi-light fidelity. The Moon callout offset is presentation-only at system
+scale; its stored position remains the measured fixture coordinate.
 
 ## Interactive UI GPU demo
 

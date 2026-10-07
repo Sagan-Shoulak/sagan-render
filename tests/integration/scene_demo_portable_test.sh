@@ -27,27 +27,45 @@ case "$(uname -s)" in
 esac
 
 report=build/scene-sagan-demo-test/scene-demo-report.txt
+fingerprint() {
+  local checksum bytes ignored
+  read -r checksum bytes ignored < <(cksum "$1")
+  printf '%s:%s' "$checksum" "$bytes"
+}
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-reframed.bmp \
-  build/scene-sagan-demo-test/scene-camera-turned.bmp
+  build/scene-sagan-demo-test/scene-camera-turned.bmp \
+  build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
 "$executable" | tee -a "$report"
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-camera-turned.bmp
-export SAGAN_RENDER_TEST_KEY=d
+export SAGAN_RENDER_TEST_ORBIT_DX=48 SAGAN_RENDER_TEST_ORBIT_DY=-24
 "$executable" | tee -a "$report"
+unset SAGAN_RENDER_TEST_ORBIT_DX SAGAN_RENDER_TEST_ORBIT_DY
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-zoomed.bmp
+export SAGAN_RENDER_TEST_SCROLL_Y=2
+"$executable" | tee -a "$report"
+unset SAGAN_RENDER_TEST_SCROLL_Y
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bmp
 export SAGAN_RENDER_TEST_KEY=right
 "$executable" | tee -a "$report"
 
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=$expected logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-reframed.bmp; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-reframed.bmp)" ]]; then
   echo "Camera reframe did not change the rendered scene" >&2
   exit 1
 fi
-if cmp -s build/scene-sagan-demo-test/scene-idle.bmp build/scene-sagan-demo-test/scene-camera-turned.bmp; then
-  echo "Horizon-locked camera turn did not change the rendered 3D scene" >&2
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-camera-turned.bmp)" ]]; then
+  echo "Right-drag orbit did not change the rendered 3D scene" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on $expected: indexed Sun, Earth, and Moon models rendered; selection and horizon-locked camera input changed frame data."
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-zoomed.bmp)" ]]; then
+  echo "Mouse-wheel zoom did not change the rendered 3D scene" >&2
+  exit 1
+fi
+echo "Sagan scene demo passed on $expected: smooth indexed bodies rendered; selection, right-drag orbit, and wheel zoom changed frame data."

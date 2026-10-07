@@ -33,6 +33,14 @@ int main(int argc, char **argv)
     6371000.0, "mesh-earth"};
   const auto mesh_draw = prepare_sphere_draw(
     mesh_earth, view, {960.0, 540.0}, {14.0});
+  assert(mesh_center_is_projectable(
+    {0.0, 0.0, -2000000.0}, {0.0, 0.0, -1.0}, 1000.0));
+  assert(!mesh_center_is_projectable(
+    {0.0, 0.0, 2000000.0}, {0.0, 0.0, -1.0}, 1000.0));
+  // Radius is deliberately irrelevant: a huge sphere centered behind the
+  // camera is culled before the center-based perspective transform.
+  assert(!mesh_center_is_projectable(
+    {0.0, 0.0, 1.0}, {0.0, 0.0, -1.0}, 0.5));
   assert(mesh_draw.camera_relative_center.x_metres == 12000.0);
   assert(mesh_draw.camera_relative_center.y_metres == -4000.0);
   assert(mesh_draw.camera_relative_center.z_metres == -2000000.0);

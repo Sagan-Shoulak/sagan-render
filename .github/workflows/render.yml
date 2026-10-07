@@ -117,6 +117,7 @@ jobs:
             render/build/scene-sagan-demo-test/scene-idle.bmp
             render/build/scene-sagan-demo-test/scene-reframed.bmp
             render/build/scene-sagan-demo-test/scene-camera-turned.bmp
+            render/build/scene-sagan-demo-test/scene-zoomed.bmp
             render/build/scene-sagan-demo-test/scene-demo-report.txt
             render/build/ui-sagan-demo/ui-sagan-960x540.bmp
             render/build/ui-sagan-demo/ui-sagan-800x600.bmp
@@ -226,6 +227,7 @@ jobs:
             build/scene-sagan-demo-test/scene-idle.bmp
             build/scene-sagan-demo-test/scene-reframed.bmp
             build/scene-sagan-demo-test/scene-camera-turned.bmp
+            build/scene-sagan-demo-test/scene-zoomed.bmp
             build/scene-sagan-demo-test/scene-demo-report.txt
             build/ui-sagan-demo/ui-sagan-960x540.bmp
             build/ui-sagan-demo/ui-sagan-800x600.bmp

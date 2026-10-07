@@ -20,6 +20,17 @@ fun fill(x: Float64, y: Float64, width: Float64, height: Float64,
          red: Int64, green: Int64, blue: Int64): Void =>
   __render_ui_fill(x, y, width, height, red, green, blue)
 
+/// Append a clipped logical line segment. Physical paths remain the caller's
+/// responsibility and should be projected into logical coordinates first.
+fun line(first_x: Float64, first_y: Float64,
+         second_x: Float64, second_y: Float64, thickness: Float64,
+         clip_x: Float64, clip_y: Float64,
+         clip_width: Float64, clip_height: Float64,
+         red: Int64, green: Int64, blue: Int64): Void =>
+  __render_ui_line(first_x, first_y, second_x, second_y, thickness,
+                   clip_x, clip_y, clip_width, clip_height,
+                   red, green, blue)
+
 /// Shape and append deterministic bootstrap text at a logical position.
 fun text(x: Float64, y: Float64, value: String, height: Float64,
          red: Int64, green: Int64, blue: Int64): Void =>
@@ -55,6 +66,16 @@ fun pointer_released(): Bool => __render_ui_pointer_released()
 fun pointer_x(): Float64 => __render_ui_pointer_x()
 fun pointer_y(): Float64 => __render_ui_pointer_y()
 
+/// Consume accumulated right-button drag motion since the previous call.
+/// These logical-pixel deltas let applications implement target-centered
+/// orbit cameras without exposing native SDL events.
+fun orbit_delta_x(): Float64 => __render_ui_orbit_delta_x()
+fun orbit_delta_y(): Float64 => __render_ui_orbit_delta_y()
+
+/// Consume accumulated vertical wheel movement. Positive values zoom inward
+/// by convention; applications retain control of physical distance limits.
+fun scroll_y(): Float64 => __render_ui_scroll_y()
+
 /// Monotonic seconds since the UI host opened.
 fun elapsed_seconds(): Float64 => __render_elapsed_seconds()
 
@@ -65,6 +86,7 @@ export width
 export height
 export begin
 export fill
+export line
 export text
 export mesh_sphere
 export present
@@ -73,4 +95,7 @@ export pointer_pressed
 export pointer_released
 export pointer_x
 export pointer_y
+export orbit_delta_x
+export orbit_delta_y
+export scroll_y
 export elapsed_seconds
