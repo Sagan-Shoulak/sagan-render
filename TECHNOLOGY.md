@@ -565,16 +565,20 @@ the position captured at activation and snap to the live position at the end.
 Camera distance is interpolated in reciprocal-distance space because projected
 scale is proportional to reciprocal distance. Target translation and zoom use
 overlapping but distinct phases. Entering a smaller family pans during the
-first 55 percent and starts zooming after 35 percent; leaving a smaller family
+first 65 percent and starts zooming after 20 percent; leaving a smaller family
 zooms out during the first 65 percent and starts panning after 35 percent. This
 keeps useful context in frame while avoiding a visibly hard pan-then-zoom cut.
+During a focus-in, the demo also solves the minimum camera distance needed to
+keep the destination inside 82 percent of both viewport half-spans. The planned
+zoom cannot cross that geometric visibility bound until translation has caught
+up, so an initially visible destination remains visible throughout the move.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.
 
 The demo starts 30 degrees above the orbital horizon. Vertical right-drag uses
 the owner's inverted pitch direction, while horizontal right-drag remains yaw.
-A focus transition lasts two seconds so its eased motion is plainly visible.
+A focus transition lasts three seconds so its eased motion is plainly visible.
 Pressing Enter for the already active focus is a no-op: it neither restarts the
 ease nor resets a user-adjusted zoom distance.
 

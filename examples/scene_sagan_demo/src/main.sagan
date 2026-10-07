@@ -37,7 +37,7 @@ const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
 const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
 const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
-const FOCUS_DURATION_SECONDS: Float64 = 2.0
+const FOCUS_DURATION_SECONDS: Float64 = 3.0
 
 fun wrapped_angle(value: Float64): Float64 {
   let result = value
@@ -128,6 +128,44 @@ fun focus_axis_at(start: Float64<meter>, target: Float64<meter>,
 fun focus_distance_at(start: Float64<meter>, target: Float64<meter>,
                       progress: Float64): Float64<meter> {
   return start * target / (target + (start - target) * progress)
+}
+
+fun absolute_length(value: Float64<meter>): Float64<meter> {
+  if value < 0.0 meter { return 0.0 meter - value }
+  return value
+}
+
+/// Minimum orbit distance that keeps the selected target inside 82% of both
+/// viewport half-spans. This converts the user's visibility expectation into
+/// a per-frame geometric constraint instead of relying on timing alone.
+fun minimum_visible_focus_distance(
+    target_x: Float64<meter>, target_y: Float64<meter>,
+    target_z: Float64<meter>, orbit_x: Float64<meter>,
+    orbit_y: Float64<meter>, orbit_z: Float64<meter>,
+    camera_yaw: Float64, camera_pitch: Float64,
+    viewport_width: Float64, viewport_height: Float64): Float64<meter> {
+  let yaw_cosine = demo_cosine(camera_yaw)
+  let yaw_sine = demo_sine(camera_yaw)
+  let pitch_cosine = demo_cosine(camera_pitch)
+  let pitch_sine = demo_sine(camera_pitch)
+  let delta_x = target_x - orbit_x
+  let delta_y = target_y - orbit_y
+  let delta_z = target_z - orbit_z
+  let right_offset = delta_x * (0.0 - yaw_sine) + delta_y * yaw_cosine
+  let up_offset = delta_x * (0.0 - yaw_cosine * pitch_sine) +
+                  delta_y * (0.0 - yaw_sine * pitch_sine) +
+                  delta_z * pitch_cosine
+  let forward_offset = delta_x * (0.0 - yaw_cosine * pitch_cosine) +
+                       delta_y * (0.0 - yaw_sine * pitch_cosine) -
+                       delta_z * pitch_sine
+  let vertical_depth = absolute_length(up_offset) / (0.577350269 * 0.82)
+  let horizontal_tangent = 0.577350269 * viewport_width / viewport_height
+  let horizontal_depth = absolute_length(right_offset) / (horizontal_tangent * 0.82)
+  let required_depth = vertical_depth
+  if horizontal_depth > required_depth { required_depth = horizontal_depth }
+  let required_distance = required_depth - forward_offset
+  if required_distance < 12000.0 kilometer { return 12000.0 kilometer }
+  return required_distance
 }
 
 class PresentationObject has SpatialRenderable {
@@ -559,8 +597,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if focus_target_distance < focus_start_distance {
           // Entering a smaller family: pan over the first 55% and delay zoom
           // until 35%, leaving a short overlap rather than a hard two-step cut.
-          pan_progress = focus_phase(base_progress, 0.0, 0.55)
-          zoom_progress = focus_phase(base_progress, 0.35, 1.0)
+          pan_progress = focus_phase(base_progress, 0.0, 0.65)
+          zoom_progress = focus_phase(base_progress, 0.20, 1.0)
         }
         if focus_target_distance > focus_start_distance {
           // Leaving a smaller family reverses the phases: reveal context over
@@ -577,6 +615,15 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         orbit_target_z = focus_axis_at(focus_start_z, focus_target_z, pan_progress)
         camera_distance = focus_distance_at(
           focus_start_distance, focus_target_distance, zoom_progress)
+        if focused_identifier > 0 {
+          let visible_distance = minimum_visible_focus_distance(
+            focus_target_x, focus_target_y, focus_target_z,
+            orbit_target_x, orbit_target_y, orbit_target_z,
+            camera_yaw, camera_pitch, viewport_width, viewport_height)
+          if camera_distance < visible_distance {
+            camera_distance = visible_distance
+          }
+        }
         if focus_elapsed >= FOCUS_DURATION_SECONDS { focusing = false }
       }
       if focusing == false {
