@@ -9,6 +9,14 @@
 
 namespace sagan_render::scene
 {
+  inline auto mesh_center_is_projectable(const length3 relative_center,
+                                         const direction3 forward,
+                                         const scalar near_metres) -> bool
+  {
+    if (!std::isfinite(near_metres) || near_metres <= 0.0) return false;
+    return dot(relative_center, normalize(forward)) > near_metres;
+  }
+
   struct sphere_presentation
   {
     scalar minimum_radius_logical{};

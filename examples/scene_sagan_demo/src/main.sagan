@@ -7,6 +7,7 @@ import width from render.ui
 import height from render.ui
 import begin from render.ui
 import fill from render.ui
+import line from render.ui
 import text from render.ui
 import mesh_sphere from render.ui
 import present from render.ui
@@ -29,7 +30,7 @@ import smooth_focus_axis from render.scene
 import pick_circle from render.scene
 
 const DISTANT_ORIGIN: Float64<meter> = 1e12 kilometer
-const CAMERA_DEPTH: Float64<meter> = 2e8 kilometer
+const CAMERA_DEPTH: Float64<meter> = 3e8 kilometer
 const EARTH_DISTANCE: Float64<meter> = 1.495978707e8 kilometer
 const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
 const SUN_VIEW_DISTANCE: Float64<meter> = 8e6 kilometer
@@ -205,6 +206,65 @@ fun projected_y(value: SpatialRenderable, camera_x: Float64<meter>,
     0.577350269, viewport_height)
 }
 
+fun projected_depth(value: SpatialRenderable,
+                    camera_x: Float64<meter>, camera_y: Float64<meter>,
+                    camera_z: Float64<meter>, camera_yaw: Float64,
+                    camera_pitch: Float64): Float64<meter> {
+  let item: RenderSample = sample(value)
+  let pitch_cosine = demo_cosine(camera_pitch)
+  let relative_x = relative_axis(item.x(), camera_x)
+  let relative_y = relative_axis(item.y(), camera_y)
+  let relative_z = relative_axis(item.z(), camera_z)
+  return relative_x * demo_sine(camera_yaw) * pitch_cosine +
+         relative_y * demo_sine(camera_pitch) -
+         relative_z * demo_cosine(camera_yaw) * pitch_cosine
+}
+
+/// Demo-owned presentation of a circular path in physical XY space. The
+/// perspective camera projects the circle to an ellipse. A future physics
+/// package may supply sampled conic paths through the same generic line API.
+fun draw_orbit(center_x: Float64<meter>, center_y: Float64<meter>,
+               center_z: Float64<meter>, orbit_radius: Float64<meter>,
+               camera_x: Float64<meter>, camera_y: Float64<meter>,
+               camera_z: Float64<meter>, camera_yaw: Float64,
+               camera_pitch: Float64, viewport_x: Float64,
+               viewport_y: Float64, viewport_width: Float64,
+               viewport_height: Float64, red: Int64, green: Int64,
+               blue: Int64): Void {
+  let segments: Int64 = 72
+  let previous: SpatialRenderable = PresentationObject(
+    0, center_x + orbit_radius, center_y, center_z, 1.0 meter, "")
+  let previous_depth = projected_depth(
+    previous, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+  let index: Int64 = 1
+  let angle = 0.08726646259971647
+  while index <= segments {
+    let current: SpatialRenderable = PresentationObject(
+      0, center_x + orbit_radius * demo_cosine(angle),
+      center_y + orbit_radius * demo_sine(angle), center_z, 1.0 meter, "")
+    let current_depth = projected_depth(
+      current, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+    if previous_depth > 1000.0 kilometer {
+      if current_depth > 1000.0 kilometer {
+        line(projected_x(previous, camera_x, camera_y, camera_z,
+                         camera_yaw, camera_pitch, viewport_x, viewport_width),
+             projected_y(previous, camera_x, camera_y, camera_z,
+                         camera_yaw, camera_pitch, viewport_y, viewport_height),
+             projected_x(current, camera_x, camera_y, camera_z,
+                         camera_yaw, camera_pitch, viewport_x, viewport_width),
+             projected_y(current, camera_x, camera_y, camera_z,
+                         camera_yaw, camera_pitch, viewport_y, viewport_height),
+             1.25, viewport_x, viewport_y, viewport_width, viewport_height,
+             red, green, blue)
+      }
+    }
+    previous = current
+    previous_depth = current_depth
+    index = index + 1
+    angle = angle + 0.08726646259971647
+  }
+}
+
 fun selected_target_x(identifier: Int64,
                       first: SpatialRenderable, second: SpatialRenderable,
                       third: SpatialRenderable): Float64<meter> {
@@ -260,6 +320,17 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   text(24.0, 48.0, "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CLICK: SELECT | ENTER: FOCUS", 10.0,
        142, 203, 255)
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
+  let sun_sample = sample(first)
+  let earth_sample = sample(second)
+  let moon_sample = sample(third)
+  draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
+             camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+             viewport_x, viewport_y, viewport_width, viewport_height,
+             47, 75, 104)
+  draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
+             camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+             viewport_x, viewport_y, viewport_width, viewport_height,
+             70, 92, 118)
   draw_object(first, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(1))
@@ -269,8 +340,6 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(3))
-  let earth_sample = sample(second)
-  let moon_sample = sample(third)
   let inset_width = 300.0
   let inset_height = 150.0
   let inset_x = viewport_x + viewport_width - inset_width - 16.0
@@ -283,6 +352,9 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   let inset_camera_y = earth_sample.y() +
                        (moon_sample.y() - earth_sample.y()) / 2.0
   let inset_camera_z = earth_sample.z() + 1000000.0 kilometer
+  draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
+             inset_camera_x, inset_camera_y, inset_camera_z, 0.0, 0.0,
+             inset_x, inset_y, inset_width, inset_height, 70, 92, 118)
   draw_object(second, inset_camera_x, inset_camera_y, inset_camera_z, 0.0, 0.0,
               inset_x, inset_y, inset_width, inset_height,
               selection.is_selected(2))

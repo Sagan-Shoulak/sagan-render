@@ -165,7 +165,9 @@ render samples positioned near `1e15 meter`. Run it on Windows with
 `bash scripts/scene_demo_portable.sh`. Right-button drag orbits the camera around
 its current target, the wheel zooms by changing measured target distance, Left
 and Right select samples, Enter smoothly focuses the selected sample, and
-pointer clicks pick projected samples. Focused CI captures initial, selected,
+pointer clicks pick projected samples. The demo draws presentation-only Earth
+and Moon orbit guides from unit-typed sampled paths; no Sun orbit is drawn.
+Focused CI captures initial, selected,
 right-dragged, and wheel-zoomed frames and requires the relevant frames to
 differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;
 its only motion is application-owned camera input.

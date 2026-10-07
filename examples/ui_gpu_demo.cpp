@@ -46,10 +46,12 @@ namespace
   constexpr color modal{36, 55, 82, 255};
   constexpr color button{38, 78, 116, 255};
   constexpr color button_focus{55, 125, 181, 255};
+  constexpr color system_orbit{47, 75, 104, 255};
+  constexpr color lunar_orbit{70, 92, 118, 255};
   constexpr std::array palette{
     background, panel, panel_light, scene, accent, focus_color, sun, earth,
     moon, sun_shadow, earth_shadow, moon_shadow, white, muted, modal, button,
-    button_focus
+    button_focus, system_orbit, lunar_orbit
   };
   static_assert(sizeof(color) == bytes_per_pixel);
 
@@ -882,6 +884,38 @@ auto sagan_5f5f72656e6465725f75695f66696c6c(
   bridge_list->fill({x, y, width, height}, bridge_color(red, green, blue));
 }
 
+auto sagan_5f5f72656e6465725f75695f6c696e65(
+  const double first_x, const double first_y,
+  const double second_x, const double second_y, const double thickness,
+  const double clip_x, const double clip_y,
+  const double clip_width, const double clip_height,
+  const std::int64_t red, const std::int64_t green, const std::int64_t blue) -> void
+{
+  if (!bridge_list) throw std::runtime_error("UI line requires begin");
+  if (!std::isfinite(first_x) || !std::isfinite(first_y) ||
+      !std::isfinite(second_x) || !std::isfinite(second_y) ||
+      !std::isfinite(thickness) || thickness <= 0.0 ||
+      !std::isfinite(clip_x) || !std::isfinite(clip_y) ||
+      !std::isfinite(clip_width) || !std::isfinite(clip_height) ||
+      clip_width <= 0.0 || clip_height <= 0.0)
+    throw std::invalid_argument("UI line requires finite coordinates and positive thickness");
+  const double delta_x = second_x - first_x;
+  const double delta_y = second_y - first_y;
+  const auto steps = static_cast<std::uint32_t>(
+    std::max(1.0, std::ceil(std::max(std::abs(delta_x), std::abs(delta_y)))));
+  const color paint = bridge_color(red, green, blue);
+  for (std::uint32_t step = 0; step <= steps; ++step)
+  {
+    const double amount = static_cast<double>(step) / static_cast<double>(steps);
+    const double x = first_x + delta_x * amount;
+    const double y = first_y + delta_y * amount;
+    if (x >= clip_x && y >= clip_y &&
+        x < clip_x + clip_width && y < clip_y + clip_height)
+      bridge_list->fill({x - thickness / 2.0, y - thickness / 2.0,
+                         thickness, thickness}, paint);
+  }
+}
+
 auto sagan_5f5f72656e6465725f75695f74657874(
   const double x, const double y, const std::string &value, const double height,
   const std::int64_t red, const std::int64_t green, const std::int64_t blue) -> void
@@ -907,7 +941,12 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f737068657265(
   const sagan_render::scene::direction3 forward{forward_x, forward_y, forward_z};
   const sagan_render::scene::length3 relative{
     body_x - camera_x, body_y - camera_y, body_z - camera_z};
-  if (sagan_render::scene::dot(relative, forward) + radius <= near_distance)
+  // The current sphere transform projects from its center. A very large body
+  // may intersect the near half-space while its center is behind the camera;
+  // that case is not a valid perspective mesh draw and must be culled rather
+  // than forwarded to prepare_sphere_draw as a fatal contract violation.
+  if (!sagan_render::scene::mesh_center_is_projectable(
+        relative, forward, near_distance))
     return;
   sagan::render::MaterialUniform material{};
   if (appearance == 1)

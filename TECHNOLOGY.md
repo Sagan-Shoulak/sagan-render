@@ -546,6 +546,19 @@ target snapshot. This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.
 
+Orbit guides follow the same separation. The demo samples an Earth path around
+the Sun and a Moon path around Earth in unit-typed physical coordinates, then
+projects adjacent samples and submits clipped logical line segments. The
+renderer knows only line geometry; it contains no period, eccentricity,
+gravity, or integration rule. These circular demo paths appear as ellipses
+under perspective and can later be replaced by conic samples from physics.
+
+The native queue boundary culls any sphere whose center is at or behind the
+camera near plane. A large radius can geometrically cross that plane while its
+center remains behind the viewer, but the current center-based perspective
+transform cannot represent that case. Culling it is ordinary visibility
+behavior; invalid finite/unit inputs remain contract errors.
+
 ## Supported foundation and rollback
 
 - Windows validation explicitly requests SDL's `direct3d12` driver and DXIL.
