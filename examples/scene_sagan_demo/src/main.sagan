@@ -26,7 +26,6 @@ import relative_axis from render.scene
 import perspective_axis from render.scene
 import depth_visible from render.scene
 import SelectionState from render.scene
-import smooth_focus_axis from render.scene
 import pick_circle from render.scene
 
 const DISTANT_ORIGIN: Float64<meter> = 1e12 kilometer
@@ -102,17 +101,33 @@ fun zoom_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
   return clamp_distance(value * factor)
 }
 
-/// Ease reciprocal distance so apparent scale changes smoothly. A linear
-/// distance ease would save almost the entire visible zoom for the end when
-/// moving from the system view to the much closer Earth family view.
-fun smooth_focus_distance(start: Float64<meter>, target: Float64<meter>,
-                          elapsed_seconds: Float64,
-                          duration_seconds: Float64): Float64<meter> {
+fun focus_progress(elapsed_seconds: Float64,
+                   duration_seconds: Float64): Float64 {
   let progress = elapsed_seconds / duration_seconds
-  if progress <= 0.0 { return start }
-  if progress >= 1.0 { return target }
-  let eased = progress * progress * (3.0 - 2.0 * progress)
-  return start * target / (target + (start - target) * eased)
+  if progress <= 0.0 { return 0.0 }
+  if progress >= 1.0 { return 1.0 }
+  return progress
+}
+
+fun focus_phase(progress: Float64, start: Float64,
+                finish: Float64): Float64 {
+  let phase = (progress - start) / (finish - start)
+  if phase <= 0.0 { return 0.0 }
+  if phase >= 1.0 { return 1.0 }
+  return phase * phase * (3.0 - 2.0 * phase)
+}
+
+fun focus_axis_at(start: Float64<meter>, target: Float64<meter>,
+                  progress: Float64): Float64<meter> {
+  return start + (target - start) * progress
+}
+
+/// Interpolate reciprocal distance because apparent scale is proportional to
+/// reciprocal distance. The caller independently chooses whether zoom leads
+/// or trails target translation.
+fun focus_distance_at(start: Float64<meter>, target: Float64<meter>,
+                      progress: Float64): Float64<meter> {
+  return start * target / (target + (start - target) * progress)
 }
 
 class PresentationObject has SpatialRenderable {
@@ -538,15 +553,30 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           focus_target_y = selected_target_y(focused_identifier, first, second, third)
           focus_target_z = selected_target_z(focused_identifier, first, second, third)
         }
-        orbit_target_x = smooth_focus_axis(
-          focus_start_x, focus_target_x, focus_elapsed, FOCUS_DURATION_SECONDS)
-        orbit_target_y = smooth_focus_axis(
-          focus_start_y, focus_target_y, focus_elapsed, FOCUS_DURATION_SECONDS)
-        orbit_target_z = smooth_focus_axis(
-          focus_start_z, focus_target_z, focus_elapsed, FOCUS_DURATION_SECONDS)
-        camera_distance = smooth_focus_distance(
-          focus_start_distance, focus_target_distance,
-          focus_elapsed, FOCUS_DURATION_SECONDS)
+        let base_progress = focus_progress(focus_elapsed, FOCUS_DURATION_SECONDS)
+        let pan_progress = base_progress
+        let zoom_progress = base_progress
+        if focus_target_distance < focus_start_distance {
+          // Entering a smaller family: pan over the first 55% and delay zoom
+          // until 35%, leaving a short overlap rather than a hard two-step cut.
+          pan_progress = focus_phase(base_progress, 0.0, 0.55)
+          zoom_progress = focus_phase(base_progress, 0.35, 1.0)
+        }
+        if focus_target_distance > focus_start_distance {
+          // Leaving a smaller family reverses the phases: reveal context over
+          // the first 65%, then pan from 35% onward once context is visible.
+          zoom_progress = focus_phase(base_progress, 0.0, 0.65)
+          pan_progress = focus_phase(base_progress, 0.35, 1.0)
+        }
+        if focus_target_distance == focus_start_distance {
+          pan_progress = focus_phase(base_progress, 0.0, 1.0)
+          zoom_progress = pan_progress
+        }
+        orbit_target_x = focus_axis_at(focus_start_x, focus_target_x, pan_progress)
+        orbit_target_y = focus_axis_at(focus_start_y, focus_target_y, pan_progress)
+        orbit_target_z = focus_axis_at(focus_start_z, focus_target_z, pan_progress)
+        camera_distance = focus_distance_at(
+          focus_start_distance, focus_target_distance, zoom_progress)
         if focus_elapsed >= FOCUS_DURATION_SECONDS { focusing = false }
       }
       if focusing == false {

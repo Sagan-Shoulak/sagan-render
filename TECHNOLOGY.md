@@ -562,10 +562,12 @@ target and distance smoothly; following a moving selected body updates only the
 target snapshot. During the transition, the eased destination is refreshed
 from each new immutable body snapshot; otherwise the camera would ease toward
 the position captured at activation and snap to the live position at the end.
-Camera distance uses the same smoothstep timing in reciprocal-distance space,
-because projected scale is proportional to reciprocal distance. This avoids a
-large system-to-family transition appearing nearly stationary before rushing
-through most of its visible zoom at the end.
+Camera distance is interpolated in reciprocal-distance space because projected
+scale is proportional to reciprocal distance. Target translation and zoom use
+overlapping but distinct phases. Entering a smaller family pans during the
+first 55 percent and starts zooming after 35 percent; leaving a smaller family
+zooms out during the first 65 percent and starts panning after 35 percent. This
+keeps useful context in frame while avoiding a visibly hard pan-then-zoom cut.
 This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.

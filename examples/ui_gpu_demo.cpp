@@ -695,6 +695,19 @@ namespace
       bridge_keys.push_back(value);
   }
 
+  auto remember_keys(const std::string_view values) -> void
+  {
+    std::size_t first{};
+    while (first < values.size())
+    {
+      const std::size_t comma = values.find(',', first);
+      const std::size_t last = comma == std::string_view::npos ? values.size() : comma;
+      if (last > first) remember_key(std::string{values.substr(first, last - first)});
+      if (comma == std::string_view::npos) break;
+      first = comma + 1;
+    }
+  }
+
   auto update_bridge_size() -> void
   {
     int width{};
@@ -730,6 +743,8 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
     ? std::strtod(elapsed_value, nullptr) : -1.0;
   const char *test_key = std::getenv("SAGAN_RENDER_TEST_KEY");
   if (test_key && *test_key) remember_key(test_key);
+  const char *test_keys = std::getenv("SAGAN_RENDER_TEST_KEYS");
+  if (test_keys && *test_keys) remember_keys(test_keys);
   const char *test_pointer_x = std::getenv("SAGAN_RENDER_TEST_POINTER_X");
   const char *test_pointer_y = std::getenv("SAGAN_RENDER_TEST_POINTER_Y");
   if (test_pointer_x && *test_pointer_x && test_pointer_y && *test_pointer_y)
@@ -974,7 +989,11 @@ auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void
 {
   if (!bridge_gpu || !bridge_list) throw std::runtime_error("UI present requires begin");
   const char *capture_value = std::getenv("SAGAN_RENDER_UI_CAPTURE_BMP");
-  const std::string capture = !bridge_captured && capture_value && *capture_value
+  const char *capture_delay_value = std::getenv("SAGAN_RENDER_UI_CAPTURE_AFTER_MS");
+  const std::uint64_t capture_delay = capture_delay_value && *capture_delay_value
+    ? std::strtoull(capture_delay_value, nullptr, 10) : 0;
+  const bool capture_ready = SDL_GetTicks() - bridge_started_at >= capture_delay;
+  const std::string capture = !bridge_captured && capture_ready && capture_value && *capture_value
     ? capture_value : std::string{};
   bridge_gpu->render(*bridge_list, true, capture);
   if (!capture.empty()) bridge_captured = true;
