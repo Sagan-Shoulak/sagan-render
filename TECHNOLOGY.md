@@ -570,6 +570,12 @@ This preserves the boundary: native code gathers platform
 input, rendering code defines camera presentation, and physics supplies body
 state without depending on either.
 
+The demo starts 30 degrees above the orbital horizon. Vertical right-drag uses
+the owner's inverted pitch direction, while horizontal right-drag remains yaw.
+A focus transition lasts two seconds so its eased motion is plainly visible.
+Pressing Enter for the already active focus is a no-op: it neither restarts the
+ease nor resets a user-adjusted zoom distance.
+
 Orbit guides follow the same separation. The demo samples an Earth path around
 the Sun and a Moon path around Earth in unit-typed physical coordinates, then
 projects adjacent samples and submits clipped logical line segments. The

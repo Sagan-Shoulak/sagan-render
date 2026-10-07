@@ -33,6 +33,7 @@ require_capture() {
 }
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-top-locked.bmp \
+  build/scene-sagan-demo-test/scene-top-overdrag.bmp \
   build/scene-sagan-demo-test/scene-reframed.bmp \
   build/scene-sagan-demo-test/scene-horizon.bmp \
   build/scene-sagan-demo-test/scene-underside.bmp \
@@ -44,7 +45,10 @@ export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-top-locked.bmp
-export SAGAN_RENDER_TEST_ORBIT_DY=-1000
+export SAGAN_RENDER_TEST_ORBIT_DY=1000
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-top-overdrag.bmp
+export SAGAN_RENDER_TEST_ORBIT_DY=2000
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 unset SAGAN_RENDER_TEST_ORBIT_DY
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-camera-turned.bmp
@@ -56,10 +60,10 @@ export SAGAN_RENDER_TEST_SCROLL_Y=2
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 unset SAGAN_RENDER_TEST_SCROLL_Y
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-horizon.bmp
-export SAGAN_RENDER_TEST_ORBIT_DY=261.79938779914943
+export SAGAN_RENDER_TEST_ORBIT_DY=-87.26646259971647
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-underside.bmp
-export SAGAN_RENDER_TEST_ORBIT_DY=1000
+export SAGAN_RENDER_TEST_ORBIT_DY=-1000
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 unset SAGAN_RENDER_TEST_ORBIT_DY
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bmp
@@ -68,6 +72,7 @@ build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
 require_capture build/scene-sagan-demo-test/scene-idle.bmp
 require_capture build/scene-sagan-demo-test/scene-top-locked.bmp
+require_capture build/scene-sagan-demo-test/scene-top-overdrag.bmp
 require_capture build/scene-sagan-demo-test/scene-reframed.bmp
 require_capture build/scene-sagan-demo-test/scene-horizon.bmp
 require_capture build/scene-sagan-demo-test/scene-underside.bmp
@@ -75,8 +80,8 @@ require_capture build/scene-sagan-demo-test/scene-camera-turned.bmp
 require_capture build/scene-sagan-demo-test/scene-zoomed.bmp
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=direct3d12 logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
 [[ "$(od -An -td4 -j18 -N8 build/scene-sagan-demo-test/scene-idle.bmp | tr -s ' ' | sed 's/^ //;s/ $//')" == "960 540" ]]
-if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" != \
-      "$(fingerprint build/scene-sagan-demo-test/scene-top-locked.bmp)" ]]; then
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-top-locked.bmp)" != \
+      "$(fingerprint build/scene-sagan-demo-test/scene-top-overdrag.bmp)" ]]; then
   echo "Camera pitched past the world-up top pole" >&2
   exit 1
 fi

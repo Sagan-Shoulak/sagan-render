@@ -38,6 +38,7 @@ const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
 const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
 const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
+const FOCUS_DURATION_SECONDS: Float64 = 2.0
 
 fun wrapped_angle(value: Float64): Float64 {
   let result = value
@@ -399,7 +400,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let camera_y = DISTANT_ORIGIN
   let camera_z = DISTANT_ORIGIN
   let camera_yaw = 0.0
-  let camera_pitch = 1.5707963267948966
+  // Begin 30 degrees above the orbital horizon rather than at the top pole.
+  let camera_pitch = 0.5235987755982988
   let orbit_target_x = camera_x
   let orbit_target_y = camera_y
   let orbit_target_z = DISTANT_ORIGIN - CAMERA_DEPTH
@@ -453,7 +455,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
       if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
       camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
-      camera_pitch = clamp_pitch(camera_pitch - orbit_delta_y() * 0.006)
+      camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
       camera_distance = zoom_distance(camera_distance, scroll_y())
       let look_pitch_cosine = demo_cosine(camera_pitch)
       let look_forward_x = 0.0 - demo_cosine(camera_yaw) * look_pitch_cosine
@@ -499,17 +501,19 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
                        24.0) { selection.select!(3) }
       }
       if key_pressed("enter") {
-        focus_start_x = orbit_target_x
-        focus_start_y = orbit_target_y
-        focus_start_z = orbit_target_z
-        focus_start_distance = camera_distance
-        focus_target_x = selected_target_x(selection.identifier(), first, second, third)
-        focus_target_y = selected_target_y(selection.identifier(), first, second, third)
-        focus_target_z = selected_target_z(selection.identifier(), first, second, third)
-        focus_target_distance = selected_view_distance(selection.identifier())
-        focus_started = elapsed_seconds()
-        focusing = true
-        focused_identifier = selection.identifier()
+        if selection.identifier() != focused_identifier {
+          focus_start_x = orbit_target_x
+          focus_start_y = orbit_target_y
+          focus_start_z = orbit_target_z
+          focus_start_distance = camera_distance
+          focus_target_x = selected_target_x(selection.identifier(), first, second, third)
+          focus_target_y = selected_target_y(selection.identifier(), first, second, third)
+          focus_target_z = selected_target_z(selection.identifier(), first, second, third)
+          focus_target_distance = selected_view_distance(selection.identifier())
+          focus_started = elapsed_seconds()
+          focusing = true
+          focused_identifier = selection.identifier()
+        }
       }
       if key_pressed("r") {
         focus_start_x = orbit_target_x
@@ -534,12 +538,16 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           focus_target_y = selected_target_y(focused_identifier, first, second, third)
           focus_target_z = selected_target_z(focused_identifier, first, second, third)
         }
-        orbit_target_x = smooth_focus_axis(focus_start_x, focus_target_x, focus_elapsed, 1.2)
-        orbit_target_y = smooth_focus_axis(focus_start_y, focus_target_y, focus_elapsed, 1.2)
-        orbit_target_z = smooth_focus_axis(focus_start_z, focus_target_z, focus_elapsed, 1.2)
+        orbit_target_x = smooth_focus_axis(
+          focus_start_x, focus_target_x, focus_elapsed, FOCUS_DURATION_SECONDS)
+        orbit_target_y = smooth_focus_axis(
+          focus_start_y, focus_target_y, focus_elapsed, FOCUS_DURATION_SECONDS)
+        orbit_target_z = smooth_focus_axis(
+          focus_start_z, focus_target_z, focus_elapsed, FOCUS_DURATION_SECONDS)
         camera_distance = smooth_focus_distance(
-          focus_start_distance, focus_target_distance, focus_elapsed, 1.2)
-        if focus_elapsed >= 1.2 { focusing = false }
+          focus_start_distance, focus_target_distance,
+          focus_elapsed, FOCUS_DURATION_SECONDS)
+        if focus_elapsed >= FOCUS_DURATION_SECONDS { focusing = false }
       }
       if focusing == false {
         if focused_identifier > 0 {
