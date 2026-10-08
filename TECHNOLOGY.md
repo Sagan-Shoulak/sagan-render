@@ -604,7 +604,10 @@ but its camera-relative transform follows the same anchor arithmetic as the
 local structures. This avoids quantizing ground height through a
 1,737,400-metre float transform. A small underground foundation datum and
 downward-only structure skirts keep low buildings visibly seated without
-changing their roof heights. The global and local meshes are never drawn
+changing their roof heights. The close patch uses metre-based repeating UVs
+and a dedicated two-axis repeating sampler for the Shackleton fixture. It does
+not sample the blue global Moon map, whose square blend boundary was visible
+from oblique local cameras. The global and local meshes are never drawn
 together, so the change adds close-range geometry resolution without creating
 a second ground surface, a second Moon, or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and

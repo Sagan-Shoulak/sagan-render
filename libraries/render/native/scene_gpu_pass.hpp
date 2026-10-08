@@ -108,6 +108,7 @@ namespace sagan_render::scene_gpu
     SDL_GPUTexture *moon_texture{};
     SDL_GPUTexture *moon_detail_texture{};
     SDL_GPUSampler *surface_sampler{};
+    SDL_GPUSampler *local_detail_sampler{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
 
@@ -217,7 +218,6 @@ namespace sagan_render::scene_gpu
     auto build_surface_patch_mesh() -> void
     {
       constexpr std::uint32_t segments = 255;
-      constexpr double pi = 3.14159265358979323846;
       constexpr double moon_radius_metres = 1737400.0;
       // Cover beyond the roughly 83 km lunar horizon visible from the local
       // camera's 2 km maximum distance. Quadratic spacing keeps dense vertices
@@ -255,10 +255,11 @@ namespace sagan_render::scene_gpu
           x /= length;
           y /= length;
           z /= length;
+          constexpr double detail_period_metres = 16384.0;
           const float u = static_cast<float>(
-            std::atan2(z, x) / (2.0 * pi) + 0.5);
+            0.5 + east_metres / detail_period_metres);
           const float v = static_cast<float>(
-            std::acos(std::clamp(y, -1.0, 1.0)) / pi);
+            0.5 - north_metres / detail_period_metres);
           // Close terrain uses marker-relative metre coordinates. Keeping the
           // vertex magnitude near the local patch avoids quantizing metre-scale
           // height against a 1,737,400-metre unit-sphere transform.
@@ -472,6 +473,11 @@ namespace sagan_render::scene_gpu
       sampler_info.enable_anisotropy = true;
       surface_sampler = SDL_CreateGPUSampler(device, &sampler_info);
       if (!surface_sampler) fail("Could not create planetary surface sampler");
+      sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+      sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+      local_detail_sampler = SDL_CreateGPUSampler(device, &sampler_info);
+      if (!local_detail_sampler)
+        fail("Could not create local detail sampler");
     }
 
     auto upload_mesh() -> void
@@ -600,6 +606,8 @@ namespace sagan_render::scene_gpu
         SDL_ReleaseGPUBuffer(device, surface_patch_index_buffer);
       if (surface_patch_vertex_buffer)
         SDL_ReleaseGPUBuffer(device, surface_patch_vertex_buffer);
+      if (local_detail_sampler)
+        SDL_ReleaseGPUSampler(device, local_detail_sampler);
       if (surface_sampler) SDL_ReleaseGPUSampler(device, surface_sampler);
       if (moon_detail_texture)
         SDL_ReleaseGPUTexture(device, moon_detail_texture);
@@ -764,17 +772,19 @@ namespace sagan_render::scene_gpu
             draw.camera, logical).camera_uniform;
           SDL_PushGPUVertexUniformData(
             commands, 0, &camera_uniform, sizeof(camera_uniform));
-          // Patch vertices are metre offsets rather than unit-sphere points,
-          // so detail lookup must use the same marker-relative metre frame.
           surface_lod_uniform patch_surface_lod{};
-          patch_surface_lod.center_and_angular_width[3] = 16384.0F;
-          patch_surface_lod.east_and_enabled[1] = 1.0F;
-          patch_surface_lod.east_and_enabled[3] = 1.0F;
-          patch_surface_lod.north_and_blend[0] = -0.5F;
-          patch_surface_lod.north_and_blend[2] = 0.8660254038F;
-          patch_surface_lod.north_and_blend[3] = 0.08F;
           SDL_PushGPUFragmentUniformData(
             commands, 2, &patch_surface_lod, sizeof(patch_surface_lod));
+          // The close patch uses metre-based repeating UVs and never samples
+          // the low-resolution global Moon map. This keeps the Shackleton
+          // detail scale stable without exposing its square blend boundary.
+          const std::array<SDL_GPUTextureSamplerBinding, 2>
+            patch_surface_bindings{{
+              {moon_detail_texture, local_detail_sampler},
+              {moon_detail_texture, local_detail_sampler}}};
+          SDL_BindGPUFragmentSamplers(
+            render_pass, 0, patch_surface_bindings.data(),
+            patch_surface_bindings.size());
           const SDL_GPUBufferBinding patch_vertex_binding{
             surface_patch_vertex_buffer, 0};
           const SDL_GPUBufferBinding patch_index_binding{
