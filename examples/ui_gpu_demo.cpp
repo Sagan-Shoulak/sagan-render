@@ -1,6 +1,11 @@
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include "../libraries/render/native/ui_contract.hpp"
 #include "../libraries/render/native/ui_draw_list.hpp"
 #include "../libraries/render/native/ui_gpu_bridge.hpp"
@@ -68,6 +73,36 @@ namespace
     return "metal";
 #else
     return "vulkan";
+#endif
+  }
+
+  auto apply_application_icon(SDL_Window *window) -> void
+  {
+#if defined(_WIN32)
+    auto *native_window = static_cast<HWND>(SDL_GetPointerProperty(
+      SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+    if (!native_window)
+      fail("Could not access the native window for its application icon");
+
+    HINSTANCE instance = GetModuleHandleW(nullptr);
+    HICON large_icon = static_cast<HICON>(LoadImageW(
+      instance, MAKEINTRESOURCEW(1), IMAGE_ICON,
+      GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_SHARED));
+    HICON small_icon = static_cast<HICON>(LoadImageW(
+      instance, MAKEINTRESOURCEW(1), IMAGE_ICON,
+      GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED));
+    if (!large_icon || !small_icon)
+      throw std::runtime_error("Could not load the compiler-bundled application icon");
+
+    SendMessageW(native_window, WM_SETICON, ICON_BIG,
+                 reinterpret_cast<LPARAM>(large_icon));
+    SendMessageW(native_window, WM_SETICON, ICON_SMALL,
+                 reinterpret_cast<LPARAM>(small_icon));
+    if (!SendMessageW(native_window, WM_GETICON, ICON_BIG, 0) ||
+        !SendMessageW(native_window, WM_GETICON, ICON_SMALL, 0))
+      throw std::runtime_error("Could not apply the compiler-bundled application icon");
+#else
+    static_cast<void>(window);
 #endif
   }
 
@@ -320,6 +355,7 @@ namespace
       window = SDL_CreateWindow(title.c_str(), requested_width, requested_height,
                                 SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
       if (!window) fail("Could not create demo window");
+      apply_application_icon(window);
       if (!SDL_SetWindowMinimumSize(window, 640, 400))
         fail("Could not set demo minimum size");
       device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_SPIRV |
