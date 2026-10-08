@@ -554,6 +554,10 @@ platform swapchain. This keeps resizing independent of drawable pixel density
 and keeps all camera and body lengths unit checked on the Sagan side of the
 bridge.
 
+The demo opens with the Sun selected and focused at its family viewing
+distance. Reset still returns to the wider system framing, while subsequent
+focus actions use the same hierarchy-aware transitions as before.
+
 The UI bridge reports accumulated right-drag deltas and wheel movement rather
 than exposing SDL event structures. Sagan consumes each delta once and owns the
 orbit target, yaw, pitch, and unit-typed camera distance. Focusing changes the
