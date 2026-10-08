@@ -280,6 +280,35 @@ fun local_target_z(marker: SurfaceLocationMarker,
          up_z * 4.0 meter
 }
 
+fun local_structure(marker: SurfaceLocationMarker,
+                    marker_value: SpatialRenderable,
+                    identifier: Int64, east_metres: Float64<meter>,
+                    north_metres: Float64<meter>, up_metres: Float64<meter>,
+                    radius: Float64<meter>, label: String): SpatialRenderable {
+  let latitude_cosine = demo_cosine(marker.latitude_radians())
+  let latitude_sine = demo_sine(marker.latitude_radians())
+  let longitude_cosine = demo_cosine(marker.longitude_radians())
+  let longitude_sine = demo_sine(marker.longitude_radians())
+  let east_x = 0.0 - longitude_sine
+  let east_y = longitude_cosine
+  let north_x = 0.0 - latitude_sine * longitude_cosine
+  let north_y = 0.0 - latitude_sine * longitude_sine
+  let north_z = latitude_cosine
+  let up_x = latitude_cosine * longitude_cosine
+  let up_y = latitude_cosine * longitude_sine
+  let up_z = latitude_sine
+  let surface_offset = up_metres - marker.altitude() - 0.25 meter
+  return PresentationObject(
+    identifier,
+    sample(marker_value).x() + east_x * east_metres +
+      north_x * north_metres + up_x * surface_offset,
+    sample(marker_value).y() + east_y * east_metres +
+      north_y * north_metres + up_y * surface_offset,
+    sample(marker_value).z() + north_z * north_metres +
+      up_z * surface_offset,
+    radius, label)
+}
+
 fun marker_faces_camera(marker_value: SpatialRenderable,
                         moon: SpatialRenderable,
                         camera_x: Float64<meter>,
@@ -575,6 +604,29 @@ fun projected_y(value: SpatialRenderable, camera_x: Float64<meter>,
     0.577350269, viewport_height)
 }
 
+fun draw_local_selection(value: SpatialRenderable,
+                         camera_x: Float64<meter>,
+                         camera_y: Float64<meter>,
+                         camera_z: Float64<meter>, camera_yaw: Float64,
+                         camera_pitch: Float64, camera_roll: Float64,
+                         viewport_x: Float64, viewport_y: Float64,
+                         viewport_width: Float64,
+                         viewport_height: Float64): Void {
+  let label_x = projected_x(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_x, viewport_width, viewport_height)
+  let label_y = projected_y(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_y, viewport_height)
+  line(label_x - 12.0, label_y - 14.0, label_x + 12.0, label_y - 14.0,
+       2.0, viewport_x, viewport_y, viewport_width, viewport_height,
+       255, 212, 91)
+  text(label_x + 16.0, label_y - 19.0, sample(value).label(),
+       8.0, 255, 212, 91)
+}
+
 fun projected_depth(value: SpatialRenderable,
                     camera_x: Float64<meter>, camera_y: Float64<meter>,
                     camera_z: Float64<meter>, camera_yaw: Float64,
@@ -759,7 +811,8 @@ fun selected_camera_z(identifier: Int64,
 }
 
 fun draw_base_management_overlay(panel_tab: Int64,
-                                 return_hovered: Bool): Void {
+                                 return_hovered: Bool,
+                                 selected_structure: Int64): Void {
   let panel_width = 276.0
   let panel_x = width() - panel_width - 36.0
   let panel_y = 90.0
@@ -806,36 +859,77 @@ fun draw_base_management_overlay(panel_tab: Int64,
   text(panel_x + 102.0, panel_y + 62.0, "RESOURCES", 8.0, 245, 249, 255)
   text(panel_x + 190.0, panel_y + 62.0, "SYSTEMS", 8.0, 245, 249, 255)
 
+  if selected_structure == 401 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  LAUNCHPAD 01", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 402 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  HABITAT A", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 403 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  REFINERY 01", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 404 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  SOLAR ARRAY", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 405 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  COMMS TOWER", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 401 {
+    text(panel_x + 14.0, panel_y + 98.0, "STATUS READY - QUEUE EMPTY", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 402 {
+    text(panel_x + 14.0, panel_y + 98.0, "CREW 12 / 16 - LOAD 38 kW", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 403 {
+    text(panel_x + 14.0, panel_y + 98.0, "ACTIVE - LOAD 64 kW", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 404 {
+    text(panel_x + 14.0, panel_y + 98.0, "OUTPUT 120 kW - 98%", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 405 {
+    text(panel_x + 14.0, panel_y + 98.0, "LINK NOMINAL - LOAD 8 kW", 8.0,
+         245, 249, 255)
+  }
+
   if panel_tab == 0 {
-    text(panel_x + 14.0, panel_y + 96.0, "POWER", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 114.0, "GENERATION       240 kW", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 132.0, "CONSUMPTION      168 kW", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 150.0, "AVAILABLE         72 kW", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 178.0, "CAPACITY", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 196.0, "MACHINE SLOTS       7 / 12", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 214.0, "STORAGE USED          68%", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 242.0, "LAUNCHPAD", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 260.0, "PAD 01   READY", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 122.0, "POWER", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 140.0, "GENERATION       240 kW", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 158.0, "CONSUMPTION      168 kW", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 176.0, "AVAILABLE         72 kW", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 202.0, "CAPACITY", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 220.0, "MACHINE SLOTS       7 / 12", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 238.0, "STORAGE USED          68%", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 264.0, "LAUNCHPAD", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 282.0, "PAD 01   READY", 9.0, 71, 174, 255)
   }
   if panel_tab == 1 {
-    text(panel_x + 14.0, panel_y + 96.0, "NET PRODUCTION", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 116.0, "WATER             +18.4 kg/h", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 136.0, "OXYGEN             +6.2 kg/h", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 156.0, "REGOLITH           +42.0 kg/h", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 184.0, "RESOURCE LOAD", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 204.0, "EXTRACTION       2 ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 224.0, "REFINEMENT       1 ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 244.0, "STORAGE HEADROOM      32%", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 122.0, "NET PRODUCTION", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 142.0, "WATER             +18.4 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 162.0, "OXYGEN             +6.2 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 182.0, "REGOLITH           +42.0 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 210.0, "RESOURCE LOAD", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 230.0, "EXTRACTION       2 ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 250.0, "REFINEMENT       1 ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 270.0, "STORAGE HEADROOM      32%", 9.0, 245, 249, 255)
   }
   if panel_tab == 2 {
-    text(panel_x + 14.0, panel_y + 96.0, "INSTALLED SYSTEMS", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 116.0, "SOLAR ARRAY        NOMINAL", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 136.0, "LIFE SUPPORT       NOMINAL", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 156.0, "REFINERY           ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 176.0, "EXTRACTOR          ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 204.0, "MAINTENANCE", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 224.0, "BASE CONDITION         96%", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 244.0, "OPEN MACHINE SLOTS   5", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 122.0, "INSTALLED SYSTEMS", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 142.0, "SOLAR ARRAY        NOMINAL", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 162.0, "LIFE SUPPORT       NOMINAL", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 182.0, "REFINERY           ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 202.0, "EXTRACTOR          ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 230.0, "MAINTENANCE", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 250.0, "BASE CONDITION         96%", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 270.0, "OPEN MACHINE SLOTS   5", 9.0, 245, 249, 255)
   }
 
   if return_hovered {
@@ -858,7 +952,8 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             marker_value: SpatialRenderable, marker_active: Bool,
             marker_hovered: Bool, marker_fade_stage: Int64,
             surface_detail_active: Bool, transitioning: Bool,
-            base_panel_tab: Int64, return_hovered: Bool): Void {
+            base_panel_tab: Int64, return_hovered: Bool,
+            selected_structure: Int64): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
@@ -930,6 +1025,47 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
                           camera_yaw, camera_pitch, camera_roll,
                           viewport_x, viewport_y,
                           viewport_width, viewport_height)
+    if transitioning == false {
+      if selected_structure == 401 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 401,
+            35.0 meter, 20.0 meter, 8.0 meter, 14.0 meter, "LAUNCHPAD 01"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 402 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 402,
+            0.0 meter - 30.0 meter, 20.0 meter, 5.0 meter,
+            20.0 meter, "HABITAT A"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 403 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 403,
+            0.0 meter - 28.0 meter, 0.0 meter - 15.0 meter, 4.0 meter,
+            16.0 meter, "REFINERY 01"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 404 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 404,
+            10.0 meter, 0.0 meter - 35.0 meter, 0.7 meter,
+            30.0 meter, "SOLAR ARRAY"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 405 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 405,
+            0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
+            18.0 meter, "COMMS TOWER"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+    }
   }
   draw_surface_marker(marker, marker_value, third,
                       camera_x, camera_y, camera_z,
@@ -941,7 +1077,8 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
          "RIGHT-DRAG: LOCAL ORBIT | WHEEL: ZOOM | SURFACE NORMAL IS UP",
          10.0, 142, 203, 255)
     if transitioning == false {
-      draw_base_management_overlay(base_panel_tab, return_hovered)
+      draw_base_management_overlay(
+        base_panel_tab, return_hovered, selected_structure)
     }
   } else {
     text(24.0, window_height - 28.0,
@@ -989,6 +1126,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let returning_to_orbit = false
   let focus_source_marker = false
   let base_panel_tab: Int64 = 0
+  let selected_structure: Int64 = 401
   let return_hovered = false
   let saved_orbit_distance = MOON_VIEW_DISTANCE
   let saved_orbit_yaw = camera_yaw
@@ -1017,6 +1155,25 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         earth_y + MOON_DISTANCE * demo_sine(moon_phase),
         DISTANT_ORIGIN - CAMERA_DEPTH, 1737.4 kilometer, "MOON")
       let marker_value = marker_presentation(base_marker, third)
+      let local_launchpad = local_structure(
+        base_marker, marker_value, 401,
+        35.0 meter, 20.0 meter, 8.0 meter, 14.0 meter, "LAUNCHPAD 01")
+      let local_habitat = local_structure(
+        base_marker, marker_value, 402,
+        0.0 meter - 30.0 meter, 20.0 meter, 5.0 meter,
+        20.0 meter, "HABITAT A")
+      let local_refinery = local_structure(
+        base_marker, marker_value, 403,
+        0.0 meter - 28.0 meter, 0.0 meter - 15.0 meter, 4.0 meter,
+        16.0 meter, "REFINERY 01")
+      let local_solar = local_structure(
+        base_marker, marker_value, 404,
+        10.0 meter, 0.0 meter - 35.0 meter, 0.7 meter,
+        30.0 meter, "SOLAR ARRAY")
+      let local_tower = local_structure(
+        base_marker, marker_value, 405,
+        0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
+        18.0 meter, "COMMS TOWER")
       if key_pressed("left") {
         let previous = selection.identifier() - 1
         if previous < 1 { previous = 3 }
@@ -1115,6 +1272,14 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           panel_y + panel_height - 44.0, 252.0, 30.0)
         if key_pressed("r") { return_requested = true }
         if key_pressed("escape") { return_requested = true }
+        if key_pressed("tab") {
+          selected_structure = selected_structure + 1
+          if selected_structure > 405 { selected_structure = 401 }
+        }
+        if key_pressed("shift-tab") {
+          selected_structure = selected_structure - 1
+          if selected_structure < 401 { selected_structure = 405 }
+        }
       }
       if marker_faces_camera(
            marker_value, third, camera_x, camera_y, camera_z) {
@@ -1142,6 +1307,53 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let click_x = pointer_x()
         let click_y = pointer_y()
         if local_view {
+          if click_x < panel_x {
+            if pick_circle(click_x, click_y,
+                 projected_x(local_launchpad, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_x, viewport_width, viewport_height),
+                 projected_y(local_launchpad, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_y, viewport_height), 24.0) {
+              selected_structure = 401
+            }
+            if pick_circle(click_x, click_y,
+                 projected_x(local_habitat, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_x, viewport_width, viewport_height),
+                 projected_y(local_habitat, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_y, viewport_height), 24.0) {
+              selected_structure = 402
+            }
+            if pick_circle(click_x, click_y,
+                 projected_x(local_refinery, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_x, viewport_width, viewport_height),
+                 projected_y(local_refinery, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_y, viewport_height), 24.0) {
+              selected_structure = 403
+            }
+            if pick_circle(click_x, click_y,
+                 projected_x(local_solar, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_x, viewport_width, viewport_height),
+                 projected_y(local_solar, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_y, viewport_height), 24.0) {
+              selected_structure = 404
+            }
+            if pick_circle(click_x, click_y,
+                 projected_x(local_tower, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_x, viewport_width, viewport_height),
+                 projected_y(local_tower, camera_x, camera_y, camera_z,
+                             camera_yaw, camera_pitch, camera_roll,
+                             viewport_y, viewport_height), 24.0) {
+              selected_structure = 405
+            }
+          }
           if pick_rectangle(click_x, click_y,
                             panel_x + 12.0, panel_y + 54.0,
                             78.0, 24.0) { base_panel_tab = 0 }
@@ -1477,7 +1689,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
               selection, first, second, third, base_marker, marker_value,
               focused_marker, marker_hovered, marker_fade_stage,
               surface_detail_active, focusing,
-              base_panel_tab, return_hovered)
+              base_panel_tab, return_hovered, selected_structure)
     }
   }
   close()

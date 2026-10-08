@@ -307,7 +307,10 @@ geometry and reserves a right sidebar for local-view UI. The renderer-neutral
 demo presents GDD-informed overview, resource, and system tabs covering power
 generation and consumption, net resource production, storage, machine slots,
 maintenance, and launchpad status. These values are labeled as a deterministic
-demo snapshot; production, storage, and outpost rules remain game-owned. A
+demo snapshot; production, storage, and outpost rules remain game-owned. Five
+local structures carry stable fixture presentation IDs. Pointer picking or
+Tab/Shift-Tab selection updates the selected-object cue and structure-specific
+summary without giving the renderer ownership of structure behavior. A
 pointer-accessible button plus R and Escape return through the same live-target
 camera transition to the saved Moon orbital framing. It does not yet define
 production terrain level-of-detail assets.
