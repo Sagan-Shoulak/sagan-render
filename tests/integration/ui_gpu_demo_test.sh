@@ -10,6 +10,7 @@ sdl_root="$(bash scripts/fetch-sdl3-windows.sh)"
 sagan_executable="${SAGAN_EXECUTABLE:-sagan}"
 export SAGAN_PACKAGE_INDEX="${SAGAN_PACKAGE_INDEX:-$repo_root/libraries/index.tsv}"
 "$sagan_executable" --emit-cpp-package examples/ui_sagan_demo build/ui-sagan-demo/program.cpp
+icon_resource="$($sagan_executable --application-icon windows)"
 
 native_tmp="$repo_root/build/tmp"
 if command -v cygpath >/dev/null 2>&1; then native_tmp="$(cygpath -w "$native_tmp")"; fi
@@ -17,8 +18,10 @@ TMPDIR="$native_tmp" TMP="$native_tmp" TEMP="$native_tmp" \
   g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -DSAGAN_RENDER_UI_BRIDGE \
   -include "$repo_root/libraries/render/native/ui_gpu_bridge.hpp" \
   -I"$sdl_root/include" build/ui-sagan-demo/program.cpp examples/ui_gpu_demo.cpp \
-  -L"$sdl_root/lib" -lSDL3 -o build/ui-sagan-demo/ui-sagan-demo.exe
+  "$icon_resource" -L"$sdl_root/lib" -lSDL3 -o build/ui-sagan-demo/ui-sagan-demo.exe
 cp "$sdl_root/bin/SDL3.dll" build/ui-sagan-demo/SDL3.dll
+windres build/ui-sagan-demo/ui-sagan-demo.exe -O rc -o build/ui-sagan-demo/ui-sagan-demo-resources.rc
+grep -q 'RT_GROUP_ICON' build/ui-sagan-demo/ui-sagan-demo-resources.rc
 
 report="build/ui-sagan-demo/ui-sagan-demo-report.txt"
 rm -f "$report" build/ui-sagan-demo/ui-sagan-960x540.bmp build/ui-sagan-demo/ui-sagan-800x600.bmp

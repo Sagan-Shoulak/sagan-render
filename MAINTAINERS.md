@@ -98,11 +98,14 @@ bash scripts/scene_demo.sh
 ```
 
 These open native windows. The tests set `SAGAN_RENDER_AUTOCLOSE_MS` to avoid
-leaving them open. The bridge uses an embedded custom icon if available and
-a Windows stock icon otherwise. The latter is a compatibility fallback, not
-a decision about final product branding. The current non-Windows backend
-throws an explicit unsupported-platform error; do not claim Linux/macOS
-rendering based on a passing Windows test.
+leaving them open. The reference UI demo queries its pinned compiler with
+`sagan --application-icon windows|linux|macos`. Windows links the returned
+resource object. Linux stages a desktop entry and hicolor icon; macOS stages an
+`.app` bundle with `CFBundleIconFile`. `scripts/stage-application-icon.sh`
+owns the latter two layouts. A missing compiler asset is a hard packaging
+failure; do not add icon artwork to this repository as a workaround. The
+bridge's Windows stock icon is only a compatibility fallback for consumers
+that bypass the supported packaging contract.
 
 ## Cross-platform SDL foundation probe
 
@@ -329,8 +332,8 @@ compatibility, and owner clean-machine drill remain incomplete. No split
 remote was created or pushed in this rehearsal.
 
 If a native build fails, distinguish compiler emission, package lookup,
-resource loading, g++/linking, and runtime/display failures. A missing
-custom icon must not make an otherwise valid window unusable, but a missing
-or unsupported display backend is a real limitation. The current local-only
+application-icon lookup, resource loading, g++/linking, and runtime/display
+failures. A missing canonical icon is an actionable packaging failure, while a
+missing or unsupported display backend is a runtime limitation. The current local-only
 transfer backup cannot survive loss of this machine or recreate GitHub
 settings, secrets, issues, or PR history.
