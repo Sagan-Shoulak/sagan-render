@@ -105,10 +105,9 @@ namespace sagan_render::scene_gpu
     SDL_GPUTexture *depth{};
     SDL_GPUTexture *white_texture{};
     SDL_GPUTexture *earth_texture{};
-    SDL_GPUTexture *moon_texture{};
+    SDL_GPUTexture *moon_local_texture{};
     SDL_GPUTexture *moon_detail_texture{};
     SDL_GPUSampler *surface_sampler{};
-    SDL_GPUSampler *local_detail_sampler{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
 
@@ -218,6 +217,7 @@ namespace sagan_render::scene_gpu
     auto build_surface_patch_mesh() -> void
     {
       constexpr std::uint32_t segments = 255;
+      constexpr double pi = 3.14159265358979323846;
       constexpr double moon_radius_metres = 1737400.0;
       // Cover well beyond the roughly 132 km lunar horizon at the 5 km patch
       // activation altitude. Cubic spacing preserves metre-scale density near
@@ -253,11 +253,10 @@ namespace sagan_render::scene_gpu
           x /= length;
           y /= length;
           z /= length;
-          constexpr double detail_period_metres = 16384.0;
           const float u = static_cast<float>(
-            0.5 + east_metres / detail_period_metres);
+            std::atan2(z, x) / (2.0 * pi) + 0.5);
           const float v = static_cast<float>(
-            0.5 - north_metres / detail_period_metres);
+            std::acos(std::clamp(y, -1.0, 1.0)) / pi);
           // Close terrain uses marker-relative metre coordinates. Keeping the
           // vertex magnitude near the local patch avoids quantizing metre-scale
           // height against a 1,737,400-metre unit-sphere transform.
@@ -454,8 +453,17 @@ namespace sagan_render::scene_gpu
       white_texture = upload_texture(white);
       earth_texture = upload_texture(load_image(
         "assets/planetary/earth_blue_marble_1024x512.ppm"));
-      moon_texture = upload_texture(load_image(
-        "assets/planetary/moon_lro_2048x1024.ppm"));
+      image moon = load_image("assets/planetary/moon_lro_2048x1024.ppm");
+      for (std::size_t pixel = 0; pixel < moon.rgba.size(); pixel += 4)
+      {
+        const auto luminance = static_cast<std::uint8_t>(
+          (54U * moon.rgba[pixel] + 183U * moon.rgba[pixel + 1] +
+           19U * moon.rgba[pixel + 2]) / 256U);
+        moon.rgba[pixel] = luminance;
+        moon.rgba[pixel + 1] = luminance;
+        moon.rgba[pixel + 2] = luminance;
+      }
+      moon_local_texture = upload_texture(moon);
       moon_detail_texture = upload_texture(load_image(
         "assets/planetary/moon_shackleton_rim_2048x2048.ppm"));
       SDL_GPUSamplerCreateInfo sampler_info{};
@@ -471,12 +479,6 @@ namespace sagan_render::scene_gpu
       sampler_info.enable_anisotropy = true;
       surface_sampler = SDL_CreateGPUSampler(device, &sampler_info);
       if (!surface_sampler) fail("Could not create planetary surface sampler");
-      sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
-      sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
-      sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
-      local_detail_sampler = SDL_CreateGPUSampler(device, &sampler_info);
-      if (!local_detail_sampler)
-        fail("Could not create local detail sampler");
     }
 
     auto upload_mesh() -> void
@@ -605,12 +607,11 @@ namespace sagan_render::scene_gpu
         SDL_ReleaseGPUBuffer(device, surface_patch_index_buffer);
       if (surface_patch_vertex_buffer)
         SDL_ReleaseGPUBuffer(device, surface_patch_vertex_buffer);
-      if (local_detail_sampler)
-        SDL_ReleaseGPUSampler(device, local_detail_sampler);
       if (surface_sampler) SDL_ReleaseGPUSampler(device, surface_sampler);
       if (moon_detail_texture)
         SDL_ReleaseGPUTexture(device, moon_detail_texture);
-      if (moon_texture) SDL_ReleaseGPUTexture(device, moon_texture);
+      if (moon_local_texture)
+        SDL_ReleaseGPUTexture(device, moon_local_texture);
       if (earth_texture) SDL_ReleaseGPUTexture(device, earth_texture);
       if (white_texture) SDL_ReleaseGPUTexture(device, white_texture);
       if (box_index_buffer) SDL_ReleaseGPUBuffer(device, box_index_buffer);
@@ -687,11 +688,12 @@ namespace sagan_render::scene_gpu
         SDL_GPUTexture *detail = white_texture;
         surface_lod_uniform surface_lod{};
         bool draw_surface_patch = false;
+        float lunar_detail_weight = 0.0F;
         if (draw.albedo_map == surface_map::earth_blue_marble)
           surface = earth_texture;
         else if (draw.albedo_map == surface_map::moon_lro)
         {
-          surface = moon_texture;
+          surface = moon_local_texture;
           const double camera_dx =
             draw.camera.position.x_metres - draw.item.position.x_metres;
           const double camera_dy =
@@ -703,6 +705,9 @@ namespace sagan_render::scene_gpu
             camera_dz * camera_dz) - draw.item.radius_metres;
           if (camera_altitude < 100000.0)
           {
+            lunar_detail_weight = std::clamp(
+              static_cast<float>((100000.0 - camera_altitude) / 95000.0),
+              0.0F, 1.0F);
             constexpr float marker_latitude_sine = 0.5F;
             constexpr float marker_latitude_cosine = 0.8660254038F;
             constexpr float detail_width_metres = 16384.0F;
@@ -712,7 +717,7 @@ namespace sagan_render::scene_gpu
             surface_lod.center_and_angular_width[2] = marker_latitude_sine;
             surface_lod.center_and_angular_width[3] = angular_width;
             surface_lod.east_and_enabled[1] = 1.0F;
-            surface_lod.east_and_enabled[3] = 1.0F;
+            surface_lod.east_and_enabled[3] = lunar_detail_weight;
             surface_lod.north_and_blend[0] = -marker_latitude_sine;
             surface_lod.north_and_blend[2] = marker_latitude_cosine;
             surface_lod.north_and_blend[3] = 0.08F;
@@ -772,18 +777,17 @@ namespace sagan_render::scene_gpu
           SDL_PushGPUVertexUniformData(
             commands, 0, &camera_uniform, sizeof(camera_uniform));
           surface_lod_uniform patch_surface_lod{};
+          // Patch vertices are metre offsets rather than unit-sphere points,
+          // so detail lookup uses the marker-relative metre frame while the
+          // base layer retains the same global UVs as the coarse sphere.
+          patch_surface_lod.center_and_angular_width[3] = 16384.0F;
+          patch_surface_lod.east_and_enabled[1] = 1.0F;
+          patch_surface_lod.east_and_enabled[3] = lunar_detail_weight;
+          patch_surface_lod.north_and_blend[0] = -0.5F;
+          patch_surface_lod.north_and_blend[2] = 0.8660254038F;
+          patch_surface_lod.north_and_blend[3] = 0.08F;
           SDL_PushGPUFragmentUniformData(
             commands, 2, &patch_surface_lod, sizeof(patch_surface_lod));
-          // The close patch uses metre-based mirrored UVs and never samples
-          // the low-resolution global Moon map. Mirroring joins every crop
-          // edge to itself, retaining detail scale without repeat seams.
-          const std::array<SDL_GPUTextureSamplerBinding, 2>
-            patch_surface_bindings{{
-              {moon_detail_texture, local_detail_sampler},
-              {moon_detail_texture, local_detail_sampler}}};
-          SDL_BindGPUFragmentSamplers(
-            render_pass, 0, patch_surface_bindings.data(),
-            patch_surface_bindings.size());
           const SDL_GPUBufferBinding patch_vertex_binding{
             surface_patch_vertex_buffer, 0};
           const SDL_GPUBufferBinding patch_index_binding{

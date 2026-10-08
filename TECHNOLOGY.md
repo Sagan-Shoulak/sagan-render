@@ -605,13 +605,15 @@ but its camera-relative transform follows the same anchor arithmetic as the
 local structures. This avoids quantizing ground height through a
 1,737,400-metre float transform. A small underground foundation datum and
 downward-only structure skirts keep low buildings visibly seated without
-changing their roof heights. The close patch uses metre-based UVs and a
-dedicated two-axis mirrored-repeat sampler for the Shackleton fixture. Each
-crop edge therefore joins to itself without losing close-range texture scale.
-It does not sample the blue global Moon map, whose square blend boundary was
-visible from oblique local cameras. The global and local meshes are never drawn
-together, so the change adds close-range geometry resolution without creating
-a second ground surface, a second Moon, or an independent ground plane.
+changing their roof heights. At every distance, the coarse sphere and close
+patch use the same neutralized global Moon map; below 100 kilometres they also
+use the same Shackleton detail, faded continuously from zero at 100 kilometres
+to full weight at five kilometres. Patch vertices retain global spherical UVs
+while the detail lookup uses marker-relative metres. The same fade weight is
+carried across the five-kilometre tessellation change, so neither distance
+threshold appears as a surrounding material shell. The global and local meshes are never drawn together,
+so the change adds close-range geometry resolution without creating a second
+ground surface, a second Moon, or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and
 positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and
