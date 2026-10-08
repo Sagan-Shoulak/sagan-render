@@ -567,12 +567,13 @@ textures; untextured primitives bind a one-pixel white texture through the same
 pipeline. Below 100 kilometres above the Moon, the same sphere draw also binds
 a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
 through the marker's body-fixed tangent basis and feather-blends its boundary
-into the global map. At the same threshold, a 64-by-64 indexed spherical patch
-adds close-range geometry resolution over a 1.6384-kilometre square centered on
-the marker. Its vertices are projected onto the same Moon radius and it reuses
-the Moon draw's transform, material, texture blend, lighting, and depth target;
-this prevents the local base from floating above a large chord of the coarse
-orbital sphere without creating a second Moon or an independent ground plane.
+into the global map. Below five kilometres altitude, a 255-by-255 indexed
+spherical patch replaces the coarse global sphere over a 16.384-kilometre
+square centered on the marker. Its vertices are projected onto the same Moon
+radius and it reuses the Moon draw's transform, material, texture blend,
+lighting, and depth target. The global and local meshes are never drawn
+together, so the change adds close-range geometry resolution without creating
+a second ground surface, a second Moon, or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and
 positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and

@@ -215,10 +215,10 @@ namespace sagan_render::scene_gpu
 
     auto build_surface_patch_mesh() -> void
     {
-      constexpr std::uint32_t segments = 64;
+      constexpr std::uint32_t segments = 255;
       constexpr float pi = 3.14159265358979323846F;
       constexpr float moon_radius_metres = 1737400.0F;
-      constexpr float patch_half_width_metres = 819.2F;
+      constexpr float patch_half_width_metres = 8192.0F;
       constexpr std::array<float, 3> center{{0.8660254038F, 0.0F, 0.5F}};
       constexpr std::array<float, 3> east{{0.0F, 1.0F, 0.0F}};
       constexpr std::array<float, 3> north{{-0.5F, 0.0F, 0.8660254038F}};
@@ -678,7 +678,7 @@ namespace sagan_render::scene_gpu
             surface_lod.north_and_blend[2] = marker_latitude_cosine;
             surface_lod.north_and_blend[3] = 0.08F;
             detail = moon_detail_texture;
-            draw_surface_patch = true;
+            draw_surface_patch = camera_altitude < 5000.0;
           }
         }
         if (draw.albedo_map != surface_map::none)
@@ -692,8 +692,9 @@ namespace sagan_render::scene_gpu
           commands, 0, &material, sizeof(material));
         SDL_PushGPUFragmentUniformData(
           commands, 2, &surface_lod, sizeof(surface_lod));
-        SDL_DrawGPUIndexedPrimitives(
-          render_pass, selected_index_count, 1, 0, 0, 0);
+        if (!draw_surface_patch)
+          SDL_DrawGPUIndexedPrimitives(
+            render_pass, selected_index_count, 1, 0, 0, 0);
         if (draw_surface_patch)
         {
           const SDL_GPUBufferBinding patch_vertex_binding{
