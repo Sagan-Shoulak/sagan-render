@@ -63,6 +63,64 @@ fun depth_visible(forward_depth: Float64<meter>, radius: Float64<meter>,
   return true
 }
 
+/// Stable presentation metadata for one application-owned body location.
+/// Latitude/longitude describe the application's body-fixed reference frame;
+/// the renderer does not choose an epoch, rotation model, or geodetic datum.
+class SurfaceLocationMarker {
+  let identifier_value: Int64
+  let parent_identifier_value: Int64
+  let destination_identifier_value: Int64
+  let latitude_radians_value: Float64
+  let longitude_radians_value: Float64
+  let altitude_value: Float64<meter>
+  let label_value: String
+
+  new(identifier: Int64, parent_identifier: Int64,
+      destination_identifier: Int64, latitude_radians: Float64,
+      longitude_radians: Float64, altitude: Float64<meter>, label: String) {
+    self.identifier_value = identifier
+    self.parent_identifier_value = parent_identifier
+    self.destination_identifier_value = destination_identifier
+    self.latitude_radians_value = latitude_radians
+    self.longitude_radians_value = longitude_radians
+    self.altitude_value = altitude
+    self.label_value = label
+  }
+
+  fun identifier(): Int64 => self.identifier_value
+  fun parent_identifier(): Int64 => self.parent_identifier_value
+  fun destination_identifier(): Int64 => self.destination_identifier_value
+  fun latitude_radians(): Float64 => self.latitude_radians_value
+  fun longitude_radians(): Float64 => self.longitude_radians_value
+  fun altitude(): Float64<meter> => self.altitude_value
+  fun label(): String => self.label_value
+}
+
+/// Return whether a surface location faces the camera. Callers supply the
+/// already-transformed world position, keeping body rotation and reference-
+/// frame policy outside the renderer.
+fun surface_location_visible(location_x: Float64<meter>,
+                             location_y: Float64<meter>,
+                             location_z: Float64<meter>,
+                             body_x: Float64<meter>,
+                             body_y: Float64<meter>,
+                             body_z: Float64<meter>,
+                             camera_x: Float64<meter>,
+                             camera_y: Float64<meter>,
+                             camera_z: Float64<meter>): Bool {
+  let radial_x = location_x - body_x
+  let radial_y = location_y - body_y
+  let radial_z = location_z - body_z
+  let view_x = camera_x - location_x
+  let view_y = camera_y - location_y
+  let view_z = camera_z - location_z
+  let facing =
+    (radial_x / 1.0 meter) * (view_x / 1.0 meter) +
+    (radial_y / 1.0 meter) * (view_y / 1.0 meter) +
+    (radial_z / 1.0 meter) * (view_z / 1.0 meter)
+  return facing > 0.0
+}
+
 class SelectionState {
   let selected_identifier: Int64
 
@@ -95,12 +153,25 @@ fun pick_circle(pointer_x: Float64, pointer_y: Float64,
   return difference_x * difference_x + difference_y * difference_y <= radius * radius
 }
 
+fun pick_rectangle(pointer_x: Float64, pointer_y: Float64,
+                   x: Float64, y: Float64,
+                   width: Float64, height: Float64): Bool {
+  if pointer_x < x { return false }
+  if pointer_y < y { return false }
+  if pointer_x > x + width { return false }
+  if pointer_y > y + height { return false }
+  return true
+}
+
 export SpatialRenderable
 export RenderSample
 export sample
 export relative_axis
 export perspective_axis
 export depth_visible
+export SurfaceLocationMarker
+export surface_location_visible
 export SelectionState
 export smooth_focus_axis
 export pick_circle
+export pick_rectangle

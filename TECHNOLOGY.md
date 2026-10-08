@@ -280,6 +280,53 @@ not alter object positions and remains independent of drawable-pixel density.
 Production text shaping may change measured label bounds without changing this
 placement contract.
 
+`SurfaceLocationMarker` adds stable marker, parent-body, and local-destination
+identifiers plus body-fixed latitude/longitude metadata and measured altitude.
+The renderer does not interpret a rotation epoch or geodetic datum. An
+application transforms the body-fixed location into the current world frame;
+the renderer then performs camera projection, near-side visibility, picking,
+and presentation. The scene demo's deterministic Moon fixture supplies that
+adapter math and draws a KSP-like pin whose camera approach follows the
+marker's fresh presentation position as the Moon moves.
+When the approach completes, the same Sagan process and GPU compositor switch
+to a local base presentation anchored at the marker's measured world position.
+This first handoff proves shared window, mesh, material, lighting, depth, and
+camera-relative precision contracts. The fixture also derives a body-fixed
+orthonormal east/north/up basis and transforms its local metre-scale camera,
+cuboids, and boulder through that frame. The application or physics package
+owns that frame; the renderer validates and consumes the supplied axes. Local
+geometry subtracts the camera from its shared surface origin before applying
+metre-scale east/north/up offsets, so those offsets never round while attached
+to the distant world coordinate. Fixture materials also retain a small
+material-local light floor so hard-normal cuboid face changes remain readable
+at shallow camera angles without raising the Moon's ambient lighting. The
+handoff first orbits yaw, pitch, and roll into the marker-facing local camera
+frame, then translates the target and reduces reciprocal distance so the
+descent cannot cut a chord through the Moon. It fades the orbital marker
+through fixed-palette stages, hides it when local detail owns the view, and
+activates tangent-patch detail near the end of the ease. Base structures remain
+submitted throughout descent and return, so their apparent size changes with
+camera distance instead of switching on at the detail threshold. Once settled,
+the base view begins at a steep local elevation and orbits in the marker's
+east/north/up frame, treating the local surface normal as camera up while the
+wheel retains measured-distance zoom. Elevation is clamped above the local
+horizon and the camera keeps at least five metres of tangent-plane ground
+clearance. Once local detail is active, the compositor
+suppresses orbital guides and planetary labels while retaining physical scene
+geometry and reserves a right sidebar for local-view UI. The renderer-neutral
+demo presents GDD-informed overview, resource, and system tabs covering power
+generation and consumption, net resource production, storage, machine slots,
+maintenance, and launchpad status. These values are labeled as a deterministic
+demo snapshot; production, storage, and outpost rules remain game-owned. Five
+local structures carry stable fixture presentation IDs. Pointer picking or
+Tab/Shift-Tab selection updates the selected-object cue and structure-specific
+summary without giving the renderer ownership of structure behavior. Pointer
+hit regions scale from each structure's projected bounding radius and
+overlapping candidates resolve to the nearest camera depth. A
+pointer-accessible button plus R and Escape return through the same live-target
+camera transition to the saved Moon orbital framing. It does not yet define
+production terrain level-of-detail assets.
+
 The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples.
 Focusing interpolates all three measured camera
@@ -409,8 +456,11 @@ SDL binding convention on every supported platform.
 
 This slice defines and tests the source interface only. Ahead-of-time
 SDL_shadercross compilation, reflected artifact validation, GPU pipeline use,
-textures, multiple lights, post-processing, and replacement of the sphere
-impostor remain open under #16. The repository must not claim that handwritten
+native sampled textures, multiple lights, post-processing, and replacement of
+the sphere impostor remain open under #16. The issue #13 demo can assign one
+material uniform per sphere cell from small NASA-derived albedo grids without
+changing this shader resource ABI; that bootstrap is not filtered texture
+sampling. The repository must not claim that handwritten
 source plus a manifest is equivalent to compiled DXIL, SPIR-V, or MSL.
 
 The first shader-toolchain dependency boundary is now pinned in
@@ -530,13 +580,51 @@ camera, body, near-plane, far-plane, and radius lengths. The compiler therefore
 rejects unit, type, or arity drift before native compilation.
 
 `scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
-contract. It builds one shared UV sphere with 16 latitude bands, 32 longitude
-segments, 561 smooth-normal vertices, and 1,024 indexed triangles. It also owns
-reviewed backend shader selection, the material pipeline, and a resize-aware
-D32 depth target. Tessellation changes presentation geometry only; entity
-radii and positions remain measured inputs.
+contract. It builds one shared UV sphere with 64 latitude bands, 128 longitude
+segments, 8,385 smooth-normal vertices, and 16,384 indexed triangles, plus a
+shared hard-normal indexed box for local structures and terrain patches. Both
+shapes use the same reviewed sampled-texture material shader, camera-relative
+transform, lighting uniforms, resize-aware D32 depth target, and backend
+selection. Earth and Moon bind provenance-tracked 1024x512 and 2048x1024 NASA
+textures; untextured primitives bind a one-pixel white texture through the same
+pipeline. Planetary uploads allocate and GPU-generate a complete mip chain;
+trilinear sampling with 8x anisotropy stabilizes oblique close-surface motion
+without changing the source texture identity. The available 0.8-metre-per-pixel
+LROC Shackleton rim observation contains baked extreme-angle illumination and
+is not used as albedo. Blending it into the photometrically different global
+map exposed its finite square footprint and applied scene lighting twice. A
+future local-detail input must be photometrically normalized or use a separately
+defined detail contract. Below five kilometres altitude, a 255-by-255 indexed
+spherical patch replaces the coarse global sphere over a 1,048.576-kilometre
+square centered on the marker. Cubic vertex spacing concentrates resolution
+around the base while extending beyond the 132-kilometre lunar horizon at the
+LOD activation altitude. Its
+vertices are projected onto the same Moon
+radius, then stored as metre-scale offsets from the marker's surface anchor.
+The patch reuses the Moon's continuous global material, lighting, and depth
+target,
+but its camera-relative transform follows the same anchor arithmetic as the
+local structures. This avoids quantizing ground height through a
+1,737,400-metre float transform. A small underground foundation datum and
+downward-only structure skirts keep low buildings visibly seated without
+changing their roof heights. At every distance, the coarse sphere and close
+patch use the same neutralized global Moon map and global spherical UVs. The
+global and local meshes are never drawn together,
+so the change adds close-range geometry resolution without creating a second
+ground surface, a second Moon, or an independent ground plane.
+Tessellation changes presentation geometry only; entity dimensions and
+positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and
 materials; the pass does not store or advance simulation state.
+
+The separate `surface_sagan_demo` exercises the same path near a `1e15 metre`
+origin with a one-kilometre local tangent patch. Its renderer-neutral vertical
+slice composes a landing pad, habitat cluster, power array, communications
+tower, compact lander silhouette, and nearby boulders. These are reusable
+primitive presentations, not game content or terrain-generation policy. The
+demo deliberately does not claim a finished orbit-to-surface transition: that
+future application handoff must preserve the Moon asset/material identity and
+derive the local tangent frame from a physics-owned reference frame.
 
 The first deterministic capture renders one measured Sun, Earth, and Moon
 snapshot through a system camera plus focused body evidence cameras.
@@ -562,7 +650,10 @@ actions use the same hierarchy-aware transitions as before.
 
 The UI bridge reports accumulated right-drag deltas and wheel movement rather
 than exposing SDL event structures. Sagan consumes each delta once and owns the
-orbit target, yaw, pitch, and unit-typed camera distance. Focusing changes the
+orbit target, yaw, pitch, and unit-typed camera distance. Orbital view maps
+right-drag to world-frame yaw and pitch; settled base view maps the same gesture
+to azimuth and elevation around the marker's local surface normal. Focusing
+changes the
 target and distance smoothly; following a moving selected body updates only the
 target snapshot. During the transition, the eased destination is refreshed
 from each new immutable body snapshot; otherwise the camera would ease toward

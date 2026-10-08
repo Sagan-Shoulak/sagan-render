@@ -53,6 +53,55 @@ int main(int argc, char **argv)
   assert(mesh_draw.camera_uniform.normal_matrix[5] == 1.0F);
   assert(mesh_draw.camera_uniform.normal_matrix[10] == 1.0F);
 
+  const render_item local_structure{
+    21, {anchor + 32.0, anchor - 16.0, anchor - 500.0}, 30.0,
+    "local-structure"};
+  const auto box_draw = prepare_box_draw(
+    local_structure, {10.0, 20.0, 30.0}, 1.5707963267948966,
+    view, {960.0, 540.0});
+  assert(box_draw.camera_relative_center.x_metres == 32.0);
+  assert(box_draw.camera_relative_center.y_metres == -16.0);
+  assert(box_draw.camera_relative_center.z_metres == -500.0);
+  assert(box_draw.half_extents_metres.x_metres == 10.0);
+  assert(box_draw.half_extents_metres.y_metres == 20.0);
+  assert(box_draw.half_extents_metres.z_metres == 30.0);
+  assert(box_draw.camera_uniform.model_view_projection[15] == 500.0F);
+  assert(near(box_draw.camera_uniform.normal_matrix[0], 0.0));
+  assert(near(box_draw.camera_uniform.normal_matrix[1], 1.0));
+  assert(near(box_draw.camera_uniform.normal_matrix[4], -1.0));
+  assert(near(box_draw.camera_uniform.normal_matrix[5], 0.0));
+  assert(box_draw.camera_uniform.normal_matrix[10] == 1.0F);
+
+  const auto oriented_box_draw = prepare_oriented_box_draw(
+    local_structure, {10.0, 20.0, 30.0},
+    {0.0, 1.0, 0.0}, {-0.5, 0.0, 0.8660254037844386},
+    {0.8660254037844386, 0.0, 0.5}, view, {960.0, 540.0});
+  assert(oriented_box_draw.camera_relative_center.x_metres == 32.0);
+  assert(oriented_box_draw.camera_relative_center.y_metres == -16.0);
+  assert(oriented_box_draw.camera_relative_center.z_metres == -500.0);
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[0], 0.0));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[1], 1.0));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[4], -0.5));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[6],
+              0.8660254037844386));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[8],
+              0.8660254037844386));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[10], 0.5));
+
+  bool non_orthogonal_box_rejected = false;
+  try
+  {
+    prepare_oriented_box_draw(
+      local_structure, {10.0, 20.0, 30.0},
+      {1.0, 0.0, 0.0}, {1.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
+      view, {960.0, 540.0});
+  }
+  catch (const std::invalid_argument &)
+  {
+    non_orthogonal_box_rejected = true;
+  }
+  assert(non_orthogonal_box_rejected);
+
   const render_item tiny_far_body{
     12, {anchor, anchor, anchor - 8000000.0}, 10.0, "tiny"};
   const auto tiny_draw = prepare_sphere_draw(
