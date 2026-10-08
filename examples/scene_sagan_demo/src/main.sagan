@@ -46,7 +46,7 @@ const SURFACE_HANDOFF_DURATION_SECONDS: Float64 = 5.0
 const LOCAL_VIEW_DISTANCE: Float64<meter> = 380.0 meter
 const LOCAL_CAMERA_YAW: Float64 = 1.1137303313214593
 const LOCAL_CAMERA_PITCH: Float64 = 1.0471030333468894
-const LOCAL_CAMERA_ROLL: Float64 = 0.0 - 1.6745606161592395
+const LOCAL_CAMERA_ROLL: Float64 = 1.4670320374305536
 const ANCESTOR_FOCUS_DURATION_SECONDS: Float64 = 4.0
 const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 6.0
 
@@ -997,16 +997,15 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             marker_value: SpatialRenderable, marker_active: Bool,
             marker_hovered: Bool, marker_fade_stage: Int64,
             surface_detail_active: Bool, transitioning: Bool,
+            local_view_progress: Float64,
             base_panel_tab: Int64, return_hovered: Bool,
             selected_structure: Int64): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
   let viewport_y = 76.0
-  let viewport_width = window_width - 48.0
-  if surface_detail_active {
-    if transitioning == false { viewport_width = window_width - 360.0 }
-  }
+  let viewport_width = window_width - 48.0 -
+    312.0 * local_view_progress
   let viewport_height = window_height - 116.0
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
@@ -1170,6 +1169,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focused_identifier: Int64 = 1
   let focused_marker = false
   let local_view = false
+  let local_view_progress = 0.0
   let returning_to_orbit = false
   let focus_source_marker = false
   let base_panel_tab: Int64 = 0
@@ -1464,6 +1464,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         }
       }
       if marker_requested {
+        local_view_progress = 0.0
         saved_orbit_distance = camera_distance
         saved_orbit_yaw = camera_yaw
         saved_orbit_pitch = camera_pitch
@@ -1555,6 +1556,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let base_progress = focus_progress(focus_elapsed, focus_duration)
         let transition_progress = base_progress
         if focused_marker {
+          local_view_progress = base_progress
           // First orbit to the marker-facing local camera. Only after that
           // orientation is established do target translation and zoom descend
           // toward the surface, avoiding a chord through the Moon.
@@ -1576,6 +1578,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           if base_progress > 0.94 { marker_fade_stage = 0 }
         }
         if returning_to_orbit {
+          local_view_progress = 1.0 - base_progress
           camera_yaw = focus_scalar_at(
             focus_start_yaw, saved_orbit_yaw, base_progress)
           camera_pitch = focus_scalar_at(
@@ -1640,8 +1643,10 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if focus_elapsed >= focus_duration {
           focusing = false
           if focused_marker { local_view = true }
+          if focused_marker { local_view_progress = 1.0 }
           if returning_to_orbit {
             local_view = false
+            local_view_progress = 0.0
             returning_to_orbit = false
             focus_source_marker = false
           }
@@ -1720,10 +1725,13 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let unrolled_up_z = converted_pitch_cosine
         let unrolled_right_x = 0.0 - converted_yaw_sine
         let unrolled_right_y = converted_yaw_cosine
-        let roll_sine = desired_up_x * unrolled_right_x +
-          desired_up_y * unrolled_right_y
-        let roll_cosine = desired_up_x * unrolled_up_x +
-          desired_up_y * unrolled_up_y + desired_up_z * unrolled_up_z
+        // SDL's viewport maps positive clip Y downward. Negating the outward
+        // local up vector here keeps lunar sky above the horizon on screen.
+        let roll_sine = (0.0 - desired_up_x) * unrolled_right_x +
+          (0.0 - desired_up_y) * unrolled_right_y
+        let roll_cosine = (0.0 - desired_up_x) * unrolled_up_x +
+          (0.0 - desired_up_y) * unrolled_up_y +
+          (0.0 - desired_up_z) * unrolled_up_z
         camera_roll = demo_atan2(roll_sine, roll_cosine)
       }
       }
@@ -1768,7 +1776,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
               camera_roll,
               selection, first, second, third, base_marker, marker_value,
               focused_marker, marker_hovered, marker_fade_stage,
-              surface_detail_active, focusing,
+              surface_detail_active, focusing, local_view_progress,
               base_panel_tab, return_hovered, selected_structure)
     }
   }

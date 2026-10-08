@@ -222,7 +222,7 @@ namespace sagan_render::scene_gpu
       // Cover beyond the roughly 83 km lunar horizon visible from the local
       // camera's 2 km maximum distance. Quadratic spacing keeps dense vertices
       // around the base while allowing one patch to replace the coarse globe.
-      constexpr double patch_half_width_metres = 131072.0;
+      constexpr double patch_half_width_metres = 1048576.0;
       constexpr std::array<double, 3> center{{
         0.8660254037835535, 0.0, 0.49999999999996425}};
       constexpr std::array<double, 3> east{{0.0, 1.0, 0.0}};
@@ -680,6 +680,8 @@ namespace sagan_render::scene_gpu
         SDL_GPUTexture *detail = white_texture;
         surface_lod_uniform surface_lod{};
         bool draw_surface_patch = false;
+        float local_detail_weight = 0.0F;
+        float local_detail_width_metres = 16384.0F;
         if (draw.albedo_map == surface_map::earth_blue_marble)
           surface = earth_texture;
         else if (draw.albedo_map == surface_map::moon_lro)
@@ -698,19 +700,28 @@ namespace sagan_render::scene_gpu
           {
             constexpr float marker_latitude_sine = 0.5F;
             constexpr float marker_latitude_cosine = 0.8660254038F;
-            constexpr float detail_width_metres = 16384.0F;
-            const float angular_width = detail_width_metres /
+            const double clamped_altitude = std::max(camera_altitude, 0.0);
+            const double horizon_metres = std::sqrt(
+              2.0 * draw.item.radius_metres * clamped_altitude +
+              clamped_altitude * clamped_altitude);
+            local_detail_width_metres = std::clamp(
+              static_cast<float>(horizon_metres * 3.0),
+              16384.0F, 2097152.0F);
+            const float angular_width = local_detail_width_metres /
               static_cast<float>(draw.item.radius_metres);
             surface_lod.center_and_angular_width[0] = marker_latitude_cosine;
             surface_lod.center_and_angular_width[2] = marker_latitude_sine;
             surface_lod.center_and_angular_width[3] = angular_width;
             surface_lod.east_and_enabled[1] = 1.0F;
-            surface_lod.east_and_enabled[3] = 1.0F;
+            local_detail_weight = std::clamp(
+              static_cast<float>((5000.0 - camera_altitude) / 4500.0),
+              0.0F, 1.0F);
+            surface_lod.east_and_enabled[3] = local_detail_weight;
             surface_lod.north_and_blend[0] = -marker_latitude_sine;
             surface_lod.north_and_blend[2] = marker_latitude_cosine;
-            surface_lod.north_and_blend[3] = 0.08F;
+            surface_lod.north_and_blend[3] = 0.45F;
             detail = moon_detail_texture;
-            draw_surface_patch = camera_altitude < 5000.0;
+            draw_surface_patch = camera_altitude < 100000.0;
           }
         }
         if (draw.albedo_map != surface_map::none)
@@ -767,12 +778,13 @@ namespace sagan_render::scene_gpu
           // Patch vertices are metre offsets rather than unit-sphere points,
           // so detail lookup must use the same marker-relative metre frame.
           surface_lod_uniform patch_surface_lod{};
-          patch_surface_lod.center_and_angular_width[3] = 16384.0F;
+          patch_surface_lod.center_and_angular_width[3] =
+            local_detail_width_metres;
           patch_surface_lod.east_and_enabled[1] = 1.0F;
-          patch_surface_lod.east_and_enabled[3] = 1.0F;
+          patch_surface_lod.east_and_enabled[3] = local_detail_weight;
           patch_surface_lod.north_and_blend[0] = -0.5F;
           patch_surface_lod.north_and_blend[2] = 0.8660254038F;
-          patch_surface_lod.north_and_blend[3] = 0.08F;
+          patch_surface_lod.north_and_blend[3] = 0.45F;
           SDL_PushGPUFragmentUniformData(
             commands, 2, &patch_surface_lod, sizeof(patch_surface_lod));
           const SDL_GPUBufferBinding patch_vertex_binding{
