@@ -18,11 +18,13 @@ namespace
   constexpr std::uint32_t height = 256;
   constexpr std::uint32_t pixel_bytes = 4;
 
-  struct Vertex { float position[3]; float normal[3]; };
+  struct Vertex { float position[3]; float normal[3]; float uv[2]; };
   constexpr std::array<Vertex, 6> vertices{{
-    {{0, 1, 0}, {0, 1, 0}}, {{1, 0, 0}, {1, 0, 0}},
-    {{0, 0, 1}, {0, 0, 1}}, {{-1, 0, 0}, {-1, 0, 0}},
-    {{0, 0, -1}, {0, 0, -1}}, {{0, -1, 0}, {0, -1, 0}}
+    {{0, 1, 0}, {0, 1, 0}, {0.5F, 0}}, {{1, 0, 0}, {1, 0, 0}, {1, 0.5F}},
+    {{0, 0, 1}, {0, 0, 1}, {0.75F, 0.5F}},
+    {{-1, 0, 0}, {-1, 0, 0}, {0, 0.5F}},
+    {{0, 0, -1}, {0, 0, -1}, {0.25F, 0.5F}},
+    {{0, -1, 0}, {0, -1, 0}, {0.5F, 1}}
   }};
   constexpr std::array<std::uint16_t, 24> indices{{
     0, 2, 1, 0, 3, 2, 0, 4, 3, 0, 1, 4,
@@ -32,9 +34,11 @@ namespace
   struct alignas(16) CameraUniform { float transform[16]; float normal[16]; };
   struct alignas(16) MaterialUniform { float base[4]; float emissive_roughness[4]; };
   struct alignas(16) LightingUniform { float ambient[4]; float direction_intensity[4]; float color[4]; };
+  struct alignas(16) SurfaceLodUniform { float center_width[4]; float east_enabled[4]; float north_blend[4]; };
   static_assert(sizeof(CameraUniform) == 128);
   static_assert(sizeof(MaterialUniform) == 32);
   static_assert(sizeof(LightingUniform) == 48);
+  static_assert(sizeof(SurfaceLodUniform) == 48);
 
   auto fail(const std::string &message) -> void
   {
@@ -47,6 +51,8 @@ namespace
     SDL_GPUDevice *device{};
     SDL_GPUTexture *color{};
     SDL_GPUTexture *depth{};
+    SDL_GPUTexture *white{};
+    SDL_GPUSampler *sampler{};
     SDL_GPUBuffer *vertex{};
     SDL_GPUBuffer *index{};
     SDL_GPUTransferBuffer *upload{};
@@ -61,6 +67,8 @@ namespace
       if (upload) SDL_ReleaseGPUTransferBuffer(device, upload);
       if (index) SDL_ReleaseGPUBuffer(device, index);
       if (vertex) SDL_ReleaseGPUBuffer(device, vertex);
+      if (sampler) SDL_ReleaseGPUSampler(device, sampler);
+      if (white) SDL_ReleaseGPUTexture(device, white);
       if (depth) SDL_ReleaseGPUTexture(device, depth);
       if (color) SDL_ReleaseGPUTexture(device, color);
       if (claimed) SDL_ReleaseWindowFromGPUDevice(device, window);
@@ -111,7 +119,8 @@ namespace
 
   auto load_shader(SDL_GPUDevice *device, const std::string &root, const char *stage,
                    const char *entrypoint, SDL_GPUShaderStage shader_stage,
-                   std::uint32_t uniforms, const ShaderFormat &format) -> SDL_GPUShader *
+                   std::uint32_t uniforms, std::uint32_t samplers,
+                   const ShaderFormat &format) -> SDL_GPUShader *
   {
     const auto bytes = read_file(root + "/lit_mesh." + stage + "." + format.extension);
     SDL_GPUShaderCreateInfo info{};
@@ -121,6 +130,7 @@ namespace
     info.format = format.format;
     info.stage = shader_stage;
     info.num_uniform_buffers = uniforms;
+    info.num_samplers = samplers;
     auto *shader = SDL_CreateGPUShader(device, &info);
     if (!shader) fail(std::string("Could not create ") + stage + " material shader");
     return shader;
@@ -129,12 +139,15 @@ namespace
   auto create_pipeline(SDL_GPUDevice *device, const std::string &root,
                        const ShaderFormat &format) -> SDL_GPUGraphicsPipeline *
   {
-    auto *vertex_shader = load_shader(device, root, "vert", "VSMain", SDL_GPU_SHADERSTAGE_VERTEX, 1, format);
-    auto *fragment_shader = load_shader(device, root, "frag", "PSMain", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, format);
+    auto *vertex_shader = load_shader(
+      device, root, "vert", "VSMain", SDL_GPU_SHADERSTAGE_VERTEX, 1, 0, format);
+    auto *fragment_shader = load_shader(
+      device, root, "frag", "PSMain", SDL_GPU_SHADERSTAGE_FRAGMENT, 3, 2, format);
     SDL_GPUVertexBufferDescription buffer_description{0, sizeof(Vertex), SDL_GPU_VERTEXINPUTRATE_VERTEX, 0};
-    const std::array<SDL_GPUVertexAttribute, 2> attributes{{
+    const std::array<SDL_GPUVertexAttribute, 3> attributes{{
       {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, offsetof(Vertex, position)},
-      {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, offsetof(Vertex, normal)}
+      {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, offsetof(Vertex, normal)},
+      {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(Vertex, uv)}
     }};
     SDL_GPUColorTargetDescription color_description{};
     color_description.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -222,7 +235,14 @@ int main()
     texture.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
     texture.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
     state.depth = SDL_CreateGPUTexture(state.device, &texture);
-    if (!state.color || !state.depth) fail("Could not create material targets");
+    texture.width = 1; texture.height = 1;
+    texture.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    texture.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    state.white = SDL_CreateGPUTexture(state.device, &texture);
+    SDL_GPUSamplerCreateInfo sampler_info{};
+    state.sampler = SDL_CreateGPUSampler(state.device, &sampler_info);
+    if (!state.color || !state.depth || !state.white || !state.sampler)
+      fail("Could not create material targets or sampler");
 
     SDL_GPUBufferCreateInfo buffer{};
     buffer.usage = SDL_GPU_BUFFERUSAGE_VERTEX; buffer.size = sizeof(vertices);
@@ -251,6 +271,14 @@ int main()
     SDL_UploadToGPUBuffer(copy, &source, &destination, false);
     SDL_EndGPUCopyPass(copy);
 
+    SDL_GPUColorTargetInfo white_target{};
+    white_target.texture = state.white;
+    white_target.clear_color = {1, 1, 1, 1};
+    white_target.load_op = SDL_GPU_LOADOP_CLEAR;
+    white_target.store_op = SDL_GPU_STOREOP_STORE;
+    auto *white_pass = SDL_BeginGPURenderPass(commands, &white_target, 1, nullptr);
+    SDL_EndGPURenderPass(white_pass);
+
     SDL_GPUColorTargetInfo color_target{};
     color_target.texture = state.color; color_target.clear_color = {0.02F, 0.03F, 0.06F, 1};
     color_target.load_op = SDL_GPU_LOADOP_CLEAR; color_target.store_op = SDL_GPU_STOREOP_STORE;
@@ -262,8 +290,13 @@ int main()
     const SDL_GPUBufferBinding vertex_binding{state.vertex, 0}, index_binding{state.index, 0};
     SDL_BindGPUVertexBuffers(pass, 0, &vertex_binding, 1);
     SDL_BindGPUIndexBuffer(pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+    const std::array<SDL_GPUTextureSamplerBinding, 2> surface_bindings{{
+      {state.white, state.sampler}, {state.white, state.sampler}}};
+    SDL_BindGPUFragmentSamplers(pass, 0, surface_bindings.data(), surface_bindings.size());
     const auto light = lighting();
     SDL_PushGPUFragmentUniformData(commands, 1, &light, sizeof(light));
+    const SurfaceLodUniform surface_lod{};
+    SDL_PushGPUFragmentUniformData(commands, 2, &surface_lod, sizeof(surface_lod));
     const auto near_camera = camera(0.38F, -0.1F, 0.48F);
     const auto near_material = material(0.05F, 0.2F, 0.9F);
     SDL_PushGPUVertexUniformData(commands, 0, &near_camera, sizeof(near_camera));
