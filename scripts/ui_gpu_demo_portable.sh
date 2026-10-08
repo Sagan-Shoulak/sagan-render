@@ -21,6 +21,8 @@ c++ -std=c++23 -Wall -Wextra -Wpedantic -Werror "${warning_flags[@]}" \
   -include "$repo_root/libraries/render/native/ui_gpu_bridge.hpp" \
   -I"$sdl_root/include" build/ui-sagan-demo/program.cpp examples/ui_gpu_demo.cpp \
   -L"$sdl_root/lib" -lSDL3 -o "$executable"
+launch_executable="$(bash scripts/stage-application-icon.sh "$sagan_executable" "$executable" \
+  "Sagan UI Demo" "org.saganshoulak.render.ui-demo")"
 
 unset SAGAN_RENDER_AUTOCLOSE_MS
 unset SAGAN_RENDER_LOGICAL_WIDTH SAGAN_RENDER_LOGICAL_HEIGHT SAGAN_RENDER_UI_CAPTURE_BMP
@@ -29,4 +31,4 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 else
   export LD_LIBRARY_PATH="$sdl_root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
-exec "$executable"
+exec "$launch_executable"

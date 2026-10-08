@@ -22,10 +22,12 @@ static shape/text composition.
 without accidentally loading the monorepo copy. The scripts ask an
 installed or explicitly selected Sagan compiler to emit package-linked C++
 for each demo, then compile it with the bridge. A custom icon resource is
-used when the executable bundles one; the bridge falls back to a stock
-application icon when it does not. This removes a hidden dependency on the
-language repository's launcher resource object while preserving branding
-where available.
+obtained through the pinned compiler's `--application-icon` contract. Windows
+demos link its resource object; Linux staging writes a desktop entry and
+hicolor PNG; macOS staging writes an application bundle with the compiler's
+ICNS. No canonical icon asset is copied into this repository. The bridge's
+stock Windows icon remains only an explicit fallback for consumers that bypass
+the supported packaging contract.
 
 The package-facing canvas API still uses the temporary Windows bridge. The
 private SDL foundation now validates both native windowing and a first GPU
