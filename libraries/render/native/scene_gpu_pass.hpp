@@ -473,8 +473,9 @@ namespace sagan_render::scene_gpu
       sampler_info.enable_anisotropy = true;
       surface_sampler = SDL_CreateGPUSampler(device, &sampler_info);
       if (!surface_sampler) fail("Could not create planetary surface sampler");
-      sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-      sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+      sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
+      sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
+      sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
       local_detail_sampler = SDL_CreateGPUSampler(device, &sampler_info);
       if (!local_detail_sampler)
         fail("Could not create local detail sampler");
@@ -775,9 +776,9 @@ namespace sagan_render::scene_gpu
           surface_lod_uniform patch_surface_lod{};
           SDL_PushGPUFragmentUniformData(
             commands, 2, &patch_surface_lod, sizeof(patch_surface_lod));
-          // The close patch uses metre-based repeating UVs and never samples
-          // the low-resolution global Moon map. This keeps the Shackleton
-          // detail scale stable without exposing its square blend boundary.
+          // The close patch uses metre-based mirrored UVs and never samples
+          // the low-resolution global Moon map. Mirroring joins every crop
+          // edge to itself, retaining detail scale without repeat seams.
           const std::array<SDL_GPUTextureSamplerBinding, 2>
             patch_surface_bindings{{
               {moon_detail_texture, local_detail_sampler},
