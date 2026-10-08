@@ -174,6 +174,10 @@ pointer clicks pick projected samples. The demo draws presentation-only Earth
 and Moon orbit guides from unit-typed sampled paths; no Sun orbit or secondary
 inset camera is drawn. Focus and wheel zoom expose the lunar scale in the main
 viewport.
+At lunar framing, a body-fixed `SHACKLETON BASE` marker appears only on the
+camera-facing hemisphere. Clicking its pin starts a marker-centered approach;
+this is the first unified-navigation slice and does not yet hand off to the
+local base geometry or expose the return-to-orbit UI.
 Focused CI captures initial, selected,
 right-dragged, and wheel-zoomed frames and requires the relevant frames to
 differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;

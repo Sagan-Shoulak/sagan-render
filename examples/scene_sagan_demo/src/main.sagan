@@ -27,6 +27,8 @@ import perspective_axis from render.scene
 import depth_visible from render.scene
 import SelectionState from render.scene
 import pick_circle from render.scene
+import SurfaceLocationMarker from render.scene
+import surface_location_visible from render.scene
 
 const DISTANT_ORIGIN: Float64<meter> = 1e12 kilometer
 const CAMERA_DEPTH: Float64<meter> = 3.3e8 kilometer
@@ -37,6 +39,7 @@ const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
 const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
 const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
+const MARKER_VIEW_DISTANCE: Float64<meter> = 8e3 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
 const ANCESTOR_FOCUS_DURATION_SECONDS: Float64 = 4.0
 const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 6.0
@@ -148,6 +151,50 @@ class PresentationObject has SpatialRenderable {
   fun render_z(): Float64<meter> => self.z_value
   fun render_radius(): Float64<meter> => self.radius_value
   fun render_label(): String => self.label_value
+}
+
+fun marker_x(marker: SurfaceLocationMarker,
+             moon: SpatialRenderable): Float64<meter> {
+  let moon_sample = sample(moon)
+  let surface_radius = moon_sample.radius() + marker.altitude()
+  return moon_sample.x() + surface_radius *
+    demo_cosine(marker.latitude_radians()) *
+    demo_cosine(marker.longitude_radians())
+}
+
+fun marker_y(marker: SurfaceLocationMarker,
+             moon: SpatialRenderable): Float64<meter> {
+  let moon_sample = sample(moon)
+  let surface_radius = moon_sample.radius() + marker.altitude()
+  return moon_sample.y() + surface_radius *
+    demo_cosine(marker.latitude_radians()) *
+    demo_sine(marker.longitude_radians())
+}
+
+fun marker_z(marker: SurfaceLocationMarker,
+             moon: SpatialRenderable): Float64<meter> {
+  let moon_sample = sample(moon)
+  return moon_sample.z() +
+    (moon_sample.radius() + marker.altitude()) *
+    demo_sine(marker.latitude_radians())
+}
+
+fun marker_presentation(marker: SurfaceLocationMarker,
+                        moon: SpatialRenderable): SpatialRenderable =>
+  PresentationObject(marker.identifier(), marker_x(marker, moon),
+                     marker_y(marker, moon), marker_z(marker, moon),
+                     1.0 meter, marker.label())
+
+fun marker_faces_camera(marker_value: SpatialRenderable,
+                        moon: SpatialRenderable,
+                        camera_x: Float64<meter>,
+                        camera_y: Float64<meter>,
+                        camera_z: Float64<meter>): Bool {
+  let location = sample(marker_value)
+  let body = sample(moon)
+  return surface_location_visible(
+    location.x(), location.y(), location.z(),
+    body.x(), body.y(), body.z(), camera_x, camera_y, camera_z)
 }
 
 fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
@@ -267,6 +314,51 @@ fun projected_depth(value: SpatialRenderable,
          relative_z * demo_sine(camera_pitch)
 }
 
+fun draw_surface_marker(marker: SurfaceLocationMarker,
+                        marker_value: SpatialRenderable,
+                        moon: SpatialRenderable,
+                        camera_x: Float64<meter>,
+                        camera_y: Float64<meter>,
+                        camera_z: Float64<meter>, camera_yaw: Float64,
+                        camera_pitch: Float64, viewport_x: Float64,
+                        viewport_y: Float64, viewport_width: Float64,
+                        viewport_height: Float64): Void {
+  let moon_depth = projected_depth(
+    moon, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+  let moon_radius =
+    (sample(moon).radius() / moon_depth) / 0.577350269 * viewport_height / 2.0
+  if moon_radius > 15.0 {
+    if marker_faces_camera(
+         marker_value, moon, camera_x, camera_y, camera_z) {
+      let surface_x = projected_x(
+        marker_value, camera_x, camera_y, camera_z,
+        camera_yaw, camera_pitch, viewport_x, viewport_width, viewport_height)
+      let surface_y = projected_y(
+        marker_value, camera_x, camera_y, camera_z,
+        camera_yaw, camera_pitch, viewport_y, viewport_height)
+      let icon_x = surface_x
+      let icon_y = surface_y - 68.0
+      line(surface_x, surface_y, icon_x, icon_y + 8.0, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           255, 212, 91)
+      line(icon_x, icon_y - 8.0, icon_x + 8.0, icon_y, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           255, 212, 91)
+      line(icon_x + 8.0, icon_y, icon_x, icon_y + 8.0, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           255, 212, 91)
+      line(icon_x, icon_y + 8.0, icon_x - 8.0, icon_y, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           255, 212, 91)
+      line(icon_x - 8.0, icon_y, icon_x, icon_y - 8.0, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           255, 212, 91)
+      text(icon_x + 13.0, icon_y - 5.0, marker.label(), 10.0,
+           255, 212, 91)
+    }
+  }
+}
+
 /// Demo-owned presentation of a circular path in physical XY space. The
 /// perspective camera projects the circle to an ellipse. A future physics
 /// package may supply sampled conic paths through the same generic line API.
@@ -356,7 +448,8 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             camera_z: Float64<meter>, camera_yaw: Float64,
             camera_pitch: Float64, selection: SelectionState,
             first: SpatialRenderable, second: SpatialRenderable,
-            third: SpatialRenderable): Void {
+            third: SpatialRenderable, marker: SurfaceLocationMarker,
+            marker_value: SpatialRenderable, marker_active: Bool): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
@@ -366,8 +459,12 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(24.0, 22.0, "SUN - EARTH - MOON SNAPSHOT", 16.0, 245, 249, 255)
-  text(24.0, 48.0, "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CLICK: SELECT | ENTER: FOCUS", 10.0,
-       142, 203, 255)
+  if marker_active {
+    text(24.0, 48.0, "APPROACHING SHACKLETON BASE", 10.0, 255, 212, 91)
+  } else {
+    text(24.0, 48.0, "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CLICK: SELECT | ENTER: FOCUS", 10.0,
+         142, 203, 255)
+  }
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
   let sun_sample = sample(first)
   let earth_sample = sample(second)
@@ -389,6 +486,10 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(3))
+  draw_surface_marker(marker, marker_value, third,
+                      camera_x, camera_y, camera_z,
+                      camera_yaw, camera_pitch,
+                      viewport_x, viewport_y, viewport_width, viewport_height)
   text(24.0, window_height - 28.0,
        "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
        142, 164, 188)
@@ -398,6 +499,9 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
 if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let selection = SelectionState()
   selection.select!(1)
+  let base_marker = SurfaceLocationMarker(
+    40, 3, 400, 0.5235987755982988, 0.0,
+    10.0 meter, "SHACKLETON BASE")
   let camera_yaw = 0.0
   // Begin 30 degrees above the orbital horizon rather than at the top pole.
   let camera_pitch = 0.5235987755982988
@@ -421,6 +525,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focusing = false
   let focus_source_identifier: Int64 = 0
   let focused_identifier: Int64 = 1
+  let focused_marker = false
   let running = true
   while running {
     if poll() == false { running = false }
@@ -441,6 +546,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         3, earth_x + MOON_DISTANCE * demo_cosine(moon_phase),
         earth_y + MOON_DISTANCE * demo_sine(moon_phase),
         DISTANT_ORIGIN - CAMERA_DEPTH, 1737.4 kilometer, "MOON")
+      let marker_value = marker_presentation(base_marker, third)
       if key_pressed("left") {
         let previous = selection.identifier() - 1
         if previous < 1 { previous = 3 }
@@ -472,6 +578,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       let viewport_y = 76.0
       let viewport_width = width() - 48.0
       let viewport_height = height() - 116.0
+      let marker_requested = false
       if pointer_pressed() {
         let click_x = pointer_x()
         let click_y = pointer_y()
@@ -499,7 +606,52 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
                                    camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(3) }
+        if marker_faces_camera(
+             marker_value, third, camera_x, camera_y, camera_z) {
+          let moon_depth = projected_depth(
+            third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+          let moon_radius =
+            (sample(third).radius() / moon_depth) /
+            0.577350269 * viewport_height / 2.0
+          if moon_radius > 15.0 {
+            let marker_icon_x = projected_x(
+              marker_value, camera_x, camera_y, camera_z,
+              camera_yaw, camera_pitch,
+              viewport_x, viewport_width, viewport_height)
+            let marker_icon_y = projected_y(
+              marker_value, camera_x, camera_y, camera_z,
+              camera_yaw, camera_pitch,
+              viewport_y, viewport_height) - 68.0
+            if pick_circle(click_x, click_y,
+                           marker_icon_x, marker_icon_y, 40.0) {
+              marker_requested = true
+              selection.select!(3)
+            }
+          }
+        }
       }
+      // Deterministic integration hook. Physical keyboard input does not map
+      // this name; tests inject it through the existing named-key seam.
+      if key_pressed("marker") {
+        marker_requested = true
+        selection.select!(3)
+      }
+      if marker_requested {
+        focus_start_x = orbit_target_x
+        focus_start_y = orbit_target_y
+        focus_start_z = orbit_target_z
+        focus_start_distance = camera_distance
+        focus_target_x = sample(marker_value).x()
+        focus_target_y = sample(marker_value).y()
+        focus_target_z = sample(marker_value).z()
+        focus_target_distance = MARKER_VIEW_DISTANCE
+        focus_duration = FOCUS_DURATION_SECONDS
+        focus_started = elapsed_seconds()
+        focusing = true
+        focus_source_identifier = focused_identifier
+        focused_identifier = 0
+        focused_marker = true
+      } else {
       if key_pressed("enter") {
         if selection.identifier() != focused_identifier {
           focus_start_x = orbit_target_x
@@ -521,17 +673,25 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           focusing = true
           focus_source_identifier = focused_identifier
           focused_identifier = selection.identifier()
+          focused_marker = false
         }
+      }
       }
       if focusing {
         let focus_elapsed = elapsed_seconds() - focus_started
         // The destination is a live presentation snapshot. Refresh it during
         // the ease so a moving body cannot leave behind the position captured
         // when Enter was pressed and then snap at transition completion.
+        if focused_marker {
+          focus_target_x = sample(marker_value).x()
+          focus_target_y = sample(marker_value).y()
+          focus_target_z = sample(marker_value).z()
+        } else {
         if focused_identifier > 0 {
           focus_target_x = selected_target_x(focused_identifier, first, second, third)
           focus_target_y = selected_target_y(focused_identifier, first, second, third)
           focus_target_z = selected_target_z(focused_identifier, first, second, third)
+        }
         }
         let base_progress = focus_progress(focus_elapsed, focus_duration)
         let pan_progress = base_progress
@@ -585,17 +745,24 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if focus_elapsed >= focus_duration { focusing = false }
       }
       if focusing == false {
+        if focused_marker {
+          orbit_target_x = sample(marker_value).x()
+          orbit_target_y = sample(marker_value).y()
+          orbit_target_z = sample(marker_value).z()
+        } else {
         if focused_identifier > 0 {
           orbit_target_x = selected_target_x(focused_identifier, first, second, third)
           orbit_target_y = selected_target_y(focused_identifier, first, second, third)
           orbit_target_z = selected_target_z(focused_identifier, first, second, third)
+        }
         }
       }
       camera_x = orbit_target_x - look_forward_x * camera_distance
       camera_y = orbit_target_y - look_forward_y * camera_distance
       camera_z = orbit_target_z - look_forward_z * camera_distance
       compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
-              selection, first, second, third)
+              selection, first, second, third, base_marker, marker_value,
+              focused_marker)
     }
   }
   close()

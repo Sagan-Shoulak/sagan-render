@@ -280,6 +280,15 @@ not alter object positions and remains independent of drawable-pixel density.
 Production text shaping may change measured label bounds without changing this
 placement contract.
 
+`SurfaceLocationMarker` adds stable marker, parent-body, and local-destination
+identifiers plus body-fixed latitude/longitude metadata and measured altitude.
+The renderer does not interpret a rotation epoch or geodetic datum. An
+application transforms the body-fixed location into the current world frame;
+the renderer then performs camera projection, near-side visibility, picking,
+and presentation. The scene demo's deterministic Moon fixture supplies that
+adapter math and draws a KSP-like pin whose camera approach follows the
+marker's fresh presentation position as the Moon moves.
+
 The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples.
 Focusing interpolates all three measured camera
