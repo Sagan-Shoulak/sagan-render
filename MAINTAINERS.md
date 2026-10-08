@@ -180,7 +180,10 @@ when the approach completes, the same process displays the local base geometry
 without recreating the window or GPU compositor. The fixture derives an
 orthonormal east/north/up basis from its body-fixed marker and supplies it to
 the renderer for camera and cuboid placement. The handoff does not yet expose
-the return-to-orbit UI or claim a final continuous terrain-detail transition.
+the return-to-orbit UI. Its five-second descent continuously interpolates
+target, reciprocal camera distance, yaw, pitch, and roll; dims the orbital pin;
+and activates local detail before the camera settles, with deterministic
+midpoint, live-detail, and final captures guarding against blank frames.
 Focused CI captures initial, selected,
 right-dragged, and wheel-zoomed frames and requires the relevant frames to
 differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;

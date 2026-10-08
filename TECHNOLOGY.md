@@ -295,8 +295,10 @@ camera-relative precision contracts. The fixture also derives a body-fixed
 orthonormal east/north/up basis and transforms its local metre-scale camera,
 cuboids, and boulder through that frame. The application or physics package
 owns that frame; the renderer validates and consumes the supplied axes. The
-handoff does not yet define the terrain level-of-detail transition or
-return-to-orbit UI.
+handoff interpolates target, reciprocal distance, yaw, pitch, and roll into the
+same local camera frame, fades the orbital marker through fixed-palette stages,
+and activates tangent-patch detail before the ease completes. It does not yet
+define production terrain level-of-detail assets or the return-to-orbit UI.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples.

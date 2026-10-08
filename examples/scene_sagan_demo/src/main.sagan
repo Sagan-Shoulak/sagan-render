@@ -41,8 +41,12 @@ const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
 const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
 const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
-const MARKER_VIEW_DISTANCE: Float64<meter> = 8e3 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
+const SURFACE_HANDOFF_DURATION_SECONDS: Float64 = 5.0
+const LOCAL_VIEW_DISTANCE: Float64<meter> = 620.0 meter
+const LOCAL_CAMERA_YAW: Float64 = 1.1141073978524427
+const LOCAL_CAMERA_PITCH: Float64 = 0.8842037800659589
+const LOCAL_CAMERA_ROLL: Float64 = 0.0 - 1.5430291992600365
 const ANCESTOR_FOCUS_DURATION_SECONDS: Float64 = 4.0
 const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 6.0
 
@@ -121,6 +125,11 @@ fun focus_axis_at(start: Float64<meter>, target: Float64<meter>,
   return start + (target - start) * progress
 }
 
+fun focus_scalar_at(start: Float64, target: Float64,
+                    progress: Float64): Float64 {
+  return start + (target - start) * progress
+}
+
 /// Interpolate reciprocal distance because apparent scale is proportional to
 /// reciprocal distance. The caller independently chooses whether zoom leads
 /// or trails target translation.
@@ -187,6 +196,36 @@ fun marker_presentation(marker: SurfaceLocationMarker,
                      marker_y(marker, moon), marker_z(marker, moon),
                      1.0 meter, marker.label())
 
+fun local_target_x(marker: SurfaceLocationMarker,
+                   marker_value: SpatialRenderable): Float64<meter> {
+  let east_x = 0.0 - demo_sine(marker.longitude_radians())
+  let north_x = 0.0 - demo_sine(marker.latitude_radians()) *
+                demo_cosine(marker.longitude_radians())
+  let up_x = demo_cosine(marker.latitude_radians()) *
+             demo_cosine(marker.longitude_radians())
+  return sample(marker_value).x() + east_x * (0.0 meter - 15.0 meter) +
+         north_x * (0.0 meter - 5.0 meter) + up_x * 4.0 meter
+}
+
+fun local_target_y(marker: SurfaceLocationMarker,
+                   marker_value: SpatialRenderable): Float64<meter> {
+  let east_y = demo_cosine(marker.longitude_radians())
+  let north_y = 0.0 - demo_sine(marker.latitude_radians()) *
+                demo_sine(marker.longitude_radians())
+  let up_y = demo_cosine(marker.latitude_radians()) *
+             demo_sine(marker.longitude_radians())
+  return sample(marker_value).y() + east_y * (0.0 meter - 15.0 meter) +
+         north_y * (0.0 meter - 5.0 meter) + up_y * 4.0 meter
+}
+
+fun local_target_z(marker: SurfaceLocationMarker,
+                   marker_value: SpatialRenderable): Float64<meter> {
+  let north_z = demo_cosine(marker.latitude_radians())
+  let up_z = demo_sine(marker.latitude_radians())
+  return sample(marker_value).z() + north_z * (0.0 meter - 5.0 meter) +
+         up_z * 4.0 meter
+}
+
 fun marker_faces_camera(marker_value: SpatialRenderable,
                         moon: SpatialRenderable,
                         camera_x: Float64<meter>,
@@ -237,7 +276,11 @@ fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
 }
 
 fun compose_local_base(marker: SurfaceLocationMarker,
-                       marker_value: SpatialRenderable): Void {
+                       marker_value: SpatialRenderable,
+                       camera_x: Float64<meter>, camera_y: Float64<meter>,
+                       camera_z: Float64<meter>, camera_yaw: Float64,
+                       camera_pitch: Float64, camera_roll: Float64,
+                       transitioning: Bool): Void {
   let marker_sample = sample(marker_value)
   let window_width = width()
   let window_height = height()
@@ -245,8 +288,6 @@ fun compose_local_base(marker: SurfaceLocationMarker,
   let viewport_y = 68.0
   let viewport_width = window_width - 40.0
   let viewport_height = window_height - 102.0
-  let yaw = 0.75
-  let pitch = 0.68
   let latitude_cosine = demo_cosine(marker.latitude_radians())
   let latitude_sine = demo_sine(marker.latitude_radians())
   let longitude_cosine = demo_cosine(marker.longitude_radians())
@@ -260,33 +301,33 @@ fun compose_local_base(marker: SurfaceLocationMarker,
   let north_x = 0.0 - latitude_sine * longitude_cosine
   let north_y = 0.0 - latitude_sine * longitude_sine
   let north_z = latitude_cosine
-  let pitch_cosine = demo_cosine(pitch)
-  let pitch_sine = demo_sine(pitch)
-  let local_forward_x = 0.0 - demo_cosine(yaw) * pitch_cosine
-  let local_forward_y = 0.0 - demo_sine(yaw) * pitch_cosine
-  let local_forward_z = 0.0 - pitch_sine
-  let local_up_x = 0.0 - demo_cosine(yaw) * pitch_sine
-  let local_up_y = 0.0 - demo_sine(yaw) * pitch_sine
-  let local_up_z = pitch_cosine
-  let forward_x = east_x * local_forward_x + north_x * local_forward_y + surface_up_x * local_forward_z
-  let forward_y = east_y * local_forward_x + north_y * local_forward_y + surface_up_y * local_forward_z
-  let forward_z = east_z * local_forward_x + north_z * local_forward_y + surface_up_z * local_forward_z
-  let up_x = east_x * local_up_x + north_x * local_up_y + surface_up_x * local_up_z
-  let up_y = east_y * local_up_x + north_y * local_up_y + surface_up_y * local_up_z
-  let up_z = east_z * local_up_x + north_z * local_up_y + surface_up_z * local_up_z
-  let distance: Float64<meter> = 620.0 meter
-  let target_x = marker_sample.x() + east_x * (0.0 meter - 15.0 meter) + north_x * (0.0 meter - 5.0 meter) + surface_up_x * 4.0 meter
-  let target_y = marker_sample.y() + east_y * (0.0 meter - 15.0 meter) + north_y * (0.0 meter - 5.0 meter) + surface_up_y * 4.0 meter
-  let target_z = marker_sample.z() + east_z * (0.0 meter - 15.0 meter) + north_z * (0.0 meter - 5.0 meter) + surface_up_z * 4.0 meter
-  let camera_x = target_x - forward_x * distance
-  let camera_y = target_y - forward_y * distance
-  let camera_z = target_z - forward_z * distance
-
+  let pitch_cosine = demo_cosine(camera_pitch)
+  let pitch_sine = demo_sine(camera_pitch)
+  let yaw_cosine = demo_cosine(camera_yaw)
+  let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
+  let forward_x = 0.0 - yaw_cosine * pitch_cosine
+  let forward_y = 0.0 - yaw_sine * pitch_cosine
+  let forward_z = 0.0 - pitch_sine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let right_x = 0.0 - yaw_sine
+  let right_y = yaw_cosine
+  let up_x = base_up_x * roll_cosine + right_x * roll_sine
+  let up_y = base_up_y * roll_cosine + right_y * roll_sine
+  let up_z = base_up_z * roll_cosine
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(20.0, 18.0, "SHACKLETON BASE - LOCAL VIEW", 16.0, 245, 249, 255)
-  text(20.0, 43.0, "ORBITAL MARKER HANDOFF - BASE UI NEXT", 10.0,
-       142, 203, 255)
+  if transitioning {
+    text(20.0, 43.0, "DESCENDING - LOCAL DETAIL ACTIVE", 10.0,
+         255, 212, 91)
+  } else {
+    text(20.0, 43.0, "ORBITAL MARKER HANDOFF - BASE UI NEXT", 10.0,
+         142, 203, 255)
+  }
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
 
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
@@ -369,7 +410,8 @@ fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float
 fun draw_object(value: SpatialRenderable,
                 camera_x: Float64<meter>, camera_y: Float64<meter>,
                 camera_z: Float64<meter>, camera_yaw: Float64,
-                camera_pitch: Float64, viewport_x: Float64,
+                camera_pitch: Float64, camera_roll: Float64,
+                viewport_x: Float64,
                 viewport_y: Float64, viewport_width: Float64,
                 viewport_height: Float64, selected: Bool): Void {
   let item: RenderSample = sample(value)
@@ -377,18 +419,28 @@ fun draw_object(value: SpatialRenderable,
   let pitch_sine = demo_sine(camera_pitch)
   let yaw_cosine = demo_cosine(camera_yaw)
   let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
   let forward_x = 0.0 - yaw_cosine * pitch_cosine
   let forward_y = 0.0 - yaw_sine * pitch_cosine
   let forward_z = 0.0 - pitch_sine
-  // Yaw rotates around world +Z. These analytical right/up vectors remain
-  // orthogonal at the exact top pole, so horizontal drag never becomes roll.
-  let camera_up_x = 0.0 - yaw_cosine * pitch_sine
-  let camera_up_y = 0.0 - yaw_sine * pitch_sine
-  let camera_up_z = pitch_cosine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let base_right_x = 0.0 - yaw_sine
+  let base_right_y = yaw_cosine
+  let camera_up_x = base_up_x * roll_cosine + base_right_x * roll_sine
+  let camera_up_y = base_up_y * roll_cosine + base_right_y * roll_sine
+  let camera_up_z = base_up_z * roll_cosine
+  let camera_right_x = base_right_x * roll_cosine - base_up_x * roll_sine
+  let camera_right_y = base_right_y * roll_cosine - base_up_y * roll_sine
+  let camera_right_z = 0.0 - base_up_z * roll_sine
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_right = relative_x * (0.0 - yaw_sine) + relative_y * yaw_cosine
+  let camera_right = relative_x * camera_right_x +
+                     relative_y * camera_right_y +
+                     relative_z * camera_right_z
   let camera_up = relative_x * camera_up_x + relative_y * camera_up_y +
                   relative_z * camera_up_z
   let forward_depth = relative_x * forward_x + relative_y * forward_y +
@@ -422,6 +474,7 @@ fun draw_object(value: SpatialRenderable,
 fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
                 camera_y: Float64<meter>, camera_z: Float64<meter>,
                 camera_yaw: Float64, camera_pitch: Float64,
+                camera_roll: Float64,
                 viewport_x: Float64, viewport_width: Float64,
                 viewport_height: Float64): Float64 {
   let item: RenderSample = sample(value)
@@ -429,10 +482,21 @@ fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
   let pitch_sine = demo_sine(camera_pitch)
   let yaw_cosine = demo_cosine(camera_yaw)
   let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_right = relative_x * (0.0 - yaw_sine) + relative_y * yaw_cosine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let camera_right_x = (0.0 - yaw_sine) * roll_cosine -
+                       base_up_x * roll_sine
+  let camera_right_y = yaw_cosine * roll_cosine - base_up_y * roll_sine
+  let camera_right_z = 0.0 - base_up_z * roll_sine
+  let camera_right = relative_x * camera_right_x +
+                     relative_y * camera_right_y +
+                     relative_z * camera_right_z
   let forward_depth = relative_x * (0.0 - yaw_cosine * pitch_cosine) +
                       relative_y * (0.0 - yaw_sine * pitch_cosine) -
                       relative_z * pitch_sine
@@ -444,18 +508,27 @@ fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
 fun projected_y(value: SpatialRenderable, camera_x: Float64<meter>,
                 camera_y: Float64<meter>, camera_z: Float64<meter>,
                 camera_yaw: Float64, camera_pitch: Float64,
+                camera_roll: Float64,
                 viewport_y: Float64, viewport_height: Float64): Float64 {
   let item: RenderSample = sample(value)
   let pitch_cosine = demo_cosine(camera_pitch)
   let pitch_sine = demo_sine(camera_pitch)
   let yaw_cosine = demo_cosine(camera_yaw)
   let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_up = relative_x * (0.0 - yaw_cosine * pitch_sine) +
-                  relative_y * (0.0 - yaw_sine * pitch_sine) +
-                  relative_z * pitch_cosine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let camera_up_x = base_up_x * roll_cosine +
+                    (0.0 - yaw_sine) * roll_sine
+  let camera_up_y = base_up_y * roll_cosine + yaw_cosine * roll_sine
+  let camera_up_z = base_up_z * roll_cosine
+  let camera_up = relative_x * camera_up_x + relative_y * camera_up_y +
+                  relative_z * camera_up_z
   let forward_depth = relative_x * (0.0 - yaw_cosine * pitch_cosine) +
                       relative_y * (0.0 - yaw_sine * pitch_cosine) -
                       relative_z * pitch_sine
@@ -484,9 +557,11 @@ fun draw_surface_marker(marker: SurfaceLocationMarker,
                         camera_x: Float64<meter>,
                         camera_y: Float64<meter>,
                         camera_z: Float64<meter>, camera_yaw: Float64,
-                        camera_pitch: Float64, viewport_x: Float64,
+                        camera_pitch: Float64, camera_roll: Float64,
+                        viewport_x: Float64,
                         viewport_y: Float64, viewport_width: Float64,
-                        viewport_height: Float64, hovered: Bool): Void {
+                        viewport_height: Float64, hovered: Bool,
+                        fade_stage: Int64): Void {
   let moon_depth = projected_depth(
     moon, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
   let moon_radius =
@@ -496,13 +571,33 @@ fun draw_surface_marker(marker: SurfaceLocationMarker,
          marker_value, moon, camera_x, camera_y, camera_z) {
       let surface_x = projected_x(
         marker_value, camera_x, camera_y, camera_z,
-        camera_yaw, camera_pitch, viewport_x, viewport_width, viewport_height)
+        camera_yaw, camera_pitch, camera_roll,
+        viewport_x, viewport_width, viewport_height)
       let surface_y = projected_y(
         marker_value, camera_x, camera_y, camera_z,
-        camera_yaw, camera_pitch, viewport_y, viewport_height)
+        camera_yaw, camera_pitch, camera_roll, viewport_y, viewport_height)
       let icon_x = surface_x
       let icon_y = surface_y - 68.0
+      let marker_red: Int64 = 255
+      let marker_green: Int64 = 212
+      let marker_blue: Int64 = 91
+      if fade_stage == 2 {
+        marker_red = 151
+        marker_green = 91
+        marker_blue = 24
+      }
+      if fade_stage == 1 {
+        marker_red = 82
+        marker_green = 91
+        marker_blue = 105
+      }
+      if fade_stage == 0 {
+        marker_red = 2
+        marker_green = 6
+        marker_blue = 11
+      }
       if hovered {
+        if fade_stage == 3 {
         let row = 0.0 - 7.0
         while row <= 7.0 {
           let distance = row
@@ -511,27 +606,28 @@ fun draw_surface_marker(marker: SurfaceLocationMarker,
           line(icon_x - half_width, icon_y + row,
                icon_x + half_width, icon_y + row, 1.5,
                viewport_x, viewport_y, viewport_width, viewport_height,
-               255, 212, 91)
+               marker_red, marker_green, marker_blue)
           row = row + 1.0
+        }
         }
       }
       line(surface_x, surface_y, icon_x, icon_y + 8.0, 2.0,
            viewport_x, viewport_y, viewport_width, viewport_height,
-           255, 212, 91)
+           marker_red, marker_green, marker_blue)
       line(icon_x, icon_y - 8.0, icon_x + 8.0, icon_y, 2.0,
            viewport_x, viewport_y, viewport_width, viewport_height,
-           255, 212, 91)
+           marker_red, marker_green, marker_blue)
       line(icon_x + 8.0, icon_y, icon_x, icon_y + 8.0, 2.0,
            viewport_x, viewport_y, viewport_width, viewport_height,
-           255, 212, 91)
+           marker_red, marker_green, marker_blue)
       line(icon_x, icon_y + 8.0, icon_x - 8.0, icon_y, 2.0,
            viewport_x, viewport_y, viewport_width, viewport_height,
-           255, 212, 91)
+           marker_red, marker_green, marker_blue)
       line(icon_x - 8.0, icon_y, icon_x, icon_y - 8.0, 2.0,
            viewport_x, viewport_y, viewport_width, viewport_height,
-           255, 212, 91)
+           marker_red, marker_green, marker_blue)
       text(icon_x + 13.0, icon_y - 5.0, marker.label(), 10.0,
-           255, 212, 91)
+           marker_red, marker_green, marker_blue)
     }
   }
 }
@@ -543,7 +639,8 @@ fun draw_orbit(center_x: Float64<meter>, center_y: Float64<meter>,
                center_z: Float64<meter>, orbit_radius: Float64<meter>,
                camera_x: Float64<meter>, camera_y: Float64<meter>,
                camera_z: Float64<meter>, camera_yaw: Float64,
-               camera_pitch: Float64, viewport_x: Float64,
+               camera_pitch: Float64, camera_roll: Float64,
+               viewport_x: Float64,
                viewport_y: Float64, viewport_width: Float64,
                viewport_height: Float64, red: Int64, green: Int64,
                blue: Int64): Void {
@@ -563,15 +660,17 @@ fun draw_orbit(center_x: Float64<meter>, center_y: Float64<meter>,
     if previous_depth > 1000.0 kilometer {
       if current_depth > 1000.0 kilometer {
         line(projected_x(previous, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_x,
+                         camera_yaw, camera_pitch, camera_roll, viewport_x,
                          viewport_width, viewport_height),
              projected_y(previous, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_y, viewport_height),
+                         camera_yaw, camera_pitch, camera_roll,
+                         viewport_y, viewport_height),
              projected_x(current, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_x,
+                         camera_yaw, camera_pitch, camera_roll, viewport_x,
                          viewport_width, viewport_height),
              projected_y(current, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_y, viewport_height),
+                         camera_yaw, camera_pitch, camera_roll,
+                         viewport_y, viewport_height),
              1.25, viewport_x, viewport_y, viewport_width, viewport_height,
              red, green, blue)
       }
@@ -623,11 +722,12 @@ fun selected_camera_z(identifier: Int64,
 
 fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             camera_z: Float64<meter>, camera_yaw: Float64,
-            camera_pitch: Float64, selection: SelectionState,
+            camera_pitch: Float64, camera_roll: Float64,
+            selection: SelectionState,
             first: SpatialRenderable, second: SpatialRenderable,
             third: SpatialRenderable, marker: SurfaceLocationMarker,
             marker_value: SpatialRenderable, marker_active: Bool,
-            marker_hovered: Bool): Void {
+            marker_hovered: Bool, marker_fade_stage: Int64): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
@@ -649,26 +749,31 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   let moon_sample = sample(third)
   draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
              camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+             camera_roll,
              viewport_x, viewport_y, viewport_width, viewport_height,
              47, 75, 104)
   draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
              camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+             camera_roll,
              viewport_x, viewport_y, viewport_width, viewport_height,
              70, 92, 118)
   draw_object(first, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(1))
   draw_object(second, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(2))
   draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
               selection.is_selected(3))
   draw_surface_marker(marker, marker_value, third,
                       camera_x, camera_y, camera_z,
-                      camera_yaw, camera_pitch,
+                      camera_yaw, camera_pitch, camera_roll,
                       viewport_x, viewport_y, viewport_width, viewport_height,
-                      marker_hovered)
+                      marker_hovered, marker_fade_stage)
   text(24.0, window_height - 28.0,
        "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
        142, 164, 188)
@@ -684,6 +789,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let camera_yaw = 0.0
   // Begin 30 degrees above the orbital horizon rather than at the top pole.
   let camera_pitch = 0.5235987755982988
+  let camera_roll = 0.0
   let orbit_target_x = DISTANT_ORIGIN
   let orbit_target_y = DISTANT_ORIGIN
   let orbit_target_z = DISTANT_ORIGIN - CAMERA_DEPTH
@@ -695,6 +801,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focus_start_y = orbit_target_y
   let focus_start_z = orbit_target_z
   let focus_start_distance = camera_distance
+  let focus_start_yaw = camera_yaw
+  let focus_start_pitch = camera_pitch
+  let focus_start_roll = camera_roll
   let focus_target_x = orbit_target_x
   let focus_target_y = orbit_target_y
   let focus_target_z = orbit_target_z
@@ -737,23 +846,25 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if next > 3 { next = 1 }
         selection.select!(next)
       }
-      if key_pressed("a") { camera_yaw = wrapped_angle(camera_yaw - 0.12) }
-      if key_pressed("d") { camera_yaw = wrapped_angle(camera_yaw + 0.12) }
-      if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
-      if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
-      camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
-      camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
-      camera_distance = zoom_distance(camera_distance, scroll_y())
+      if focused_marker == false {
+        if key_pressed("a") { camera_yaw = wrapped_angle(camera_yaw - 0.12) }
+        if key_pressed("d") { camera_yaw = wrapped_angle(camera_yaw + 0.12) }
+        if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
+        if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
+        camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
+        camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
+        camera_distance = zoom_distance(camera_distance, scroll_y())
+        if key_pressed("q") {
+          camera_distance = zoom_distance(camera_distance, -1.0)
+        }
+        if key_pressed("e") {
+          camera_distance = zoom_distance(camera_distance, 1.0)
+        }
+      }
       let look_pitch_cosine = demo_cosine(camera_pitch)
       let look_forward_x = 0.0 - demo_cosine(camera_yaw) * look_pitch_cosine
       let look_forward_y = 0.0 - demo_sine(camera_yaw) * look_pitch_cosine
       let look_forward_z = 0.0 - demo_sine(camera_pitch)
-      if key_pressed("q") {
-        camera_distance = zoom_distance(camera_distance, -1.0)
-      }
-      if key_pressed("e") {
-        camera_distance = zoom_distance(camera_distance, 1.0)
-      }
       let viewport_x = 24.0
       let viewport_y = 76.0
       let viewport_width = width() - 48.0
@@ -780,6 +891,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       }
       let marker_requested = false
       let marker_hovered = false
+      let marker_fade_stage: Int64 = 3
       if marker_faces_camera(
            marker_value, third, camera_x, camera_y, camera_z) {
         let moon_depth = projected_depth(
@@ -790,11 +902,11 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if moon_radius > 15.0 {
           let marker_icon_x = projected_x(
             marker_value, camera_x, camera_y, camera_z,
-            camera_yaw, camera_pitch,
+            camera_yaw, camera_pitch, camera_roll,
             viewport_x, viewport_width, viewport_height)
           let marker_icon_y = projected_y(
             marker_value, camera_x, camera_y, camera_z,
-            camera_yaw, camera_pitch,
+            camera_yaw, camera_pitch, camera_roll,
             viewport_y, viewport_height) - 68.0
           marker_hovered = pick_rectangle(
             pointer_x(), pointer_y(),
@@ -807,26 +919,26 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let click_y = pointer_y()
         if pick_circle(click_x, click_y,
                        projected_x(first, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_x, viewport_width, viewport_height),
                        projected_y(first, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_y, viewport_height),
                        34.0) { selection.select!(1) }
         if pick_circle(click_x, click_y,
                        projected_x(second, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_x, viewport_width, viewport_height),
                        projected_y(second, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(2) }
         if pick_circle(click_x, click_y,
                        projected_x(third, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_x, viewport_width, viewport_height),
                        projected_y(third, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(3) }
         if marker_hovered {
@@ -839,11 +951,14 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         focus_start_y = orbit_target_y
         focus_start_z = orbit_target_z
         focus_start_distance = camera_distance
-        focus_target_x = sample(marker_value).x()
-        focus_target_y = sample(marker_value).y()
-        focus_target_z = sample(marker_value).z()
-        focus_target_distance = MARKER_VIEW_DISTANCE
-        focus_duration = FOCUS_DURATION_SECONDS
+        focus_start_yaw = camera_yaw
+        focus_start_pitch = camera_pitch
+        focus_start_roll = camera_roll
+        focus_target_x = local_target_x(base_marker, marker_value)
+        focus_target_y = local_target_y(base_marker, marker_value)
+        focus_target_z = local_target_z(base_marker, marker_value)
+        focus_target_distance = LOCAL_VIEW_DISTANCE
+        focus_duration = SURFACE_HANDOFF_DURATION_SECONDS
         focus_started = elapsed_seconds()
         focusing = true
         focus_source_identifier = focused_identifier
@@ -881,9 +996,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         // the ease so a moving body cannot leave behind the position captured
         // when Enter was pressed and then snap at transition completion.
         if focused_marker {
-          focus_target_x = sample(marker_value).x()
-          focus_target_y = sample(marker_value).y()
-          focus_target_z = sample(marker_value).z()
+          focus_target_x = local_target_x(base_marker, marker_value)
+          focus_target_y = local_target_y(base_marker, marker_value)
+          focus_target_z = local_target_z(base_marker, marker_value)
         } else {
         if focused_identifier > 0 {
           focus_target_x = selected_target_x(focused_identifier, first, second, third)
@@ -892,6 +1007,17 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         }
         }
         let base_progress = focus_progress(focus_elapsed, focus_duration)
+        if focused_marker {
+          camera_yaw = focus_scalar_at(
+            focus_start_yaw, LOCAL_CAMERA_YAW, base_progress)
+          camera_pitch = focus_scalar_at(
+            focus_start_pitch, LOCAL_CAMERA_PITCH, base_progress)
+          camera_roll = focus_scalar_at(
+            focus_start_roll, LOCAL_CAMERA_ROLL, base_progress)
+          if base_progress > 0.35 { marker_fade_stage = 2 }
+          if base_progress > 0.58 { marker_fade_stage = 1 }
+          if base_progress > 0.78 { marker_fade_stage = 0 }
+        }
         let pan_progress = base_progress
         let zoom_progress = base_progress
         if focus_target_distance < focus_start_distance {
@@ -947,9 +1073,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       }
       if focusing == false {
         if focused_marker {
-          orbit_target_x = sample(marker_value).x()
-          orbit_target_y = sample(marker_value).y()
-          orbit_target_z = sample(marker_value).z()
+          orbit_target_x = local_target_x(base_marker, marker_value)
+          orbit_target_y = local_target_y(base_marker, marker_value)
+          orbit_target_z = local_target_z(base_marker, marker_value)
         } else {
         if focused_identifier > 0 {
           orbit_target_x = selected_target_x(focused_identifier, first, second, third)
@@ -958,15 +1084,28 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         }
         }
       }
-      camera_x = orbit_target_x - look_forward_x * camera_distance
-      camera_y = orbit_target_y - look_forward_y * camera_distance
-      camera_z = orbit_target_z - look_forward_z * camera_distance
-      if local_view {
-        compose_local_base(base_marker, marker_value)
+      let render_pitch_cosine = demo_cosine(camera_pitch)
+      let render_forward_x =
+        0.0 - demo_cosine(camera_yaw) * render_pitch_cosine
+      let render_forward_y =
+        0.0 - demo_sine(camera_yaw) * render_pitch_cosine
+      let render_forward_z = 0.0 - demo_sine(camera_pitch)
+      camera_x = orbit_target_x - render_forward_x * camera_distance
+      camera_y = orbit_target_y - render_forward_y * camera_distance
+      camera_z = orbit_target_z - render_forward_z * camera_distance
+      let surface_detail_active = local_view
+      if focused_marker {
+        if marker_fade_stage == 0 { surface_detail_active = true }
+      }
+      if surface_detail_active {
+        compose_local_base(base_marker, marker_value,
+                           camera_x, camera_y, camera_z,
+                           camera_yaw, camera_pitch, camera_roll, focusing)
       } else {
         compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+                camera_roll,
                 selection, first, second, third, base_marker, marker_value,
-                focused_marker, marker_hovered)
+                focused_marker, marker_hovered, marker_fade_stage)
       }
     }
   }
