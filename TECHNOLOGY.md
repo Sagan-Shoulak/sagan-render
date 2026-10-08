@@ -279,8 +279,8 @@ Production text shaping may change measured label bounds without changing this
 placement contract.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to
-start a focus transition, R to restore the system framing, and pointer clicks
-to pick projected samples. Focusing interpolates all three measured camera
+start a focus transition, and pointer clicks to pick projected samples.
+Focusing interpolates all three measured camera
 axes, then follows the selected object's fresh presentation snapshots. The
 Sun, Earth, and Moon viewing distances are demo-owned presentation choices;
 the generic scene library neither selects them nor changes a body position.
@@ -555,8 +555,8 @@ and keeps all camera and body lengths unit checked on the Sagan side of the
 bridge.
 
 The demo opens with the Sun selected and focused at its family viewing
-distance. Reset still returns to the wider system framing, while subsequent
-focus actions use the same hierarchy-aware transitions as before.
+distance. Sun, Earth, and Moon are the only focus states; subsequent focus
+actions use the same hierarchy-aware transitions as before.
 
 The UI bridge reports accumulated right-drag deltas and wheel movement rather
 than exposing SDL event structures. Sagan consumes each delta once and owns the

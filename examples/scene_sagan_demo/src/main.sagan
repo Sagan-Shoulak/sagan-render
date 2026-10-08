@@ -408,9 +408,6 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let camera_x = orbit_target_x + 0.8660254037844386 * camera_distance
   let camera_y = orbit_target_y
   let camera_z = orbit_target_z + 0.5 * camera_distance
-  let system_target_x = DISTANT_ORIGIN + EARTH_DISTANCE / 2.0
-  let system_target_y = DISTANT_ORIGIN
-  let system_target_z = DISTANT_ORIGIN - CAMERA_DEPTH
   let focus_start_x = orbit_target_x
   let focus_start_y = orbit_target_y
   let focus_start_z = orbit_target_z
@@ -525,27 +522,6 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           focus_source_identifier = focused_identifier
           focused_identifier = selection.identifier()
         }
-      }
-      if key_pressed("r") {
-        focus_start_x = orbit_target_x
-        focus_start_y = orbit_target_y
-        focus_start_z = orbit_target_z
-        focus_start_distance = camera_distance
-        focus_target_x = system_target_x
-        focus_target_y = system_target_y
-        focus_target_z = system_target_z
-        focus_target_distance = CAMERA_DEPTH
-        focus_duration = FOCUS_DURATION_SECONDS
-        if focus_target_distance > focus_start_distance {
-          focus_duration = ANCESTOR_FOCUS_DURATION_SECONDS
-        }
-        if focus_target_distance > focus_start_distance * 1000.0 {
-          focus_duration = LARGE_SCALE_FOCUS_DURATION_SECONDS
-        }
-        focus_started = elapsed_seconds()
-        focusing = true
-        focus_source_identifier = focused_identifier
-        focused_identifier = 0
       }
       if focusing {
         let focus_elapsed = elapsed_seconds() - focus_started
