@@ -217,37 +217,49 @@ namespace sagan_render::scene_gpu
     auto build_surface_patch_mesh() -> void
     {
       constexpr std::uint32_t segments = 255;
-      constexpr float pi = 3.14159265358979323846F;
-      constexpr float moon_radius_metres = 1737400.0F;
-      constexpr float patch_half_width_metres = 8192.0F;
-      constexpr std::array<float, 3> center{{0.8660254038F, 0.0F, 0.5F}};
-      constexpr std::array<float, 3> east{{0.0F, 1.0F, 0.0F}};
-      constexpr std::array<float, 3> north{{-0.5F, 0.0F, 0.8660254038F}};
+      constexpr double pi = 3.14159265358979323846;
+      constexpr double moon_radius_metres = 1737400.0;
+      constexpr double patch_half_width_metres = 8192.0;
+      constexpr std::array<double, 3> center{{
+        0.8660254037835535, 0.0, 0.49999999999996425}};
+      constexpr std::array<double, 3> east{{0.0, 1.0, 0.0}};
+      constexpr std::array<double, 3> north{{
+        -0.49999999999996425, 0.0, 0.8660254037835535}};
       surface_patch_vertices.reserve((segments + 1) * (segments + 1));
       surface_patch_indices.reserve(segments * segments * 6);
       for (std::uint32_t row = 0; row <= segments; ++row)
       {
-        const float north_metres = -patch_half_width_metres +
-          2.0F * patch_half_width_metres * static_cast<float>(row) /
-            static_cast<float>(segments);
+        const double north_metres = -patch_half_width_metres +
+          2.0 * patch_half_width_metres * static_cast<double>(row) /
+            static_cast<double>(segments);
         for (std::uint32_t column = 0; column <= segments; ++column)
         {
-          const float east_metres = -patch_half_width_metres +
-            2.0F * patch_half_width_metres * static_cast<float>(column) /
-              static_cast<float>(segments);
-          float x = center[0] + east[0] * east_metres / moon_radius_metres +
+          const double east_metres = -patch_half_width_metres +
+            2.0 * patch_half_width_metres * static_cast<double>(column) /
+              static_cast<double>(segments);
+          double x = center[0] + east[0] * east_metres / moon_radius_metres +
             north[0] * north_metres / moon_radius_metres;
-          float y = center[1] + east[1] * east_metres / moon_radius_metres +
+          double y = center[1] + east[1] * east_metres / moon_radius_metres +
             north[1] * north_metres / moon_radius_metres;
-          float z = center[2] + east[2] * east_metres / moon_radius_metres +
+          double z = center[2] + east[2] * east_metres / moon_radius_metres +
             north[2] * north_metres / moon_radius_metres;
-          const float length = std::sqrt(x * x + y * y + z * z);
+          const double length = std::sqrt(x * x + y * y + z * z);
           x /= length;
           y /= length;
           z /= length;
-          const float u = std::atan2(z, x) / (2.0F * pi) + 0.5F;
-          const float v = std::acos(std::clamp(y, -1.0F, 1.0F)) / pi;
-          surface_patch_vertices.push_back({{x, y, z}, {x, y, z}, {u, v}});
+          const float u = static_cast<float>(
+            std::atan2(z, x) / (2.0 * pi) + 0.5);
+          const float v = static_cast<float>(
+            std::acos(std::clamp(y, -1.0, 1.0)) / pi);
+          // Close terrain uses marker-relative metre coordinates. Keeping the
+          // vertex magnitude near the local patch avoids quantizing metre-scale
+          // height against a 1,737,400-metre unit-sphere transform.
+          surface_patch_vertices.push_back({{
+            static_cast<float>((x - center[0]) * moon_radius_metres),
+            static_cast<float>((y - center[1]) * moon_radius_metres),
+            static_cast<float>((z - center[2]) * moon_radius_metres)},
+            {static_cast<float>(x), static_cast<float>(y),
+             static_cast<float>(z)}, {u, v}});
         }
       }
       for (std::uint32_t row = 0; row < segments; ++row)
@@ -709,6 +721,34 @@ namespace sagan_render::scene_gpu
             render_pass, selected_index_count, 1, 0, 0, 0);
         if (draw_surface_patch)
         {
+          constexpr scene::direction3 patch_center{
+            0.8660254037835535, 0.0, 0.49999999999996425};
+          constexpr double marker_altitude_metres = 10.0;
+          scene::render_item patch_anchor = draw.item;
+          // Match the demo's marker construction and altitude removal exactly.
+          // Reassociating this as center + radius changes the rounded anchor at
+          // the demo's 1e15-metre precision origin by enough to clip foundations.
+          patch_anchor.position.x_metres +=
+            patch_center.x *
+              (draw.item.radius_metres + marker_altitude_metres);
+          patch_anchor.position.y_metres +=
+            patch_center.y *
+              (draw.item.radius_metres + marker_altitude_metres);
+          patch_anchor.position.z_metres +=
+            patch_center.z *
+              (draw.item.radius_metres + marker_altitude_metres);
+          patch_anchor.position.x_metres -=
+            patch_center.x * marker_altitude_metres;
+          patch_anchor.position.y_metres -=
+            patch_center.y * marker_altitude_metres;
+          patch_anchor.position.z_metres -=
+            patch_center.z * marker_altitude_metres;
+          camera_uniform = scene::prepare_oriented_box_draw(
+            patch_anchor, {1.0, 1.0, 1.0},
+            {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
+            draw.camera, logical).camera_uniform;
+          SDL_PushGPUVertexUniformData(
+            commands, 0, &camera_uniform, sizeof(camera_uniform));
           const SDL_GPUBufferBinding patch_vertex_binding{
             surface_patch_vertex_buffer, 0};
           const SDL_GPUBufferBinding patch_index_binding{

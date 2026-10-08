@@ -591,8 +591,11 @@ through the marker's body-fixed tangent basis and feather-blends its boundary
 into the global map. Below five kilometres altitude, a 255-by-255 indexed
 spherical patch replaces the coarse global sphere over a 16.384-kilometre
 square centered on the marker. Its vertices are projected onto the same Moon
-radius and it reuses the Moon draw's transform, material, texture blend,
-lighting, and depth target. The global and local meshes are never drawn
+radius, then stored as metre-scale offsets from the marker's surface anchor.
+The patch reuses the Moon material, texture blend, lighting, and depth target,
+but its camera-relative transform follows the exact same anchor arithmetic as
+the local structures. This avoids quantizing ground height through a
+1,737,400-metre float transform. The global and local meshes are never drawn
 together, so the change adds close-range geometry resolution without creating
 a second ground surface, a second Moon, or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and
