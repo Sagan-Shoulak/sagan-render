@@ -345,13 +345,16 @@ fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
   let axis_y_x = north_x * yaw_cosine - east_x * yaw_sine
   let axis_y_y = north_y * yaw_cosine - east_y * yaw_sine
   let axis_y_z = north_z * yaw_cosine - east_z * yaw_sine
+  let relative_origin_x = origin_x - camera_x
+  let relative_origin_y = origin_y - camera_y
+  let relative_origin_z = origin_z - camera_z
   mesh_box_frame(viewport_x, viewport_y, viewport_width, viewport_height,
-                 camera_x, camera_y, camera_z,
+                 0.0 meter, 0.0 meter, 0.0 meter,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  0.8726646259971648, 1.0 meter, 4000000.0 meter,
-                 origin_x + east_x * x + north_x * y + surface_up_x * z,
-                 origin_y + east_y * x + north_y * y + surface_up_y * z,
-                 origin_z + east_z * x + north_z * y + surface_up_z * z,
+                 relative_origin_x + east_x * x + north_x * y + surface_up_x * z,
+                 relative_origin_y + east_y * x + north_y * y + surface_up_y * z,
+                 relative_origin_z + east_z * x + north_z * y + surface_up_z * z,
                  half_x, half_y, half_z,
                  axis_x_x, axis_x_y, axis_x_z,
                  axis_y_x, axis_y_y, axis_y_z,
@@ -455,12 +458,12 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                  surface_up_x, surface_up_y, surface_up_z,
                  1.5 meter, 1.5 meter, 16.0 meter, 0.0, 13)
   mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
-              camera_x, camera_y, camera_z,
+              0.0 meter, 0.0 meter, 0.0 meter,
               forward_x, forward_y, forward_z, up_x, up_y, up_z,
               0.8726646259971648, 1.0 meter, 4000000.0 meter,
-              surface_origin_x + east_x * (0.0 meter - 5.0 meter) + north_x * 15.0 meter + surface_up_x * 6.0 meter,
-              surface_origin_y + east_y * (0.0 meter - 5.0 meter) + north_y * 15.0 meter + surface_up_y * 6.0 meter,
-              surface_origin_z + east_z * (0.0 meter - 5.0 meter) + north_z * 15.0 meter + surface_up_z * 6.0 meter,
+              surface_origin_x - camera_x + east_x * (0.0 meter - 5.0 meter) + north_x * 15.0 meter + surface_up_x * 6.0 meter,
+              surface_origin_y - camera_y + east_y * (0.0 meter - 5.0 meter) + north_y * 15.0 meter + surface_up_y * 6.0 meter,
+              surface_origin_z - camera_z + east_z * (0.0 meter - 5.0 meter) + north_z * 15.0 meter + surface_up_z * 6.0 meter,
               6.0 meter, 3, false)
 }
 
