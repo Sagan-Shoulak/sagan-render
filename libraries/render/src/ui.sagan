@@ -36,9 +36,8 @@ fun text(x: Float64, y: Float64, value: String, height: Float64,
          red: Int64, green: Int64, blue: Int64): Void =>
   __render_ui_text(x, y, value, height, red, green, blue)
 
-/// Queue one indexed, depth-tested sphere. Positions and depth limits remain
-/// unit typed until the native adapter rebases them around the camera. Logical
-/// center offsets are presentation-only callouts and do not change body data.
+/// Queue one indexed, depth-tested sphere. Its physical radius and position
+/// remain unit typed until the native adapter rebases them around the camera.
 fun mesh_sphere(viewport_x: Float64, viewport_y: Float64,
                 viewport_width: Float64, viewport_height: Float64,
                 camera_x: Float64<meter>, camera_y: Float64<meter>,
@@ -49,14 +48,12 @@ fun mesh_sphere(viewport_x: Float64, viewport_y: Float64,
                 far_distance: Float64<meter>, body_x: Float64<meter>,
                 body_y: Float64<meter>, body_z: Float64<meter>,
                 radius: Float64<meter>, appearance: Int64,
-                minimum_radius: Float64, center_offset_x: Float64,
-                center_offset_y: Float64, selected: Bool): Void =>
+                selected: Bool): Void =>
   __render_ui_mesh_sphere(
     viewport_x, viewport_y, viewport_width, viewport_height,
     camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
     up_x, up_y, up_z, field_of_view, near_distance, far_distance,
-    body_x, body_y, body_z, radius, appearance, minimum_radius,
-    center_offset_x, center_offset_y, selected)
+    body_x, body_y, body_z, radius, appearance, selected)
 
 /// Submit the logical draw list to the private GPU backend.
 fun present(): Void => __render_ui_present()

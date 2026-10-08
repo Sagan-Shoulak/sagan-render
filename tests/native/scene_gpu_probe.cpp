@@ -117,13 +117,22 @@ int main()
       {origin + earth_distance / 2.0, origin, origin + 200000000000.0},
       {0.0, 0.0, -1.0}, {0.0, 1.0, 0.0},
       1.0471975511965976, 1000000000.0, 400000000000.0};
-    const sagan_render::scene::camera lunar_camera{
-      {origin + earth_distance + moon_distance / 2.0, origin,
-       origin + 1000000000.0},
+    const sagan_render::scene::camera sun_camera{
+      {origin, origin, origin + 5500000000.0},
       {0.0, 0.0, -1.0}, {0.0, 1.0, 0.0},
-      1.0471975511965976, 1000000.0, 2000000000.0};
+      1.0471975511965976, 10000000.0, 10000000000.0};
+    const sagan_render::scene::camera earth_camera{
+      {origin + earth_distance, origin, origin + 50000000.0},
+      {0.0, 0.0, -1.0}, {0.0, 1.0, 0.0},
+      1.0471975511965976, 1000000.0, 100000000.0};
+    const sagan_render::scene::camera moon_camera{
+      {origin + earth_distance + moon_distance, origin, origin + 15000000.0},
+      {0.0, 0.0, -1.0}, {0.0, 1.0, 0.0},
+      1.0471975511965976, 100000.0, 30000000.0};
     const sagan_render::scene_gpu::target_viewport system_view{24, 24, 912, 492};
-    const sagan_render::scene_gpu::target_viewport lunar_view{620, 330, 300, 160};
+    const sagan_render::scene_gpu::target_viewport sun_view{460, 330, 140, 160};
+    const sagan_render::scene_gpu::target_viewport earth_view{620, 330, 140, 160};
+    const sagan_render::scene_gpu::target_viewport moon_view{780, 330, 140, 160};
     const auto sun_material = material(0.95F, 0.48F, 0.03F, 0.45F);
     const auto earth_material = material(0.04F, 0.18F, 0.92F);
     const auto moon_material = material(0.48F, 0.52F, 0.58F);
@@ -143,14 +152,19 @@ int main()
     SDL_EndGPURenderPass(clear);
 
     const std::vector<sagan_render::scene_gpu::sphere_draw> system_draws{
-      {sun, system_camera, system_view, {28.0}, sun_material},
-      {earth, system_camera, system_view, {14.0}, earth_material},
-      {moon, system_camera, system_view, {7.0}, moon_material}};
+      {sun, system_camera, system_view, sun_material},
+      {earth, system_camera, system_view, earth_material},
+      {moon, system_camera, system_view, moon_material}};
     sphere_pass->render(commands, color, width, height, system_draws, lighting);
-    const std::vector<sagan_render::scene_gpu::sphere_draw> lunar_draws{
-      {earth, lunar_camera, lunar_view, {18.0}, earth_material},
-      {moon, lunar_camera, lunar_view, {10.0}, moon_material}};
-    sphere_pass->render(commands, color, width, height, lunar_draws, lighting);
+    const std::vector<sagan_render::scene_gpu::sphere_draw> sun_draws{
+      {sun, sun_camera, sun_view, sun_material}};
+    sphere_pass->render(commands, color, width, height, sun_draws, lighting);
+    const std::vector<sagan_render::scene_gpu::sphere_draw> earth_draws{
+      {earth, earth_camera, earth_view, earth_material}};
+    sphere_pass->render(commands, color, width, height, earth_draws, lighting);
+    const std::vector<sagan_render::scene_gpu::sphere_draw> moon_draws{
+      {moon, moon_camera, moon_view, moon_material}};
+    sphere_pass->render(commands, color, width, height, moon_draws, lighting);
 
     auto *copy = SDL_BeginGPUCopyPass(commands);
     const SDL_GPUTextureRegion source{color, 0, 0, 0, 0, 0, width, height, 1};
@@ -183,7 +197,7 @@ int main()
         "3D scene capture lacks distinguishable Sun, Earth, or Moon meshes");
     }
     std::cout << "SCENE_3D driver=" << SDL_GetGPUDeviceDriver(device)
-              << " indexed=1 depth=1 views=2 bodies=3 sun=" << result.sun
+              << " indexed=1 depth=1 views=4 bodies=3 sun=" << result.sun
               << " earth=" << result.earth << " moon=" << result.moon
               << " precision_origin_metres=1e15 cleanup=1\n";
 

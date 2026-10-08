@@ -150,11 +150,6 @@ class PresentationObject has SpatialRenderable {
   fun render_label(): String => self.label_value
 }
 
-fun maximum(first: Float64, second: Float64): Float64 {
-  if first > second { return first }
-  return second
-}
-
 fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
   if camera_z - sample(moon).z() > 10000000.0 kilometer { return 48.0 }
   return 0.0
@@ -195,24 +190,20 @@ fun draw_object(value: SpatialRenderable,
     let logical_y = viewport_y + perspective_axis(
       0.0 meter - camera_up, forward_depth,
       0.577350269, viewport_height)
-    let minimum_radius = 7.0
-    if item.identifier() == 1 { minimum_radius = 22.0 }
-    if item.identifier() == 2 { minimum_radius = 18.0 }
-    let center_offset_x = 0.0
+    let label_offset_x = 0.0
     if item.identifier() == 3 {
-      center_offset_x = moon_marker_offset(camera_z, value)
-      logical_x = logical_x + center_offset_x
+      label_offset_x = moon_marker_offset(camera_z, value)
     }
-    let projected_radius = maximum(minimum_radius,
-      (item.radius() / forward_depth) / 0.577350269 * viewport_height / 2.0)
+    let projected_radius =
+      (item.radius() / forward_depth) / 0.577350269 * viewport_height / 2.0
     mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
                 camera_x, camera_y, camera_z,
                 forward_x, forward_y, forward_z,
                 camera_up_x, camera_up_y, camera_up_z, 1.0471975511965976,
                 1000.0 kilometer, 500000000.0 kilometer,
                 item.x(), item.y(), item.z(), item.radius(),
-                item.identifier(), minimum_radius, center_offset_x, 0.0, selected)
-    text(logical_x + projected_radius + 7.0, logical_y - 5.0,
+                item.identifier(), selected)
+    text(logical_x + label_offset_x + projected_radius + 7.0, logical_y - 5.0,
          item.label(), 10.0, 245, 249, 255)
   }
 }
@@ -506,8 +497,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if pick_circle(click_x, click_y,
                        projected_x(third, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,
-                                   viewport_x, viewport_width, viewport_height) +
-                         moon_marker_offset(camera_z, third),
+                                   viewport_x, viewport_width, viewport_height),
                        projected_y(third, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),

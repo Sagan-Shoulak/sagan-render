@@ -295,11 +295,11 @@ The first #29 slice replaces generic scene markers with unit-typed Sun, Earth,
 and Moon fixture data. It uses mean radii, a 149,597,870.7 km Sun-Earth
 separation, and a 384,400 km Earth-Moon separation. These values are deterministic
 demo inputs, not an ephemeris or an orbital solver. At the full-system camera
-scale the Moon marker is offset as a labeled callout because its true projected
-separation from Earth is smaller than the minimum selectable marker size. One
-shared logical offset moves its presentation mesh and label together; the
-underlying physical coordinate is not altered. The callout disappears at
-closer framing, where the measured separation can be shown directly.
+scale the Moon label is offset as a callout because its true projected
+separation from Earth is extremely small. Every mesh remains at its measured
+position and uses its physical radius at every camera distance. The label
+callout disappears at closer framing, where the measured separation can be
+shown directly.
 
 `render.bodies.draw_sphere_impostor` builds a shaded spherical silhouette from
 GPU-composited horizontal strips. The smaller, upper-left lit silhouette acts
@@ -513,15 +513,14 @@ The native `prepare_sphere_draw` contract owns the precision-sensitive seam
 between a measured scene sample and the reviewed mesh shader. It subtracts the
 camera origin while positions are still 64-bit physical lengths, constructs the
 camera basis in double precision, and only then narrows camera-relative matrix
-terms for the GPU uniform. A caller may request a minimum logical presentation
-radius for bodies whose physically accurate angular size would be sub-pixel;
-the returned draw records both the unchanged physical radius and the larger
-presentation radius. This is a rendering policy, not a change to snapshot or
-physics state.
+terms for the GPU uniform. The mesh transform always uses the render sample's
+physical radius. A distant body may therefore become sub-pixel or disappear
+until the camera approaches it; the renderer never inflates it to a fixed
+logical marker size.
 
 The focused scene contract test exercises that conversion around a
 `1e15 metre` origin, verifies an exact nearby offset survives rebasing, checks
-minimum-radius scaling at long range, and rejects geometry behind the camera.
+physical-radius scaling at long range, and rejects geometry behind the camera.
 The package-scoped typed-native declaration mechanism delivered by `sagan#30`
 connects this contract to Sagan without adding another compiler builtin. The
 renderer manifest declares the complete twice-typed bridge signature, including
@@ -534,18 +533,17 @@ segments, 561 smooth-normal vertices, and 1,024 indexed triangles. It also owns
 reviewed backend shader selection, the material pipeline, and a resize-aware
 D32 depth target. Tessellation changes presentation geometry only; entity
 radii and positions remain measured inputs.
-Callers provide immutable render items, cameras, target viewports, presentation
-policies, and materials; the pass does not store or advance simulation state.
+Callers provide immutable render items, cameras, target viewports, and
+materials; the pass does not store or advance simulation state.
 
-The first deterministic capture renders the same measured Sun, Earth, and Moon
-snapshot through two cameras. A system viewport preserves the physical
-Sun-Earth separation, while a lunar inset uses the physical Earth-Moon
-separation so both smaller bodies remain inspectable without moving either
-body or inventing orbital dynamics. D3D12, Vulkan, and Metal each validate that
-the three differently lit indexed models survive GPU readback. The test also
-keeps the camera far plane close to each view's actual scale: an excessively
-distant far plane can round projected depth to the clear value after GPU
-narrowing and make strict `LESS` depth testing reject valid geometry.
+The first deterministic capture renders one measured Sun, Earth, and Moon
+snapshot through a system camera plus focused body evidence cameras.
+Every view uses the same physical body radii and positions; only camera distance
+changes their projected size. D3D12, Vulkan, and Metal each validate that the
+three differently lit indexed models survive GPU readback. The test also keeps
+the camera far plane close to each view's actual scale: an excessively distant
+far plane can round projected depth to the clear value after GPU narrowing and
+make strict `LESS` depth testing reject valid geometry.
 
 The interactive Sagan demo uses the same pass for one full 3D system viewport.
 Every frame is composed in Sagan from immutable presentation objects; the
