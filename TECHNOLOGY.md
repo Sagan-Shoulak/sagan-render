@@ -589,29 +589,27 @@ selection. Earth and Moon bind provenance-tracked 1024x512 and 2048x1024 NASA
 textures; untextured primitives bind a one-pixel white texture through the same
 pipeline. Planetary uploads allocate and GPU-generate a complete mip chain;
 trilinear sampling with 8x anisotropy stabilizes oblique close-surface motion
-without changing the source texture identity. Below 100 kilometres above the
-Moon, the same sphere draw also binds
-a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
-through the marker's body-fixed tangent basis and feather-blends its boundary
-into the global map. Below five kilometres altitude, a 255-by-255 indexed
+without changing the source texture identity. The available 0.8-metre-per-pixel
+LROC Shackleton rim observation contains baked extreme-angle illumination and
+is not used as albedo. Blending it into the photometrically different global
+map exposed its finite square footprint and applied scene lighting twice. A
+future local-detail input must be photometrically normalized or use a separately
+defined detail contract. Below five kilometres altitude, a 255-by-255 indexed
 spherical patch replaces the coarse global sphere over a 1,048.576-kilometre
 square centered on the marker. Cubic vertex spacing concentrates resolution
 around the base while extending beyond the 132-kilometre lunar horizon at the
 LOD activation altitude. Its
 vertices are projected onto the same Moon
 radius, then stored as metre-scale offsets from the marker's surface anchor.
-The patch reuses the Moon material, texture blend, lighting, and depth target,
+The patch reuses the Moon's continuous global material, lighting, and depth
+target,
 but its camera-relative transform follows the same anchor arithmetic as the
 local structures. This avoids quantizing ground height through a
 1,737,400-metre float transform. A small underground foundation datum and
 downward-only structure skirts keep low buildings visibly seated without
 changing their roof heights. At every distance, the coarse sphere and close
-patch use the same neutralized global Moon map; below 100 kilometres they also
-use the same Shackleton detail, faded continuously from zero at 100 kilometres
-to full weight at five kilometres. Patch vertices retain global spherical UVs
-while the detail lookup uses marker-relative metres. The same fade weight is
-carried across the five-kilometre tessellation change, so neither distance
-threshold appears as a surrounding material shell. The global and local meshes are never drawn together,
+patch use the same neutralized global Moon map and global spherical UVs. The
+global and local meshes are never drawn together,
 so the change adds close-range geometry resolution without creating a second
 ground surface, a second Moon, or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and

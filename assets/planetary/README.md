@@ -13,7 +13,9 @@ decoder dependency. The renderer samples them with the shared material shader.
   https://svs.gsfc.nasa.gov/4720/
 - `moon_shackleton_rim_2048x2048.ppm` is a 2048-pixel square crop beginning at
   source pixel (1000, 18000) in NASA SVS's 0.8-metre-per-pixel LROC NAC
-  Shackleton rim mosaic. It is the local texture-LOD fixture:
+  Shackleton rim mosaic. It is retained as a provenance fixture but is not
+  bound as albedo: its extreme-angle illumination is baked into the pixels and
+  is not photometrically compatible with the global Moon map:
   https://svs.gsfc.nasa.gov/3634/
 
 Source download SHA-256 values:

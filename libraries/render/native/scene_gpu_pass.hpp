@@ -106,7 +106,6 @@ namespace sagan_render::scene_gpu
     SDL_GPUTexture *white_texture{};
     SDL_GPUTexture *earth_texture{};
     SDL_GPUTexture *moon_local_texture{};
-    SDL_GPUTexture *moon_detail_texture{};
     SDL_GPUSampler *surface_sampler{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
@@ -464,8 +463,6 @@ namespace sagan_render::scene_gpu
         moon.rgba[pixel + 2] = luminance;
       }
       moon_local_texture = upload_texture(moon);
-      moon_detail_texture = upload_texture(load_image(
-        "assets/planetary/moon_shackleton_rim_2048x2048.ppm"));
       SDL_GPUSamplerCreateInfo sampler_info{};
       sampler_info.min_filter = SDL_GPU_FILTER_LINEAR;
       sampler_info.mag_filter = SDL_GPU_FILTER_LINEAR;
@@ -608,8 +605,6 @@ namespace sagan_render::scene_gpu
       if (surface_patch_vertex_buffer)
         SDL_ReleaseGPUBuffer(device, surface_patch_vertex_buffer);
       if (surface_sampler) SDL_ReleaseGPUSampler(device, surface_sampler);
-      if (moon_detail_texture)
-        SDL_ReleaseGPUTexture(device, moon_detail_texture);
       if (moon_local_texture)
         SDL_ReleaseGPUTexture(device, moon_local_texture);
       if (earth_texture) SDL_ReleaseGPUTexture(device, earth_texture);
@@ -688,7 +683,6 @@ namespace sagan_render::scene_gpu
         SDL_GPUTexture *detail = white_texture;
         surface_lod_uniform surface_lod{};
         bool draw_surface_patch = false;
-        float lunar_detail_weight = 0.0F;
         if (draw.albedo_map == surface_map::earth_blue_marble)
           surface = earth_texture;
         else if (draw.albedo_map == surface_map::moon_lro)
@@ -703,27 +697,7 @@ namespace sagan_render::scene_gpu
           const double camera_altitude = std::sqrt(
             camera_dx * camera_dx + camera_dy * camera_dy +
             camera_dz * camera_dz) - draw.item.radius_metres;
-          if (camera_altitude < 100000.0)
-          {
-            lunar_detail_weight = std::clamp(
-              static_cast<float>((100000.0 - camera_altitude) / 95000.0),
-              0.0F, 1.0F);
-            constexpr float marker_latitude_sine = 0.5F;
-            constexpr float marker_latitude_cosine = 0.8660254038F;
-            constexpr float detail_width_metres = 16384.0F;
-            const float angular_width = detail_width_metres /
-              static_cast<float>(draw.item.radius_metres);
-            surface_lod.center_and_angular_width[0] = marker_latitude_cosine;
-            surface_lod.center_and_angular_width[2] = marker_latitude_sine;
-            surface_lod.center_and_angular_width[3] = angular_width;
-            surface_lod.east_and_enabled[1] = 1.0F;
-            surface_lod.east_and_enabled[3] = lunar_detail_weight;
-            surface_lod.north_and_blend[0] = -marker_latitude_sine;
-            surface_lod.north_and_blend[2] = marker_latitude_cosine;
-            surface_lod.north_and_blend[3] = 0.08F;
-            detail = moon_detail_texture;
-            draw_surface_patch = camera_altitude < 5000.0;
-          }
+          draw_surface_patch = camera_altitude < 5000.0;
         }
         if (draw.albedo_map != surface_map::none)
           material.base_color_linear = {
@@ -776,18 +750,6 @@ namespace sagan_render::scene_gpu
             draw.camera, logical).camera_uniform;
           SDL_PushGPUVertexUniformData(
             commands, 0, &camera_uniform, sizeof(camera_uniform));
-          surface_lod_uniform patch_surface_lod{};
-          // Patch vertices are metre offsets rather than unit-sphere points,
-          // so detail lookup uses the marker-relative metre frame while the
-          // base layer retains the same global UVs as the coarse sphere.
-          patch_surface_lod.center_and_angular_width[3] = 16384.0F;
-          patch_surface_lod.east_and_enabled[1] = 1.0F;
-          patch_surface_lod.east_and_enabled[3] = lunar_detail_weight;
-          patch_surface_lod.north_and_blend[0] = -0.5F;
-          patch_surface_lod.north_and_blend[2] = 0.8660254038F;
-          patch_surface_lod.north_and_blend[3] = 0.08F;
-          SDL_PushGPUFragmentUniformData(
-            commands, 2, &patch_surface_lod, sizeof(patch_surface_lod));
           const SDL_GPUBufferBinding patch_vertex_binding{
             surface_patch_vertex_buffer, 0};
           const SDL_GPUBufferBinding patch_index_binding{
