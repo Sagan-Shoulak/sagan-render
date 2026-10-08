@@ -304,15 +304,11 @@ handoff first orbits yaw, pitch, and roll into the marker-facing local camera
 frame, then translates the target and reduces reciprocal distance so the
 descent cannot cut a chord through the Moon. It fades the orbital marker
 through fixed-palette stages, hides it when local detail owns the view, and
-activates tangent-patch detail near the end of the ease. The viewport reserves
-the management-sidebar width continuously across descent and return instead of
-changing aspect ratio on the completion frame. Once settled, the
+activates tangent-patch detail near the end of the ease. Once settled, the
 base view orbits in the marker's east/north/up frame, treating the local surface
 normal as camera up while the wheel retains measured-distance zoom. Elevation
 is clamped above the local horizon and the camera keeps at least five metres of
-tangent-plane ground clearance. Local roll accounts for the backend viewport's
-downward screen-Y convention so sky remains above the lunar horizon. Once local
-detail is active, the compositor
+tangent-plane ground clearance. Once local detail is active, the compositor
 suppresses orbital guides and planetary labels while retaining physical scene
 geometry and reserves a right sidebar for local-view UI. The renderer-neutral
 demo presents GDD-informed overview, resource, and system tabs covering power
@@ -595,7 +591,7 @@ Moon, the same sphere draw also binds
 a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
 through the marker's body-fixed tangent basis and feather-blends its boundary
 into the global map. Below five kilometres altitude, a 255-by-255 indexed
-spherical patch replaces the coarse global sphere over a 2,097.152-kilometre
+spherical patch replaces the coarse global sphere over a 262.144-kilometre
 square centered on the marker. Quadratic vertex spacing concentrates resolution
 around the base while extending beyond the horizon at maximum local zoom. Its
 vertices are projected onto the same Moon
@@ -610,10 +606,6 @@ together, so the change adds close-range geometry resolution without creating
 a second ground surface, a second Moon, or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and
 positions remain measured inputs.
-The Shackleton detail footprint expands with the camera's calculated lunar
-horizon and its contribution fades in through the final five kilometres. This
-keeps its texture boundary outside the visible ground during wide local views
-without making the terrain mesh or its physical radius camera-dependent.
 Callers provide immutable render items, cameras, target viewports, and
 materials; the pass does not store or advance simulation state.
 
