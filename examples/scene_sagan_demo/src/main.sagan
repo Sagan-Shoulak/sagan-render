@@ -43,9 +43,9 @@ const EARTH_VIEW_DISTANCE: Float64<meter> = 8e4 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
 const SURFACE_HANDOFF_DURATION_SECONDS: Float64 = 5.0
-const LOCAL_VIEW_DISTANCE: Float64<meter> = 620.0 meter
+const LOCAL_VIEW_DISTANCE: Float64<meter> = 380.0 meter
 const LOCAL_CAMERA_YAW: Float64 = 1.1141073978524427
-const LOCAL_CAMERA_PITCH: Float64 = 0.8842037800659589
+const LOCAL_CAMERA_PITCH: Float64 = 1.0471975511965976
 const LOCAL_CAMERA_ROLL: Float64 = 0.0 - 1.5430291992600365
 const ANCESTOR_FOCUS_DURATION_SECONDS: Float64 = 4.0
 const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 6.0
@@ -318,61 +318,61 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                 115.0 meter, 70.0 meter, 6.0 meter,
+                 35.0 meter, 20.0 meter, 1.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
-                 72.0 meter, 72.0 meter, 1.0 meter, 0.0, 11)
+                 24.0 meter, 24.0 meter, 1.0 meter, 0.0, 11)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                 115.0 meter, 70.0 meter, 22.0 meter,
+                 35.0 meter, 20.0 meter, 8.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
-                 18.0 meter, 13.0 meter, 9.0 meter, 0.35, 12)
+                 8.0 meter, 6.0 meter, 6.0 meter, 0.35, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                 0.0 meter - 95.0 meter, 25.0 meter, 19.0 meter,
+                 0.0 meter - 30.0 meter, 20.0 meter, 5.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
-                 54.0 meter, 25.0 meter, 14.0 meter, 0.0 - 0.18, 12)
+                 18.0 meter, 8.0 meter, 5.0 meter, 0.0 - 0.18, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                 0.0 meter - 130.0 meter, 0.0 meter - 55.0 meter,
-                 16.0 meter,
+                 0.0 meter - 28.0 meter, 0.0 meter - 15.0 meter,
+                 4.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
-                 38.0 meter, 22.0 meter, 11.0 meter, 0.25, 12)
+                 14.0 meter, 7.0 meter, 4.0 meter, 0.25, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                 0.0 meter - 10.0 meter, 0.0 meter - 135.0 meter,
-                 9.0 meter,
+                 10.0 meter, 0.0 meter - 35.0 meter,
+                 0.7 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
-                 92.0 meter, 28.0 meter, 2.0 meter,
+                 28.0 meter, 8.0 meter, 0.7 meter,
                  0.0 - 0.12, 14)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                 0.0 meter - 205.0 meter, 85.0 meter, 42.0 meter,
+                 0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
-                 5.0 meter, 5.0 meter, 38.0 meter, 0.0, 13)
+                 1.5 meter, 1.5 meter, 16.0 meter, 0.0, 13)
   mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
               camera_x, camera_y, camera_z,
               forward_x, forward_y, forward_z, up_x, up_y, up_z,
               0.8726646259971648, 1.0 meter, 4000000.0 meter,
-              marker_sample.x() + east_x * (0.0 meter - 70.0 meter) + north_x * 18.0 meter + surface_up_x * 31.0 meter,
-              marker_sample.y() + east_y * (0.0 meter - 70.0 meter) + north_y * 18.0 meter + surface_up_y * 31.0 meter,
-              marker_sample.z() + east_z * (0.0 meter - 70.0 meter) + north_z * 18.0 meter + surface_up_z * 31.0 meter,
-              17.0 meter, 3, false)
+              marker_sample.x() + east_x * (0.0 meter - 5.0 meter) + north_x * 15.0 meter + surface_up_x * 6.0 meter,
+              marker_sample.y() + east_y * (0.0 meter - 5.0 meter) + north_y * 15.0 meter + surface_up_y * 6.0 meter,
+              marker_sample.z() + east_z * (0.0 meter - 5.0 meter) + north_z * 15.0 meter + surface_up_z * 6.0 meter,
+              6.0 meter, 3, false)
 }
 
 fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
