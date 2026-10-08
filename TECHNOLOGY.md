@@ -298,11 +298,11 @@ owns that frame; the renderer validates and consumes the supplied axes. The
 handoff interpolates target, reciprocal distance, yaw, pitch, and roll into the
 same local camera frame, fades the orbital marker through fixed-palette stages,
 and activates tangent-patch detail before the ease completes. Once settled, the
-base view replaces orbit rotation with bounded east/north surface panning while
-the wheel retains measured-distance zoom. The camera keeps at least five metres
-of tangent-plane ground clearance and the pan remains within 600 metres of the
-selected location. It does not yet define production terrain level-of-detail
-assets or the return-to-orbit UI.
+base view orbits in the marker's east/north/up frame, treating the local surface
+normal as camera up while the wheel retains measured-distance zoom. Elevation
+is clamped above the local horizon and the camera keeps at least five metres of
+tangent-plane ground clearance. It does not yet define production terrain
+level-of-detail assets or the return-to-orbit UI.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples.
@@ -612,8 +612,8 @@ actions use the same hierarchy-aware transitions as before.
 The UI bridge reports accumulated right-drag deltas and wheel movement rather
 than exposing SDL event structures. Sagan consumes each delta once and owns the
 orbit target, yaw, pitch, and unit-typed camera distance. Orbital view maps
-right-drag to yaw and pitch; settled base view maps the same gesture to local
-east/north surface pan without changing its approach orientation. Focusing
+right-drag to world-frame yaw and pitch; settled base view maps the same gesture
+to azimuth and elevation around the marker's local surface normal. Focusing
 changes the
 target and distance smoothly; following a moving selected body updates only the
 target snapshot. During the transition, the eased destination is refreshed
