@@ -594,9 +594,10 @@ Moon, the same sphere draw also binds
 a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
 through the marker's body-fixed tangent basis and feather-blends its boundary
 into the global map. Below five kilometres altitude, a 255-by-255 indexed
-spherical patch replaces the coarse global sphere over a 262.144-kilometre
-square centered on the marker. Quadratic vertex spacing concentrates resolution
-around the base while extending beyond the horizon at maximum local zoom. Its
+spherical patch replaces the coarse global sphere over a 1,048.576-kilometre
+square centered on the marker. Cubic vertex spacing concentrates resolution
+around the base while extending beyond the 132-kilometre lunar horizon at the
+LOD activation altitude. Its
 vertices are projected onto the same Moon
 radius, then stored as metre-scale offsets from the marker's surface anchor.
 The patch reuses the Moon material, texture blend, lighting, and depth target,

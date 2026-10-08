@@ -219,10 +219,10 @@ namespace sagan_render::scene_gpu
     {
       constexpr std::uint32_t segments = 255;
       constexpr double moon_radius_metres = 1737400.0;
-      // Cover beyond the roughly 83 km lunar horizon visible from the local
-      // camera's 2 km maximum distance. Quadratic spacing keeps dense vertices
-      // around the base while allowing one patch to replace the coarse globe.
-      constexpr double patch_half_width_metres = 131072.0;
+      // Cover well beyond the roughly 132 km lunar horizon at the 5 km patch
+      // activation altitude. Cubic spacing preserves metre-scale density near
+      // the base while keeping the finite edge outside every local frustum.
+      constexpr double patch_half_width_metres = 524288.0;
       constexpr std::array<double, 3> center{{
         0.8660254037835535, 0.0, 0.49999999999996425}};
       constexpr std::array<double, 3> east{{0.0, 1.0, 0.0}};
@@ -234,17 +234,15 @@ namespace sagan_render::scene_gpu
       {
         const double north_normalized = -1.0 +
           2.0 * static_cast<double>(row) / static_cast<double>(segments);
-        const double north_metres = std::copysign(
-          north_normalized * north_normalized * patch_half_width_metres,
-          north_normalized);
+        const double north_metres = north_normalized * north_normalized *
+          north_normalized * patch_half_width_metres;
         for (std::uint32_t column = 0; column <= segments; ++column)
         {
           const double east_normalized = -1.0 +
             2.0 * static_cast<double>(column) /
               static_cast<double>(segments);
-          const double east_metres = std::copysign(
-            east_normalized * east_normalized * patch_half_width_metres,
-            east_normalized);
+          const double east_metres = east_normalized * east_normalized *
+            east_normalized * patch_half_width_metres;
           double x = center[0] + east[0] * east_metres / moon_radius_metres +
             north[0] * north_metres / moon_radius_metres;
           double y = center[1] + east[1] * east_metres / moon_radius_metres +
