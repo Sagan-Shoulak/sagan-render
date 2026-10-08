@@ -72,7 +72,10 @@ fun demo_sine(value: Float64): Float64 {
   }
   let squared = angle * angle
   return angle * (1.0 - squared / 6.0 + squared * squared / 120.0 -
-                  squared * squared * squared / 5040.0)
+                  squared * squared * squared / 5040.0 +
+                  squared * squared * squared * squared / 362880.0 -
+                  squared * squared * squared * squared * squared /
+                    39916800.0)
 }
 
 fun demo_cosine(value: Float64): Float64 {
@@ -88,7 +91,10 @@ fun demo_cosine(value: Float64): Float64 {
   }
   let squared = angle * angle
   return sign * (1.0 - squared / 2.0 + squared * squared / 24.0 -
-                 squared * squared * squared / 720.0)
+                 squared * squared * squared / 720.0 +
+                 squared * squared * squared * squared / 40320.0 -
+                 squared * squared * squared * squared * squared /
+                   3628800.0)
 }
 
 fun clamp_pitch(value: Float64): Float64 {
@@ -297,7 +303,7 @@ fun local_structure(marker: SurfaceLocationMarker,
   let up_x = latitude_cosine * longitude_cosine
   let up_y = latitude_cosine * longitude_sine
   let up_z = latitude_sine
-  let surface_offset = up_metres - marker.altitude() - 0.25 meter
+  let surface_offset = up_metres - marker.altitude()
   return PresentationObject(
     identifier,
     sample(marker_value).x() + east_x * east_metres +
@@ -378,11 +384,11 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   let surface_up_y = latitude_cosine * longitude_sine
   let surface_up_z = latitude_sine
   let surface_origin_x = marker_sample.x() -
-    surface_up_x * (marker.altitude() + 0.25 meter)
+    surface_up_x * marker.altitude()
   let surface_origin_y = marker_sample.y() -
-    surface_up_y * (marker.altitude() + 0.25 meter)
+    surface_up_y * marker.altitude()
   let surface_origin_z = marker_sample.z() -
-    surface_up_z * (marker.altitude() + 0.25 meter)
+    surface_up_z * marker.altitude()
   let east_x = 0.0 - longitude_sine
   let east_y = longitude_cosine
   let east_z = 0.0
