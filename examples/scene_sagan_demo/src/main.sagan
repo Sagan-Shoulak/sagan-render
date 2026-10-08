@@ -758,6 +758,97 @@ fun selected_camera_z(identifier: Int64,
   return sample(first).z() + SUN_VIEW_DISTANCE
 }
 
+fun draw_base_management_overlay(panel_tab: Int64,
+                                 return_hovered: Bool): Void {
+  let panel_width = 276.0
+  let panel_x = width() - panel_width - 36.0
+  let panel_y = 90.0
+  let panel_height = height() - 144.0
+  fill(panel_x - 2.0, panel_y - 2.0,
+       panel_width + 4.0, panel_height + 4.0, 142, 203, 255)
+  fill(panel_x, panel_y, panel_width, panel_height, 16, 43, 70)
+  text(panel_x + 14.0, panel_y + 14.0, "BASE MANAGEMENT", 14.0,
+       245, 249, 255)
+  text(panel_x + 14.0, panel_y + 34.0, "DEMO SNAPSHOT - SHACKLETON", 8.0,
+       142, 164, 188)
+
+  let overview_red: Int64 = 38
+  let overview_green: Int64 = 78
+  let overview_blue: Int64 = 116
+  let resources_red: Int64 = 38
+  let resources_green: Int64 = 78
+  let resources_blue: Int64 = 116
+  let systems_red: Int64 = 38
+  let systems_green: Int64 = 78
+  let systems_blue: Int64 = 116
+  if panel_tab == 0 {
+    overview_red = 55
+    overview_green = 125
+    overview_blue = 181
+  }
+  if panel_tab == 1 {
+    resources_red = 55
+    resources_green = 125
+    resources_blue = 181
+  }
+  if panel_tab == 2 {
+    systems_red = 55
+    systems_green = 125
+    systems_blue = 181
+  }
+  fill(panel_x + 12.0, panel_y + 54.0, 78.0, 24.0,
+       overview_red, overview_green, overview_blue)
+  fill(panel_x + 94.0, panel_y + 54.0, 78.0, 24.0,
+       resources_red, resources_green, resources_blue)
+  fill(panel_x + 176.0, panel_y + 54.0, 88.0, 24.0,
+       systems_red, systems_green, systems_blue)
+  text(panel_x + 20.0, panel_y + 62.0, "OVERVIEW", 8.0, 245, 249, 255)
+  text(panel_x + 102.0, panel_y + 62.0, "RESOURCES", 8.0, 245, 249, 255)
+  text(panel_x + 190.0, panel_y + 62.0, "SYSTEMS", 8.0, 245, 249, 255)
+
+  if panel_tab == 0 {
+    text(panel_x + 14.0, panel_y + 96.0, "POWER", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 114.0, "GENERATION       240 kW", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 132.0, "CONSUMPTION      168 kW", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 150.0, "AVAILABLE         72 kW", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 178.0, "CAPACITY", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 196.0, "MACHINE SLOTS       7 / 12", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 214.0, "STORAGE USED          68%", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 242.0, "LAUNCHPAD", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 260.0, "PAD 01   READY", 9.0, 71, 174, 255)
+  }
+  if panel_tab == 1 {
+    text(panel_x + 14.0, panel_y + 96.0, "NET PRODUCTION", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 116.0, "WATER             +18.4 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 136.0, "OXYGEN             +6.2 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 156.0, "REGOLITH           +42.0 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 184.0, "RESOURCE LOAD", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 204.0, "EXTRACTION       2 ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 224.0, "REFINEMENT       1 ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 244.0, "STORAGE HEADROOM      32%", 9.0, 245, 249, 255)
+  }
+  if panel_tab == 2 {
+    text(panel_x + 14.0, panel_y + 96.0, "INSTALLED SYSTEMS", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 116.0, "SOLAR ARRAY        NOMINAL", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 136.0, "LIFE SUPPORT       NOMINAL", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 156.0, "REFINERY           ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 176.0, "EXTRACTOR          ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 204.0, "MAINTENANCE", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 224.0, "BASE CONDITION         96%", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 244.0, "OPEN MACHINE SLOTS   5", 9.0, 245, 249, 255)
+  }
+
+  if return_hovered {
+    fill(panel_x + 12.0, panel_y + panel_height - 44.0,
+         panel_width - 24.0, 30.0, 55, 125, 181)
+  } else {
+    fill(panel_x + 12.0, panel_y + panel_height - 44.0,
+         panel_width - 24.0, 30.0, 38, 78, 116)
+  }
+  text(panel_x + 66.0, panel_y + panel_height - 34.0,
+       "RETURN TO ORBIT  [R]", 10.0, 245, 249, 255)
+}
+
 fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             camera_z: Float64<meter>, camera_yaw: Float64,
             camera_pitch: Float64, camera_roll: Float64,
@@ -766,12 +857,16 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             third: SpatialRenderable, marker: SurfaceLocationMarker,
             marker_value: SpatialRenderable, marker_active: Bool,
             marker_hovered: Bool, marker_fade_stage: Int64,
-            surface_detail_active: Bool, transitioning: Bool): Void {
+            surface_detail_active: Bool, transitioning: Bool,
+            base_panel_tab: Int64, return_hovered: Bool): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
   let viewport_y = 76.0
   let viewport_width = window_width - 48.0
+  if surface_detail_active {
+    if transitioning == false { viewport_width = window_width - 360.0 }
+  }
   let viewport_height = window_height - 116.0
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
@@ -845,6 +940,9 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
     text(24.0, window_height - 28.0,
          "RIGHT-DRAG: LOCAL ORBIT | WHEEL: ZOOM | SURFACE NORMAL IS UP",
          10.0, 142, 203, 255)
+    if transitioning == false {
+      draw_base_management_overlay(base_panel_tab, return_hovered)
+    }
   } else {
     text(24.0, window_height - 28.0,
          "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT",
@@ -888,6 +986,14 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focused_identifier: Int64 = 1
   let focused_marker = false
   let local_view = false
+  let returning_to_orbit = false
+  let focus_source_marker = false
+  let base_panel_tab: Int64 = 0
+  let return_hovered = false
+  let saved_orbit_distance = MOON_VIEW_DISTANCE
+  let saved_orbit_yaw = camera_yaw
+  let saved_orbit_pitch = camera_pitch
+  let saved_orbit_roll = camera_roll
   let local_orbit_yaw = 0.959
   let local_orbit_pitch = 0.674
   let running = true
@@ -971,6 +1077,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       let viewport_x = 24.0
       let viewport_y = 76.0
       let viewport_width = width() - 48.0
+      if local_view {
+        if focusing == false { viewport_width = width() - 360.0 }
+      }
       let viewport_height = height() - 116.0
       // Keep picking and painting on the same fresh presentation camera. The
       // accelerated demo Moon can move thousands of kilometres between frames;
@@ -993,8 +1102,20 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         camera_z = orbit_target_z - look_forward_z * camera_distance
       }
       let marker_requested = false
+      let return_requested = false
       let marker_hovered = false
       let marker_fade_stage: Int64 = 3
+      return_hovered = false
+      let panel_x = width() - 312.0
+      let panel_y = 90.0
+      let panel_height = height() - 144.0
+      if local_view {
+        return_hovered = pick_rectangle(
+          pointer_x(), pointer_y(), panel_x + 12.0,
+          panel_y + panel_height - 44.0, 252.0, 30.0)
+        if key_pressed("r") { return_requested = true }
+        if key_pressed("escape") { return_requested = true }
+      }
       if marker_faces_camera(
            marker_value, third, camera_x, camera_y, camera_z) {
         let moon_depth = projected_depth(
@@ -1020,6 +1141,18 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       if pointer_pressed() {
         let click_x = pointer_x()
         let click_y = pointer_y()
+        if local_view {
+          if pick_rectangle(click_x, click_y,
+                            panel_x + 12.0, panel_y + 54.0,
+                            78.0, 24.0) { base_panel_tab = 0 }
+          if pick_rectangle(click_x, click_y,
+                            panel_x + 94.0, panel_y + 54.0,
+                            78.0, 24.0) { base_panel_tab = 1 }
+          if pick_rectangle(click_x, click_y,
+                            panel_x + 176.0, panel_y + 54.0,
+                            88.0, 24.0) { base_panel_tab = 2 }
+          if return_hovered { return_requested = true }
+        } else {
         if pick_circle(click_x, click_y,
                        projected_x(first, camera_x, camera_y, camera_z,
                                    camera_yaw, camera_pitch, camera_roll,
@@ -1048,8 +1181,13 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           marker_requested = true
           selection.select!(3)
         }
+        }
       }
       if marker_requested {
+        saved_orbit_distance = camera_distance
+        saved_orbit_yaw = camera_yaw
+        saved_orbit_pitch = camera_pitch
+        saved_orbit_roll = camera_roll
         focus_start_x = orbit_target_x
         focus_start_y = orbit_target_y
         focus_start_z = orbit_target_z
@@ -1064,9 +1202,32 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         focus_duration = SURFACE_HANDOFF_DURATION_SECONDS
         focus_started = elapsed_seconds()
         focusing = true
+        focus_source_marker = false
         focus_source_identifier = focused_identifier
         focused_identifier = 0
         focused_marker = true
+      } else {
+      if return_requested {
+        focus_start_x = orbit_target_x
+        focus_start_y = orbit_target_y
+        focus_start_z = orbit_target_z
+        focus_start_distance = camera_distance
+        focus_start_yaw = camera_yaw
+        focus_start_pitch = camera_pitch
+        focus_start_roll = camera_roll
+        focus_target_x = sample(third).x()
+        focus_target_y = sample(third).y()
+        focus_target_z = sample(third).z()
+        focus_target_distance = saved_orbit_distance
+        focus_duration = SURFACE_HANDOFF_DURATION_SECONDS
+        focus_started = elapsed_seconds()
+        focusing = true
+        returning_to_orbit = true
+        focus_source_marker = true
+        focus_source_identifier = 0
+        focused_identifier = 3
+        focused_marker = false
+        selection.select!(3)
       } else {
       if key_pressed("enter") {
         if selection.identifier() != focused_identifier {
@@ -1087,10 +1248,12 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           }
           focus_started = elapsed_seconds()
           focusing = true
+          focus_source_marker = false
           focus_source_identifier = focused_identifier
           focused_identifier = selection.identifier()
           focused_marker = false
         }
+      }
       }
       }
       if focusing {
@@ -1120,6 +1283,14 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           if base_progress > 0.35 { marker_fade_stage = 2 }
           if base_progress > 0.58 { marker_fade_stage = 1 }
           if base_progress > 0.78 { marker_fade_stage = 0 }
+        }
+        if returning_to_orbit {
+          camera_yaw = focus_scalar_at(
+            focus_start_yaw, saved_orbit_yaw, base_progress)
+          camera_pitch = focus_scalar_at(
+            focus_start_pitch, saved_orbit_pitch, base_progress)
+          camera_roll = focus_scalar_at(
+            focus_start_roll, saved_orbit_roll, base_progress)
         }
         let pan_progress = base_progress
         let zoom_progress = base_progress
@@ -1158,6 +1329,11 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let live_start_x = focus_start_x
         let live_start_y = focus_start_y
         let live_start_z = focus_start_z
+        if focus_source_marker {
+          live_start_x = local_target_x(base_marker, marker_value)
+          live_start_y = local_target_y(base_marker, marker_value)
+          live_start_z = local_target_z(base_marker, marker_value)
+        }
         if focus_source_identifier > 0 {
           live_start_x = selected_target_x(
             focus_source_identifier, first, second, third)
@@ -1172,6 +1348,11 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if focus_elapsed >= focus_duration {
           focusing = false
           if focused_marker { local_view = true }
+          if returning_to_orbit {
+            local_view = false
+            returning_to_orbit = false
+            focus_source_marker = false
+          }
         }
       }
       if focusing == false {
@@ -1295,7 +1476,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
               camera_roll,
               selection, first, second, third, base_marker, marker_value,
               focused_marker, marker_hovered, marker_fade_stage,
-              surface_detail_active, focusing)
+              surface_detail_active, focusing,
+              base_panel_tab, return_hovered)
     }
   }
   close()

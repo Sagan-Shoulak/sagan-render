@@ -303,8 +303,14 @@ normal as camera up while the wheel retains measured-distance zoom. Elevation
 is clamped above the local horizon and the camera keeps at least five metres of
 tangent-plane ground clearance. Once local detail is active, the compositor
 suppresses orbital guides and planetary labels while retaining physical scene
-geometry and local-view UI. It does not yet define production terrain
-level-of-detail assets or the return-to-orbit UI.
+geometry and reserves a right sidebar for local-view UI. The renderer-neutral
+demo presents GDD-informed overview, resource, and system tabs covering power
+generation and consumption, net resource production, storage, machine slots,
+maintenance, and launchpad status. These values are labeled as a deterministic
+demo snapshot; production, storage, and outpost rules remain game-owned. A
+pointer-accessible button plus R and Escape return through the same live-target
+camera transition to the saved Moon orbital framing. It does not yet define
+production terrain level-of-detail assets.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples.

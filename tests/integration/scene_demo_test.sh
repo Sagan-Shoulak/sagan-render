@@ -55,6 +55,7 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-marker-handoff.bmp \
   build/scene-sagan-demo-test/scene-marker-detail-handoff.bmp \
   build/scene-sagan-demo-test/scene-marker-base.bmp \
+  build/scene-sagan-demo-test/scene-returned-orbit.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
@@ -146,9 +147,17 @@ export SAGAN_RENDER_UI_CAPTURE_AFTER_MS=9600
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-marker-base.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=10000
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+
+export SAGAN_RENDER_TEST_DELAYED_KEYS=r
+export SAGAN_RENDER_TEST_DELAYED_KEYS_AFTER_MS=10000
+export SAGAN_RENDER_UI_CAPTURE_AFTER_MS=15600
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-returned-orbit.bmp
+export SAGAN_RENDER_AUTOCLOSE_MS=16000
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 unset SAGAN_RENDER_TEST_KEYS SAGAN_RENDER_TEST_POINTER_X \
   SAGAN_RENDER_TEST_POINTER_Y SAGAN_RENDER_TEST_POINTER_AFTER_MS \
-  SAGAN_RENDER_UI_CAPTURE_AFTER_MS
+  SAGAN_RENDER_UI_CAPTURE_AFTER_MS SAGAN_RENDER_TEST_DELAYED_KEYS \
+  SAGAN_RENDER_TEST_DELAYED_KEYS_AFTER_MS
 
 export SAGAN_RENDER_TEST_KEYS=left,enter
 export SAGAN_RENDER_TEST_DELAYED_KEYS=right,enter
@@ -175,6 +184,7 @@ require_capture build/scene-sagan-demo-test/scene-marker-hovered.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-handoff.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-detail-handoff.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-base.bmp
+require_capture build/scene-sagan-demo-test/scene-returned-orbit.bmp
 require_capture build/scene-sagan-demo-test/scene-camera-turned.bmp
 require_capture build/scene-sagan-demo-test/scene-zoomed.bmp
 grep -q "SAGAN_SCENE_DEMO language=sagan driver=direct3d12 logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
@@ -239,4 +249,9 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker.bmp)" == \
   echo "Clicking the lunar surface marker did not enter the local base view" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on D3D12: indexed bodies and lunar marker rendered; hover, continuous local-base handoff, orbit, and zoom changed frame data."
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker-base.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-returned-orbit.bmp)" ]]; then
+  echo "Return to Orbit did not leave the local base presentation" >&2
+  exit 1
+fi
+echo "Sagan scene demo passed on D3D12: indexed bodies and lunar marker rendered; hover, continuous local-base handoff, base UI, return to orbit, orbit, and zoom changed frame data."
