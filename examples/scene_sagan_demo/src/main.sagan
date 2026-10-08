@@ -275,19 +275,15 @@ fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
                  surface_up_x, surface_up_y, surface_up_z, appearance)
 }
 
-fun compose_local_base(marker: SurfaceLocationMarker,
-                       marker_value: SpatialRenderable,
-                       camera_x: Float64<meter>, camera_y: Float64<meter>,
-                       camera_z: Float64<meter>, camera_yaw: Float64,
-                       camera_pitch: Float64, camera_roll: Float64,
-                       transitioning: Bool): Void {
+fun draw_local_base_scene(marker: SurfaceLocationMarker,
+                          marker_value: SpatialRenderable,
+                          camera_x: Float64<meter>, camera_y: Float64<meter>,
+                          camera_z: Float64<meter>, camera_yaw: Float64,
+                          camera_pitch: Float64, camera_roll: Float64,
+                          viewport_x: Float64, viewport_y: Float64,
+                          viewport_width: Float64,
+                          viewport_height: Float64): Void {
   let marker_sample = sample(marker_value)
-  let window_width = width()
-  let window_height = height()
-  let viewport_x = 20.0
-  let viewport_y = 68.0
-  let viewport_width = window_width - 40.0
-  let viewport_height = window_height - 102.0
   let latitude_cosine = demo_cosine(marker.latitude_radians())
   let latitude_sine = demo_sine(marker.latitude_radians())
   let longitude_cosine = demo_cosine(marker.longitude_radians())
@@ -318,51 +314,6 @@ fun compose_local_base(marker: SurfaceLocationMarker,
   let up_x = base_up_x * roll_cosine + right_x * roll_sine
   let up_y = base_up_y * roll_cosine + right_y * roll_sine
   let up_z = base_up_z * roll_cosine
-  begin()
-  fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
-  text(20.0, 18.0, "SHACKLETON BASE - LOCAL VIEW", 16.0, 245, 249, 255)
-  if transitioning {
-    text(20.0, 43.0, "DESCENDING - LOCAL DETAIL ACTIVE", 10.0,
-         255, 212, 91)
-  } else {
-    text(20.0, 43.0, "ORBITAL MARKER HANDOFF - BASE UI NEXT", 10.0,
-         142, 203, 255)
-  }
-  fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
-
-  draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
-                 camera_x, camera_y, camera_z,
-                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                 0.0 meter, 0.0 meter, 0.0 meter,
-                 east_x, east_y, east_z, north_x, north_y, north_z,
-                 surface_up_x, surface_up_y, surface_up_z,
-                 520.0 meter, 420.0 meter, 5.0 meter, 0.0, 10)
-  // A coarse regolith field makes translation and roll readable while the
-  // global LRO map hands off to a future high-resolution polar terrain asset.
-  let tile_row: Int64 = 0
-  let tile_y: Float64<meter> = 0.0 meter - 350.0 meter
-  while tile_row < 8 {
-    let tile_column: Int64 = 0
-    let tile_x: Float64<meter> = 0.0 meter - 350.0 meter
-    while tile_column < 8 {
-      let tile_appearance = 20 +
-        (tile_row * 7 + tile_column * 3 + tile_row * tile_column) % 4
-      draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
-                     camera_x, camera_y, camera_z,
-                     forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                     marker_sample.x(), marker_sample.y(), marker_sample.z(),
-                     tile_x, tile_y, 5.2 meter,
-                     east_x, east_y, east_z, north_x, north_y, north_z,
-                     surface_up_x, surface_up_y, surface_up_z,
-                     49.5 meter, 49.5 meter, 0.15 meter, 0.0,
-                     tile_appearance)
-      tile_column = tile_column + 1
-      tile_x = tile_x + 100.0 meter
-    }
-    tile_row = tile_row + 1
-    tile_y = tile_y + 100.0 meter
-  }
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
@@ -422,9 +373,6 @@ fun compose_local_base(marker: SurfaceLocationMarker,
               marker_sample.y() + east_y * (0.0 meter - 70.0 meter) + north_y * 18.0 meter + surface_up_y * 31.0 meter,
               marker_sample.z() + east_z * (0.0 meter - 70.0 meter) + north_z * 18.0 meter + surface_up_z * 31.0 meter,
               17.0 meter, 3, false)
-  text(20.0, window_height - 25.0,
-       "SAME PROCESS - SAME GPU SCENE CONTRACT", 10.0, 142, 164, 188)
-  present()
 }
 
 fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
@@ -438,7 +386,9 @@ fun draw_object(value: SpatialRenderable,
                 camera_pitch: Float64, camera_roll: Float64,
                 viewport_x: Float64,
                 viewport_y: Float64, viewport_width: Float64,
-                viewport_height: Float64, selected: Bool): Void {
+                viewport_height: Float64,
+                near_distance: Float64<meter>,
+                far_distance: Float64<meter>, selected: Bool): Void {
   let item: RenderSample = sample(value)
   let pitch_cosine = demo_cosine(camera_pitch)
   let pitch_sine = demo_sine(camera_pitch)
@@ -488,7 +438,7 @@ fun draw_object(value: SpatialRenderable,
                 camera_x, camera_y, camera_z,
                 forward_x, forward_y, forward_z,
                 camera_up_x, camera_up_y, camera_up_z, 1.0471975511965976,
-                1000.0 kilometer, 500000000.0 kilometer,
+                near_distance, far_distance,
                 item.x(), item.y(), item.z(), item.radius(),
                 item.identifier(), selected)
     text(logical_x + label_offset_x + projected_radius + 7.0, logical_y - 5.0,
@@ -752,7 +702,8 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             first: SpatialRenderable, second: SpatialRenderable,
             third: SpatialRenderable, marker: SurfaceLocationMarker,
             marker_value: SpatialRenderable, marker_active: Bool,
-            marker_hovered: Bool, marker_fade_stage: Int64): Void {
+            marker_hovered: Bool, marker_fade_stage: Int64,
+            surface_detail_active: Bool, transitioning: Bool): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
@@ -762,16 +713,32 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(24.0, 22.0, "SUN - EARTH - MOON SNAPSHOT", 16.0, 245, 249, 255)
+  if surface_detail_active {
+    if transitioning {
+      text(24.0, 48.0, "DESCENDING - SAME MOON FRAME - LOCAL DETAIL ACTIVE",
+           10.0, 255, 212, 91)
+    } else {
+      text(24.0, 48.0, "SHACKLETON BASE - SAME MOON FRAME",
+           10.0, 142, 203, 255)
+    }
+  } else {
   if marker_active {
     text(24.0, 48.0, "APPROACHING SHACKLETON BASE", 10.0, 255, 212, 91)
   } else {
     text(24.0, 48.0, "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CLICK: SELECT | ENTER: FOCUS", 10.0,
          142, 203, 255)
   }
+  }
   fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
   let sun_sample = sample(first)
   let earth_sample = sample(second)
   let moon_sample = sample(third)
+  let scene_near: Float64<meter> = 1000.0 kilometer
+  let scene_far: Float64<meter> = 500000000.0 kilometer
+  if surface_detail_active {
+    scene_near = 1.0 meter
+    scene_far = 4000000.0 meter
+  }
   draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
              camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
              camera_roll,
@@ -785,15 +752,25 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   draw_object(first, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
+              scene_near, scene_far,
               selection.is_selected(1))
   draw_object(second, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
+              scene_near, scene_far,
               selection.is_selected(2))
   draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
+              scene_near, scene_far,
               selection.is_selected(3))
+  if surface_detail_active {
+    draw_local_base_scene(marker, marker_value,
+                          camera_x, camera_y, camera_z,
+                          camera_yaw, camera_pitch, camera_roll,
+                          viewport_x, viewport_y,
+                          viewport_width, viewport_height)
+  }
   draw_surface_marker(marker, marker_value, third,
                       camera_x, camera_y, camera_z,
                       camera_yaw, camera_pitch, camera_roll,
@@ -1122,16 +1099,11 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       if focused_marker {
         if marker_fade_stage == 0 { surface_detail_active = true }
       }
-      if surface_detail_active {
-        compose_local_base(base_marker, marker_value,
-                           camera_x, camera_y, camera_z,
-                           camera_yaw, camera_pitch, camera_roll, focusing)
-      } else {
-        compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
-                camera_roll,
-                selection, first, second, third, base_marker, marker_value,
-                focused_marker, marker_hovered, marker_fade_stage)
-      }
+      compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              camera_roll,
+              selection, first, second, third, base_marker, marker_value,
+              focused_marker, marker_hovered, marker_fade_stage,
+              surface_detail_active, focusing)
     }
   }
   close()

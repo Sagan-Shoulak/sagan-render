@@ -214,10 +214,12 @@ not Space Game content. The flat patch is an inspectable local bootstrap, not a
 claim that orbit-to-surface terrain, texture identity, or physics reference-
 frame transition is complete. Focused CI captures the initial view and an
 injected orbit input and requires different D3D12 frames plus clean shutdown.
-The combined scene overlays a coarse neutral regolith grid during the final
-descent so camera translation remains readable. It is a procedural motion cue,
-not a claim that the global LRO map resolves the metre-scale Shackleton patch;
-that requires a dedicated south-polar source tile and terrain LOD contract.
+The combined scene does not replace the Moon with this flat patch. It keeps the
+same Moon mesh active and queues tangent-frame pads, structures, and vehicles
+into the same viewport, camera, depth range, and render pass. The buildings are
+therefore anchored directly above the Moon throughout descent. The coarse
+global LRO grid cannot resolve the metre-scale Shackleton region; that requires
+native sampled textures plus a global/regional/local tile-selection contract.
 
 ## Interactive UI GPU demo
 
