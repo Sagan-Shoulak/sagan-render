@@ -29,7 +29,8 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f737068657265(
   double up_x, double up_y, double up_z, double field_of_view,
   double near_distance, double far_distance,
   double body_x, double body_y, double body_z, double radius,
-  std::int64_t appearance, double minimum_radius, bool selected) -> void;
+  std::int64_t appearance, double minimum_radius,
+  double center_offset_x, double center_offset_y, bool selected) -> void;
 auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void;
 auto sagan_5f5f72656e6465725f75695f6b65795f70726573736564(
   const std::string &key) -> bool;

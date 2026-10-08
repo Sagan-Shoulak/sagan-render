@@ -55,11 +55,25 @@ int main(int argc, char **argv)
     12, {anchor, anchor, anchor - 8000000.0}, 10.0, "tiny"};
   const auto scaled_draw = prepare_sphere_draw(
     tiny_far_body, view, {960.0, 540.0}, {8.0});
+  const auto offset_draw = prepare_sphere_draw(
+    tiny_far_body, view, {960.0, 540.0}, {8.0, 48.0, -12.0});
   assert(scaled_draw.presented_radius_metres > scaled_draw.physical_radius_metres);
   const double projected_radius =
     (scaled_draw.presented_radius_metres / 8000000.0) /
     std::tan(view.vertical_field_of_view_radians / 2.0) * 540.0 / 2.0;
   assert(std::abs(projected_radius - 8.0) < 1.0e-9);
+  assert(offset_draw.camera_relative_center.x_metres ==
+         scaled_draw.camera_relative_center.x_metres);
+  assert(offset_draw.camera_relative_center.y_metres ==
+         scaled_draw.camera_relative_center.y_metres);
+  assert(offset_draw.camera_relative_center.z_metres ==
+         scaled_draw.camera_relative_center.z_metres);
+  assert(near(offset_draw.camera_uniform.model_view_projection[12] -
+              scaled_draw.camera_uniform.model_view_projection[12],
+              800000.0, 0.1));
+  assert(near(offset_draw.camera_uniform.model_view_projection[13] -
+              scaled_draw.camera_uniform.model_view_projection[13],
+              355555.5625, 0.1));
 
   bool behind_rejected = false;
   try

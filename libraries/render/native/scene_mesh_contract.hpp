@@ -20,6 +20,8 @@ namespace sagan_render::scene
   struct sphere_presentation
   {
     scalar minimum_radius_logical{};
+    scalar center_offset_x_logical{};
+    scalar center_offset_y_logical{};
   };
 
   struct prepared_sphere_draw
@@ -40,7 +42,9 @@ namespace sagan_render::scene
         !std::isfinite(output.width_logical) ||
         !std::isfinite(output.height_logical) ||
         presentation.minimum_radius_logical < 0.0 ||
-        !std::isfinite(presentation.minimum_radius_logical))
+        !std::isfinite(presentation.minimum_radius_logical) ||
+        !std::isfinite(presentation.center_offset_x_logical) ||
+        !std::isfinite(presentation.center_offset_y_logical))
       throw std::invalid_argument("Sphere viewport and presentation radius must be valid");
     if (item.radius_metres <= 0.0 || !std::isfinite(item.radius_metres))
       throw std::invalid_argument("Mesh sphere radius must be finite and positive");
@@ -83,12 +87,16 @@ namespace sagan_render::scene
     matrix[0] = static_cast<float>(presented_radius * right.x * x_scale);
     matrix[4] = static_cast<float>(presented_radius * right.y * x_scale);
     matrix[8] = static_cast<float>(presented_radius * right.z * x_scale);
-    matrix[12] = static_cast<float>(camera_x * x_scale);
+    matrix[12] = static_cast<float>(
+      camera_x * x_scale + camera_z * 2.0 *
+        presentation.center_offset_x_logical / output.width_logical);
 
     matrix[1] = static_cast<float>(presented_radius * camera_up.x * y_scale);
     matrix[5] = static_cast<float>(presented_radius * camera_up.y * y_scale);
     matrix[9] = static_cast<float>(presented_radius * camera_up.z * y_scale);
-    matrix[13] = static_cast<float>(camera_y * y_scale);
+    matrix[13] = static_cast<float>(
+      camera_y * y_scale - camera_z * 2.0 *
+        presentation.center_offset_y_logical / output.height_logical);
 
     matrix[2] = static_cast<float>(presented_radius * forward.x * depth_scale);
     matrix[6] = static_cast<float>(presented_radius * forward.y * depth_scale);

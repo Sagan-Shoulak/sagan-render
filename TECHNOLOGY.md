@@ -296,7 +296,8 @@ and Moon fixture data. It uses mean radii, a 149,597,870.7 km Sun-Earth
 separation, and a 384,400 km Earth-Moon separation. These values are deterministic
 demo inputs, not an ephemeris or an orbital solver. At the full-system camera
 scale the Moon marker is offset as a labeled callout because its true projected
-separation from Earth is smaller than the minimum selectable marker size; the
+separation from Earth is smaller than the minimum selectable marker size. One
+shared logical offset moves its presentation mesh and label together; the
 underlying physical coordinate is not altered. The callout disappears at
 closer framing, where the measured separation can be shown directly.
 

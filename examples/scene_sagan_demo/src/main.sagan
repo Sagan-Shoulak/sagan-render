@@ -156,7 +156,7 @@ fun maximum(first: Float64, second: Float64): Float64 {
 }
 
 fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
-  if camera_z - sample(moon).z() > 10000000.0 kilometer { return 30.0 }
+  if camera_z - sample(moon).z() > 10000000.0 kilometer { return 48.0 }
   return 0.0
 }
 
@@ -198,8 +198,10 @@ fun draw_object(value: SpatialRenderable,
     let minimum_radius = 7.0
     if item.identifier() == 1 { minimum_radius = 22.0 }
     if item.identifier() == 2 { minimum_radius = 18.0 }
+    let center_offset_x = 0.0
     if item.identifier() == 3 {
-      logical_x = logical_x + moon_marker_offset(camera_z, value)
+      center_offset_x = moon_marker_offset(camera_z, value)
+      logical_x = logical_x + center_offset_x
     }
     let projected_radius = maximum(minimum_radius,
       (item.radius() / forward_depth) / 0.577350269 * viewport_height / 2.0)
@@ -209,7 +211,7 @@ fun draw_object(value: SpatialRenderable,
                 camera_up_x, camera_up_y, camera_up_z, 1.0471975511965976,
                 1000.0 kilometer, 500000000.0 kilometer,
                 item.x(), item.y(), item.z(), item.radius(),
-                item.identifier(), minimum_radius, selected)
+                item.identifier(), minimum_radius, center_offset_x, 0.0, selected)
     text(logical_x + projected_radius + 7.0, logical_y - 5.0,
          item.label(), 10.0, 245, 249, 255)
   }
