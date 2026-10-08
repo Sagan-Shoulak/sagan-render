@@ -579,6 +579,26 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       let viewport_y = 76.0
       let viewport_width = width() - 48.0
       let viewport_height = height() - 116.0
+      // Keep picking and painting on the same fresh presentation camera. The
+      // accelerated demo Moon can move thousands of kilometres between frames;
+      // using the previous camera here displaced the marker hit region even
+      // though the following camera made its painted pin look stationary.
+      if focusing == false {
+        if focused_marker {
+          orbit_target_x = sample(marker_value).x()
+          orbit_target_y = sample(marker_value).y()
+          orbit_target_z = sample(marker_value).z()
+        } else {
+        if focused_identifier > 0 {
+          orbit_target_x = selected_target_x(focused_identifier, first, second, third)
+          orbit_target_y = selected_target_y(focused_identifier, first, second, third)
+          orbit_target_z = selected_target_z(focused_identifier, first, second, third)
+        }
+        }
+        camera_x = orbit_target_x - look_forward_x * camera_distance
+        camera_y = orbit_target_y - look_forward_y * camera_distance
+        camera_z = orbit_target_z - look_forward_z * camera_distance
+      }
       let marker_requested = false
       if pointer_pressed() {
         let click_x = pointer_x()
@@ -631,12 +651,6 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
             }
           }
         }
-      }
-      // Deterministic integration hook. Physical keyboard input does not map
-      // this name; tests inject it through the existing named-key seam.
-      if key_pressed("marker") {
-        marker_requested = true
-        selection.select!(3)
       }
       if marker_requested {
         focus_start_x = orbit_target_x

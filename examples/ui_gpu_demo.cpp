@@ -712,6 +712,8 @@ namespace
   std::vector<std::string> bridge_delayed_keys;
   std::uint64_t bridge_delayed_keys_at{};
   bool bridge_delayed_keys_delivered{};
+  std::uint64_t bridge_delayed_pointer_at{};
+  bool bridge_delayed_pointer_pending{};
   bool bridge_running{};
   bool bridge_pointer_down{};
   bool bridge_pointer_up{};
@@ -786,6 +788,8 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   bridge_delayed_keys.clear();
   bridge_delayed_keys_at = 0;
   bridge_delayed_keys_delivered = false;
+  bridge_delayed_pointer_at = 0;
+  bridge_delayed_pointer_pending = false;
   update_bridge_size();
   const char *autoclose_value = std::getenv("SAGAN_RENDER_AUTOCLOSE_MS");
   const std::uint64_t autoclose = autoclose_value && *autoclose_value
@@ -823,7 +827,13 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
     bridge_pointer_x = std::strtod(test_pointer_x, nullptr);
     bridge_pointer_y = std::strtod(test_pointer_y, nullptr);
     const char *pointer_action = std::getenv("SAGAN_RENDER_TEST_POINTER_ACTION");
-    if (pointer_action && std::string_view{pointer_action} == "down")
+    const char *pointer_after = std::getenv("SAGAN_RENDER_TEST_POINTER_AFTER_MS");
+    if (pointer_after && *pointer_after)
+    {
+      bridge_delayed_pointer_at = std::strtoull(pointer_after, nullptr, 10);
+      bridge_delayed_pointer_pending = true;
+    }
+    else if (pointer_action && std::string_view{pointer_action} == "down")
       bridge_pointer_down = true;
     else if (!pointer_action || std::string_view{pointer_action} != "move")
     {
@@ -848,6 +858,13 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
   {
     for (const auto &key : bridge_delayed_keys) remember_key(key);
     bridge_delayed_keys_delivered = true;
+  }
+  if (bridge_delayed_pointer_pending &&
+      SDL_GetTicks() - bridge_started_at >= bridge_delayed_pointer_at)
+  {
+    bridge_pointer_down = true;
+    bridge_pointer_up = true;
+    bridge_delayed_pointer_pending = false;
   }
   SDL_Event event{};
   while (SDL_PollEvent(&event))
