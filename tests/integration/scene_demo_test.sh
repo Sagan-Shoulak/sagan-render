@@ -42,6 +42,7 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-ancestor-transition.bmp \
   build/scene-sagan-demo-test/scene-moon-ancestor-transition.bmp \
   build/scene-sagan-demo-test/scene-marker.bmp \
+  build/scene-sagan-demo-test/scene-marker-hovered.bmp \
   build/scene-sagan-demo-test/scene-marker-approach.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
@@ -101,6 +102,12 @@ export SAGAN_RENDER_AUTOCLOSE_MS=3800
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
 export SAGAN_RENDER_TEST_POINTER_X=550 SAGAN_RENDER_TEST_POINTER_Y=220
+export SAGAN_RENDER_TEST_POINTER_ACTION=move
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-marker-hovered.bmp
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+unset SAGAN_RENDER_TEST_POINTER_ACTION
+
+export SAGAN_RENDER_TEST_POINTER_X=550 SAGAN_RENDER_TEST_POINTER_Y=220
 export SAGAN_RENDER_TEST_POINTER_AFTER_MS=4000
 export SAGAN_RENDER_UI_CAPTURE_AFTER_MS=7200
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-marker-approach.bmp
@@ -130,6 +137,7 @@ require_capture build/scene-sagan-demo-test/scene-focus-transition.bmp
 require_capture build/scene-sagan-demo-test/scene-ancestor-transition.bmp
 require_capture build/scene-sagan-demo-test/scene-moon-ancestor-transition.bmp
 require_capture build/scene-sagan-demo-test/scene-marker.bmp
+require_capture build/scene-sagan-demo-test/scene-marker-hovered.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-approach.bmp
 require_capture build/scene-sagan-demo-test/scene-camera-turned.bmp
 require_capture build/scene-sagan-demo-test/scene-zoomed.bmp
@@ -166,8 +174,13 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
   exit 1
 fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-marker-hovered.bmp)" ]]; then
+  echo "Hovering the lunar surface marker did not fill its diamond" >&2
+  exit 1
+fi
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker.bmp)" == \
       "$(fingerprint build/scene-sagan-demo-test/scene-marker-approach.bmp)" ]]; then
   echo "Clicking the lunar surface marker did not start a camera approach" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on D3D12: indexed bodies and lunar marker rendered; selection, marker approach, orbit, and zoom changed frame data."
+echo "Sagan scene demo passed on D3D12: indexed bodies and lunar marker rendered; hover, selection, marker approach, orbit, and zoom changed frame data."

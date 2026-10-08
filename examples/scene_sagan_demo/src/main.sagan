@@ -323,7 +323,7 @@ fun draw_surface_marker(marker: SurfaceLocationMarker,
                         camera_z: Float64<meter>, camera_yaw: Float64,
                         camera_pitch: Float64, viewport_x: Float64,
                         viewport_y: Float64, viewport_width: Float64,
-                        viewport_height: Float64): Void {
+                        viewport_height: Float64, hovered: Bool): Void {
   let moon_depth = projected_depth(
     moon, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
   let moon_radius =
@@ -339,6 +339,19 @@ fun draw_surface_marker(marker: SurfaceLocationMarker,
         camera_yaw, camera_pitch, viewport_y, viewport_height)
       let icon_x = surface_x
       let icon_y = surface_y - 68.0
+      if hovered {
+        let row = 0.0 - 7.0
+        while row <= 7.0 {
+          let distance = row
+          if distance < 0.0 { distance = 0.0 - distance }
+          let half_width = 8.0 - distance
+          line(icon_x - half_width, icon_y + row,
+               icon_x + half_width, icon_y + row, 1.5,
+               viewport_x, viewport_y, viewport_width, viewport_height,
+               255, 212, 91)
+          row = row + 1.0
+        }
+      }
       line(surface_x, surface_y, icon_x, icon_y + 8.0, 2.0,
            viewport_x, viewport_y, viewport_width, viewport_height,
            255, 212, 91)
@@ -450,7 +463,8 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             camera_pitch: Float64, selection: SelectionState,
             first: SpatialRenderable, second: SpatialRenderable,
             third: SpatialRenderable, marker: SurfaceLocationMarker,
-            marker_value: SpatialRenderable, marker_active: Bool): Void {
+            marker_value: SpatialRenderable, marker_active: Bool,
+            marker_hovered: Bool): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
@@ -490,7 +504,8 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   draw_surface_marker(marker, marker_value, third,
                       camera_x, camera_y, camera_z,
                       camera_yaw, camera_pitch,
-                      viewport_x, viewport_y, viewport_width, viewport_height)
+                      viewport_x, viewport_y, viewport_width, viewport_height,
+                      marker_hovered)
   text(24.0, window_height - 28.0,
        "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
        142, 164, 188)
@@ -600,6 +615,29 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         camera_z = orbit_target_z - look_forward_z * camera_distance
       }
       let marker_requested = false
+      let marker_hovered = false
+      if marker_faces_camera(
+           marker_value, third, camera_x, camera_y, camera_z) {
+        let moon_depth = projected_depth(
+          third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+        let moon_radius =
+          (sample(third).radius() / moon_depth) /
+          0.577350269 * viewport_height / 2.0
+        if moon_radius > 15.0 {
+          let marker_icon_x = projected_x(
+            marker_value, camera_x, camera_y, camera_z,
+            camera_yaw, camera_pitch,
+            viewport_x, viewport_width, viewport_height)
+          let marker_icon_y = projected_y(
+            marker_value, camera_x, camera_y, camera_z,
+            camera_yaw, camera_pitch,
+            viewport_y, viewport_height) - 68.0
+          marker_hovered = pick_rectangle(
+            pointer_x(), pointer_y(),
+            marker_icon_x - 16.0, marker_icon_y - 18.0,
+            176.0, 104.0)
+        }
+      }
       if pointer_pressed() {
         let click_x = pointer_x()
         let click_y = pointer_y()
@@ -627,29 +665,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
                                    camera_yaw, camera_pitch,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(3) }
-        if marker_faces_camera(
-             marker_value, third, camera_x, camera_y, camera_z) {
-          let moon_depth = projected_depth(
-            third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
-          let moon_radius =
-            (sample(third).radius() / moon_depth) /
-            0.577350269 * viewport_height / 2.0
-          if moon_radius > 15.0 {
-            let marker_icon_x = projected_x(
-              marker_value, camera_x, camera_y, camera_z,
-              camera_yaw, camera_pitch,
-              viewport_x, viewport_width, viewport_height)
-            let marker_icon_y = projected_y(
-              marker_value, camera_x, camera_y, camera_z,
-              camera_yaw, camera_pitch,
-              viewport_y, viewport_height) - 68.0
-            if pick_rectangle(click_x, click_y,
-                              marker_icon_x - 16.0, marker_icon_y - 18.0,
-                              176.0, 104.0) {
-              marker_requested = true
-              selection.select!(3)
-            }
-          }
+        if marker_hovered {
+          marker_requested = true
+          selection.select!(3)
         }
       }
       if marker_requested {
@@ -778,7 +796,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       camera_z = orbit_target_z - look_forward_z * camera_distance
       compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               selection, first, second, third, base_marker, marker_value,
-              focused_marker)
+              focused_marker, marker_hovered)
     }
   }
   close()
