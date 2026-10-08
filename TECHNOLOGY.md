@@ -301,7 +301,9 @@ and activates tangent-patch detail before the ease completes. Once settled, the
 base view orbits in the marker's east/north/up frame, treating the local surface
 normal as camera up while the wheel retains measured-distance zoom. Elevation
 is clamped above the local horizon and the camera keeps at least five metres of
-tangent-plane ground clearance. It does not yet define production terrain
+tangent-plane ground clearance. Once local detail is active, the compositor
+suppresses orbital guides and planetary labels while retaining physical scene
+geometry and local-view UI. It does not yet define production terrain
 level-of-detail assets or the return-to-orbit UI.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to

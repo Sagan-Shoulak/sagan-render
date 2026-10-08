@@ -448,7 +448,8 @@ fun draw_object(value: SpatialRenderable,
                 viewport_y: Float64, viewport_width: Float64,
                 viewport_height: Float64,
                 near_distance: Float64<meter>,
-                far_distance: Float64<meter>, selected: Bool): Void {
+                far_distance: Float64<meter>, selected: Bool,
+                show_label: Bool): Void {
   let item: RenderSample = sample(value)
   let pitch_cosine = demo_cosine(camera_pitch)
   let pitch_sine = demo_sine(camera_pitch)
@@ -501,8 +502,10 @@ fun draw_object(value: SpatialRenderable,
                 near_distance, far_distance,
                 item.x(), item.y(), item.z(), item.radius(),
                 item.identifier(), selected)
-    text(logical_x + label_offset_x + projected_radius + 7.0, logical_y - 5.0,
-         item.label(), 10.0, 245, 249, 255)
+    if show_label {
+      text(logical_x + label_offset_x + projected_radius + 7.0,
+           logical_y - 5.0, item.label(), 10.0, 245, 249, 255)
+    }
   }
 }
 
@@ -799,31 +802,33 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
     scene_near = 1.0 meter
     scene_far = 4000000.0 meter
   }
-  draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
-             camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
-             camera_roll,
-             viewport_x, viewport_y, viewport_width, viewport_height,
-             47, 75, 104)
-  draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
-             camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
-             camera_roll,
-             viewport_x, viewport_y, viewport_width, viewport_height,
-             70, 92, 118)
+  if surface_detail_active == false {
+    draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
+               camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+               camera_roll,
+               viewport_x, viewport_y, viewport_width, viewport_height,
+               47, 75, 104)
+    draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
+               camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+               camera_roll,
+               viewport_x, viewport_y, viewport_width, viewport_height,
+               70, 92, 118)
+  }
   draw_object(first, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
               scene_near, scene_far,
-              selection.is_selected(1))
+              selection.is_selected(1), surface_detail_active == false)
   draw_object(second, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
               scene_near, scene_far,
-              selection.is_selected(2))
+              selection.is_selected(2), surface_detail_active == false)
   draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
               camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
               scene_near, scene_far,
-              selection.is_selected(3))
+              selection.is_selected(3), surface_detail_active == false)
   if surface_detail_active {
     draw_local_base_scene(marker, marker_value,
                           camera_x, camera_y, camera_z,
