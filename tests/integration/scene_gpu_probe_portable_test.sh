@@ -16,6 +16,6 @@ esac
 export SAGAN_RENDER_MATERIAL_SHADER_DIR=shaders/generated/material
 export SAGAN_RENDER_SCENE_3D_CAPTURE_BMP=build/scene-3d/scene-3d.bmp
 "$executable" | tee build/scene-3d/scene-3d-report.txt
-grep -q "SCENE_3D driver=$expected indexed=1 depth=1 views=2 bodies=3" \
+grep -q "SCENE_3D driver=$expected indexed=1 depth=1 views=4 bodies=3" \
   build/scene-3d/scene-3d-report.txt
-echo "3D scene GPU probe passed on $expected: indexed Sun, Earth, and Moon models are distinguishable across physical system and lunar views."
+echo "3D scene GPU probe passed on $expected: fixed-radius Sun, Earth, and Moon models are distinguishable across system and focused evidence views."

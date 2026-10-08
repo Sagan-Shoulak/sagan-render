@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     11, {anchor + 12000.0, anchor - 4000.0, anchor - 2000000.0},
     6371000.0, "mesh-earth"};
   const auto mesh_draw = prepare_sphere_draw(
-    mesh_earth, view, {960.0, 540.0}, {14.0});
+    mesh_earth, view, {960.0, 540.0});
   assert(mesh_center_is_projectable(
     {0.0, 0.0, -2000000.0}, {0.0, 0.0, -1.0}, 1000.0));
   assert(!mesh_center_is_projectable(
@@ -45,7 +45,9 @@ int main(int argc, char **argv)
   assert(mesh_draw.camera_relative_center.y_metres == -4000.0);
   assert(mesh_draw.camera_relative_center.z_metres == -2000000.0);
   assert(mesh_draw.physical_radius_metres == 6371000.0);
-  assert(mesh_draw.presented_radius_metres >= mesh_draw.physical_radius_metres);
+  assert(near(mesh_draw.camera_uniform.model_view_projection[0],
+              6371000.0 / ((960.0 / 540.0) *
+                std::tan(view.vertical_field_of_view_radians / 2.0)), 1.0));
   assert(mesh_draw.camera_uniform.model_view_projection[15] == 2000000.0F);
   assert(mesh_draw.camera_uniform.normal_matrix[0] == 1.0F);
   assert(mesh_draw.camera_uniform.normal_matrix[5] == 1.0F);
@@ -53,20 +55,20 @@ int main(int argc, char **argv)
 
   const render_item tiny_far_body{
     12, {anchor, anchor, anchor - 8000000.0}, 10.0, "tiny"};
-  const auto scaled_draw = prepare_sphere_draw(
-    tiny_far_body, view, {960.0, 540.0}, {8.0});
-  assert(scaled_draw.presented_radius_metres > scaled_draw.physical_radius_metres);
+  const auto tiny_draw = prepare_sphere_draw(
+    tiny_far_body, view, {960.0, 540.0});
   const double projected_radius =
-    (scaled_draw.presented_radius_metres / 8000000.0) /
+    (tiny_draw.physical_radius_metres / 8000000.0) /
     std::tan(view.vertical_field_of_view_radians / 2.0) * 540.0 / 2.0;
-  assert(std::abs(projected_radius - 8.0) < 1.0e-9);
+  assert(projected_radius < 0.001);
+  assert(tiny_draw.physical_radius_metres == 10.0);
 
   bool behind_rejected = false;
   try
   {
     prepare_sphere_draw(
       {13, {anchor, anchor, anchor + 1.0}, 1.0, "behind"},
-      view, {960.0, 540.0}, {1.0});
+      view, {960.0, 540.0});
   }
   catch (const std::invalid_argument &)
   {

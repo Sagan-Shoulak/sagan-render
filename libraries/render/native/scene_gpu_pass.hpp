@@ -33,7 +33,6 @@ namespace sagan_render::scene_gpu
     scene::render_item item;
     scene::camera camera;
     target_viewport target;
-    scene::sphere_presentation presentation;
     sagan::render::MaterialUniform material;
   };
 
@@ -292,7 +291,7 @@ namespace sagan_render::scene_gpu
       {
         const scene::viewport logical{draw.target.width, draw.target.height};
         const auto prepared = scene::prepare_sphere_draw(
-          draw.item, draw.camera, logical, draw.presentation);
+          draw.item, draw.camera, logical);
         const SDL_GPUViewport viewport{
           draw.target.x, draw.target.y, draw.target.width, draw.target.height,
           0.0F, 1.0F};

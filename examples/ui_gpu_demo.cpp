@@ -978,7 +978,7 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f737068657265(
   const double field_of_view, const double near_distance,
   const double far_distance, const double body_x, const double body_y,
   const double body_z, const double radius, const std::int64_t appearance,
-  const double minimum_radius, const bool selected) -> void
+  const bool selected) -> void
 {
   if (!bridge_gpu || !bridge_list)
     throw std::runtime_error("UI mesh sphere requires begin");
@@ -1011,7 +1011,7 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f737068657265(
      {up_x, up_y, up_z}, field_of_view, near_distance, far_distance},
     {static_cast<float>(viewport_x), static_cast<float>(viewport_y),
      static_cast<float>(viewport_width), static_cast<float>(viewport_height)},
-    {minimum_radius}, material});
+    material});
 }
 
 auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void

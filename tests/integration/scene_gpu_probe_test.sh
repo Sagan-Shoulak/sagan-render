@@ -16,7 +16,7 @@ cp "$sdl_root/bin/SDL3.dll" build/scene-3d/SDL3.dll
 export SAGAN_RENDER_MATERIAL_SHADER_DIR=shaders/generated/material
 export SAGAN_RENDER_SCENE_3D_CAPTURE_BMP=build/scene-3d/scene-3d.bmp
 build/scene-3d/scene-gpu-probe.exe | tee build/scene-3d/scene-3d-report.txt
-grep -q "SCENE_3D driver=direct3d12 indexed=1 depth=1 views=2 bodies=3" \
+grep -q "SCENE_3D driver=direct3d12 indexed=1 depth=1 views=4 bodies=3" \
   build/scene-3d/scene-3d-report.txt
 [[ "$(od -An -td4 -j18 -N8 build/scene-3d/scene-3d.bmp | tr -s ' ' | sed 's/^ //;s/ $//')" == "960 540" ]]
-echo "3D scene GPU probe passed on D3D12: indexed Sun, Earth, and Moon models are distinguishable across physical system and lunar views."
+echo "3D scene GPU probe passed on D3D12: fixed-radius Sun, Earth, and Moon models are distinguishable across system and focused evidence views."

@@ -34,7 +34,7 @@ require_capture() {
 rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-top-locked.bmp \
   build/scene-sagan-demo-test/scene-top-overdrag.bmp \
-  build/scene-sagan-demo-test/scene-reframed.bmp \
+  build/scene-sagan-demo-test/scene-selection-changed.bmp \
   build/scene-sagan-demo-test/scene-horizon.bmp \
   build/scene-sagan-demo-test/scene-underside.bmp \
   build/scene-sagan-demo-test/scene-focus-transition.bmp \
@@ -69,7 +69,7 @@ export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-underside.b
 export SAGAN_RENDER_TEST_ORBIT_DY=-1000
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 unset SAGAN_RENDER_TEST_ORBIT_DY
-export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-reframed.bmp
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-selection-changed.bmp
 export SAGAN_RENDER_TEST_KEY=right
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
@@ -104,7 +104,7 @@ unset SAGAN_RENDER_TEST_KEYS SAGAN_RENDER_TEST_DELAYED_KEYS \
 require_capture build/scene-sagan-demo-test/scene-idle.bmp
 require_capture build/scene-sagan-demo-test/scene-top-locked.bmp
 require_capture build/scene-sagan-demo-test/scene-top-overdrag.bmp
-require_capture build/scene-sagan-demo-test/scene-reframed.bmp
+require_capture build/scene-sagan-demo-test/scene-selection-changed.bmp
 require_capture build/scene-sagan-demo-test/scene-horizon.bmp
 require_capture build/scene-sagan-demo-test/scene-underside.bmp
 require_capture build/scene-sagan-demo-test/scene-focus-transition.bmp
@@ -120,8 +120,8 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-top-locked.bmp)" != \
   exit 1
 fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
-      "$(fingerprint build/scene-sagan-demo-test/scene-reframed.bmp)" ]]; then
-  echo "Camera reframe did not change the rendered scene" >&2
+      "$(fingerprint build/scene-sagan-demo-test/scene-selection-changed.bmp)" ]]; then
+  echo "Selection did not change the rendered scene" >&2
   exit 1
 fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
