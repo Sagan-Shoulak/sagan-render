@@ -39,7 +39,7 @@ const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
 // Family framing includes a margin beyond the outermost demonstrated child
 // orbit at the 60-degree vertical field of view.
 const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
-const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
+const EARTH_VIEW_DISTANCE: Float64<meter> = 8e4 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
 const SURFACE_HANDOFF_DURATION_SECONDS: Float64 = 5.0
@@ -338,6 +338,31 @@ fun compose_local_base(marker: SurfaceLocationMarker,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
                  520.0 meter, 420.0 meter, 5.0 meter, 0.0, 10)
+  // A coarse regolith field makes translation and roll readable while the
+  // global LRO map hands off to a future high-resolution polar terrain asset.
+  let tile_row: Int64 = 0
+  let tile_y: Float64<meter> = 0.0 meter - 350.0 meter
+  while tile_row < 8 {
+    let tile_column: Int64 = 0
+    let tile_x: Float64<meter> = 0.0 meter - 350.0 meter
+    while tile_column < 8 {
+      let tile_appearance = 20 +
+        (tile_row * 7 + tile_column * 3 + tile_row * tile_column) % 4
+      draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                     camera_x, camera_y, camera_z,
+                     forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                     marker_sample.x(), marker_sample.y(), marker_sample.z(),
+                     tile_x, tile_y, 5.2 meter,
+                     east_x, east_y, east_z, north_x, north_y, north_z,
+                     surface_up_x, surface_up_y, surface_up_z,
+                     49.5 meter, 49.5 meter, 0.15 meter, 0.0,
+                     tile_appearance)
+      tile_column = tile_column + 1
+      tile_x = tile_x + 100.0 meter
+    }
+    tile_row = tile_row + 1
+    tile_y = tile_y + 100.0 meter
+  }
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,

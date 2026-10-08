@@ -191,10 +191,13 @@ its only motion is application-owned camera input.
 
 The scene names the three fixture samples Sun, Earth, and Moon, uses their
 approximate mean radii and separations, and draws a shared 1,024-triangle
-smooth-normal UV sphere through the GPU compositor. It proves the indexed mesh,
-depth, material, and camera seams, not production model loading, textures, or
-multi-light fidelity. The Moon callout offset is presentation-only at system
-scale; its stored position remains the measured fixture coordinate.
+smooth-normal UV sphere through the GPU compositor. Earth and Moon use the
+provenance-tracked 32x16 NASA-derived albedo grids in `assets/planetary`; each
+grid cell reuses the existing material-uniform shader ABI, so the committed
+DXIL, SPIR-V, and MSL artifacts remain unchanged. This is deliberately a
+bootstrap for stable body-fixed texture identity, not production filtered
+texture sampling. The Moon callout offset is presentation-only at system scale;
+its stored position remains the measured fixture coordinate.
 
 ## Local surface demo
 
@@ -211,6 +214,10 @@ not Space Game content. The flat patch is an inspectable local bootstrap, not a
 claim that orbit-to-surface terrain, texture identity, or physics reference-
 frame transition is complete. Focused CI captures the initial view and an
 injected orbit input and requires different D3D12 frames plus clean shutdown.
+The combined scene overlays a coarse neutral regolith grid during the final
+descent so camera translation remains readable. It is a procedural motion cue,
+not a claim that the global LRO map resolves the metre-scale Shackleton patch;
+that requires a dedicated south-polar source tile and terrain LOD contract.
 
 ## Interactive UI GPU demo
 

@@ -59,6 +59,7 @@ namespace sagan_render::scene_gpu
   };
 
   enum class mesh_kind { sphere, box };
+  enum class surface_map { none, earth_blue_marble, moon_lro };
 
   struct mesh_draw
   {
@@ -73,6 +74,7 @@ namespace sagan_render::scene_gpu
     scene::direction3 axis_x{};
     scene::direction3 axis_y{};
     scene::direction3 axis_z{};
+    surface_map albedo_map{surface_map::none};
   };
 
   class indexed_sphere_pass
@@ -93,6 +95,11 @@ namespace sagan_render::scene_gpu
     SDL_GPUTexture *depth{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
+    static constexpr std::uint32_t map_width = longitude_segments;
+    static constexpr std::uint32_t map_height = latitude_segments;
+    using albedo_pixels = std::array<std::array<float, 3>, map_width * map_height>;
+    albedo_pixels earth_albedo{};
+    albedo_pixels moon_albedo{};
 
     struct shader_format
     {
@@ -200,6 +207,38 @@ namespace sagan_render::scene_gpu
       input.read(reinterpret_cast<char *>(bytes.data()), size);
       if (!input) throw std::runtime_error("Could not read scene shader " + path);
       return bytes;
+    }
+
+    static auto load_albedo(const std::string &path) -> albedo_pixels
+    {
+      std::ifstream input(path, std::ios::binary);
+      std::string magic;
+      std::uint32_t width{};
+      std::uint32_t height{};
+      std::uint32_t maximum{};
+      input >> magic >> width >> height >> maximum;
+      if (!input || magic != "P6" || width != map_width ||
+          height != map_height || maximum != 255)
+        throw std::runtime_error("Invalid planetary albedo map " + path);
+      input.get();
+      std::array<std::uint8_t, map_width * map_height * 3> encoded{};
+      input.read(reinterpret_cast<char *>(encoded.data()), encoded.size());
+      if (!input)
+        throw std::runtime_error("Incomplete planetary albedo map " + path);
+      albedo_pixels result{};
+      for (std::size_t pixel = 0; pixel < result.size(); ++pixel)
+      {
+        for (std::size_t channel = 0; channel < 3; ++channel)
+        {
+          // The bootstrap material target is UNORM rather than sRGB and does
+          // not yet encode linear fragment output for display. Preserve the
+          // source's display values here so real albedo remains legible; the
+          // sampled-texture shader milestone will own proper transfer curves.
+          result[pixel][channel] =
+            static_cast<float>(encoded[pixel * 3 + channel]) / 255.0F;
+        }
+      }
+      return result;
     }
 
     auto load_shader(const std::string &root, const char *stage,
@@ -344,6 +383,10 @@ namespace sagan_render::scene_gpu
     {
       build_sphere_mesh();
       build_box_mesh();
+      earth_albedo = load_albedo(
+        "assets/planetary/earth_blue_marble_32x16.ppm");
+      moon_albedo = load_albedo(
+        "assets/planetary/moon_lro_32x16.ppm");
       create_pipeline();
       upload_mesh();
     }
@@ -420,10 +463,49 @@ namespace sagan_render::scene_gpu
         SDL_SetGPUScissor(render_pass, &scissor);
         SDL_PushGPUVertexUniformData(
           commands, 0, &camera_uniform, sizeof(camera_uniform));
-        SDL_PushGPUFragmentUniformData(
-          commands, 0, &draw.material, sizeof(draw.material));
-        SDL_DrawGPUIndexedPrimitives(
-          render_pass, selected_index_count, 1, 0, 0, 0);
+        if (draw.kind == mesh_kind::sphere &&
+            draw.albedo_map != surface_map::none)
+        {
+          const auto &map = draw.albedo_map == surface_map::earth_blue_marble
+            ? earth_albedo : moon_albedo;
+          for (std::uint32_t latitude = 0; latitude < latitude_segments; ++latitude)
+          {
+            for (std::uint32_t longitude = 0; longitude < longitude_segments;
+                 ++longitude)
+            {
+              // NASA maps are centered on zero longitude; the procedural
+              // sphere begins at +X, so offset its first cell by half a map.
+              const std::uint32_t map_longitude =
+                (longitude + longitude_segments / 2) % longitude_segments;
+              const auto &sample = map[latitude * map_width + map_longitude];
+              auto material = draw.material;
+              material.base_color_linear.x = sample[0];
+              material.base_color_linear.y = sample[1];
+              material.base_color_linear.z = sample[2];
+              const float visibility_floor =
+                draw.albedo_map == surface_map::earth_blue_marble ? 1.0F : 0.12F;
+              material.emissive_linear_and_roughness.x +=
+                sample[0] * visibility_floor;
+              material.emissive_linear_and_roughness.y +=
+                sample[1] * visibility_floor;
+              material.emissive_linear_and_roughness.z +=
+                sample[2] * visibility_floor;
+              SDL_PushGPUFragmentUniformData(
+                commands, 0, &material, sizeof(material));
+              const std::uint32_t first_index =
+                (latitude * longitude_segments + longitude) * 6;
+              SDL_DrawGPUIndexedPrimitives(
+                render_pass, 6, 1, first_index, 0, 0);
+            }
+          }
+        }
+        else
+        {
+          SDL_PushGPUFragmentUniformData(
+            commands, 0, &draw.material, sizeof(draw.material));
+          SDL_DrawGPUIndexedPrimitives(
+            render_pass, selected_index_count, 1, 0, 0, 0);
+        }
       }
       SDL_EndGPURenderPass(render_pass);
     }

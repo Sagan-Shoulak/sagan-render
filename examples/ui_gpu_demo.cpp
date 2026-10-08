@@ -423,9 +423,14 @@ namespace
     {
       if (!scene_pass)
         scene_pass = std::make_unique<sagan_render::scene_gpu::indexed_sphere_pass>(device);
-      scene_draws.push_back({
+      sagan_render::scene_gpu::mesh_draw mesh{
         sagan_render::scene_gpu::mesh_kind::sphere, draw.item, {}, 0.0,
-        draw.camera, draw.target, draw.material});
+        draw.camera, draw.target, draw.material};
+      if (draw.item.identifier == 2)
+        mesh.albedo_map = sagan_render::scene_gpu::surface_map::earth_blue_marble;
+      else if (draw.item.identifier == 3)
+        mesh.albedo_map = sagan_render::scene_gpu::surface_map::moon_lro;
+      scene_draws.push_back(std::move(mesh));
     }
 
     auto mesh_box(sagan_render::scene_gpu::box_draw draw) -> void
@@ -1126,6 +1131,14 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f626f78(
     material = {{0.72F, 0.28F, 0.08F, 1.0F}, {0.02F, 0.005F, 0.0F, 0.65F}};
   else if (appearance == 14)
     material = {{0.04F, 0.18F, 0.32F, 1.0F}, {0.01F, 0.04F, 0.08F, 0.52F}};
+  else if (appearance == 20)
+    material = {{0.19F, 0.2F, 0.21F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.9F}};
+  else if (appearance == 21)
+    material = {{0.24F, 0.25F, 0.26F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.88F}};
+  else if (appearance == 22)
+    material = {{0.14F, 0.15F, 0.16F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.92F}};
+  else if (appearance == 23)
+    material = {{0.29F, 0.3F, 0.31F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.86F}};
   else if (appearance >= 15)
     material = {{0.82F, 0.68F, 0.16F, 1.0F}, {0.04F, 0.025F, 0.0F, 0.58F}};
   bridge_gpu->mesh_box({
@@ -1171,6 +1184,14 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f626f785f6672616d65(
     material = {{0.72F, 0.28F, 0.08F, 1.0F}, {0.02F, 0.005F, 0.0F, 0.65F}};
   else if (appearance == 14)
     material = {{0.04F, 0.18F, 0.32F, 1.0F}, {0.01F, 0.04F, 0.08F, 0.52F}};
+  else if (appearance == 20)
+    material = {{0.19F, 0.2F, 0.21F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.9F}};
+  else if (appearance == 21)
+    material = {{0.24F, 0.25F, 0.26F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.88F}};
+  else if (appearance == 22)
+    material = {{0.14F, 0.15F, 0.16F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.92F}};
+  else if (appearance == 23)
+    material = {{0.29F, 0.3F, 0.31F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.86F}};
   else if (appearance >= 15)
     material = {{0.82F, 0.68F, 0.16F, 1.0F}, {0.04F, 0.025F, 0.0F, 0.58F}};
   bridge_gpu->mesh_oriented_box({

@@ -6,6 +6,14 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 mkdir -p build/scene-sagan-demo-test build/tmp
 
+for albedo in \
+  assets/planetary/earth_blue_marble_32x16.ppm \
+  assets/planetary/moon_lro_32x16.ppm; do
+  [[ "$(head -c 2 "$albedo")" == "P6" ]]
+  [[ "$(wc -c < "$albedo" | tr -d ' ')" == "1549" ]]
+done
+grep -q "NASA/GSFC Scientific Visualization Studio" assets/planetary/README.md
+
 sdl_root="$(bash scripts/fetch-sdl3-windows.sh)"
 sagan_executable="${1:-${SAGAN_EXECUTABLE:-sagan}}"
 export SAGAN_PACKAGE_INDEX="${SAGAN_PACKAGE_INDEX:-$repo_root/libraries/index.tsv}"
@@ -41,6 +49,7 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-focus-transition.bmp \
   build/scene-sagan-demo-test/scene-ancestor-transition.bmp \
   build/scene-sagan-demo-test/scene-moon-ancestor-transition.bmp \
+  build/scene-sagan-demo-test/scene-earth-textured.bmp \
   build/scene-sagan-demo-test/scene-marker.bmp \
   build/scene-sagan-demo-test/scene-marker-hovered.bmp \
   build/scene-sagan-demo-test/scene-marker-handoff.bmp \
@@ -103,6 +112,14 @@ export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-marker.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=3800
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
+export SAGAN_RENDER_TEST_KEYS=right,enter
+export SAGAN_RENDER_UI_CAPTURE_AFTER_MS=3400
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-earth-textured.bmp
+export SAGAN_RENDER_AUTOCLOSE_MS=3800
+build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
+
+export SAGAN_RENDER_TEST_KEYS=left,enter
+
 export SAGAN_RENDER_TEST_POINTER_X=550 SAGAN_RENDER_TEST_POINTER_Y=220
 export SAGAN_RENDER_TEST_POINTER_ACTION=move
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-marker-hovered.bmp
@@ -152,6 +169,7 @@ require_capture build/scene-sagan-demo-test/scene-underside.bmp
 require_capture build/scene-sagan-demo-test/scene-focus-transition.bmp
 require_capture build/scene-sagan-demo-test/scene-ancestor-transition.bmp
 require_capture build/scene-sagan-demo-test/scene-moon-ancestor-transition.bmp
+require_capture build/scene-sagan-demo-test/scene-earth-textured.bmp
 require_capture build/scene-sagan-demo-test/scene-marker.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-hovered.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-handoff.bmp
@@ -194,6 +212,11 @@ fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker.bmp)" == \
       "$(fingerprint build/scene-sagan-demo-test/scene-marker-hovered.bmp)" ]]; then
   echo "Hovering the lunar surface marker did not fill its diamond" >&2
+  exit 1
+fi
+if [[ "$(fingerprint build/scene-sagan-demo-test/scene-earth-textured.bmp)" == \
+      "$(fingerprint build/scene-sagan-demo-test/scene-marker.bmp)" ]]; then
+  echo "Earth and Moon albedo presentations did not differ" >&2
   exit 1
 fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker.bmp)" == \

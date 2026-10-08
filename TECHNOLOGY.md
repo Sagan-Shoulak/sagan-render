@@ -429,8 +429,11 @@ SDL binding convention on every supported platform.
 
 This slice defines and tests the source interface only. Ahead-of-time
 SDL_shadercross compilation, reflected artifact validation, GPU pipeline use,
-textures, multiple lights, post-processing, and replacement of the sphere
-impostor remain open under #16. The repository must not claim that handwritten
+native sampled textures, multiple lights, post-processing, and replacement of
+the sphere impostor remain open under #16. The issue #13 demo can assign one
+material uniform per sphere cell from small NASA-derived albedo grids without
+changing this shader resource ABI; that bootstrap is not filtered texture
+sampling. The repository must not claim that handwritten
 source plus a manifest is equivalent to compiled DXIL, SPIR-V, or MSL.
 
 The first shader-toolchain dependency boundary is now pinned in
