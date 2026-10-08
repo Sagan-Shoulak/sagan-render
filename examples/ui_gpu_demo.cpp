@@ -53,10 +53,11 @@ namespace
   constexpr color button_focus{55, 125, 181, 255};
   constexpr color system_orbit{47, 75, 104, 255};
   constexpr color lunar_orbit{70, 92, 118, 255};
+  constexpr color space_black{0, 0, 0, 255};
   constexpr std::array palette{
     background, panel, panel_light, scene, accent, focus_color, sun, earth,
     moon, sun_shadow, earth_shadow, moon_shadow, white, muted, modal, button,
-    button_focus, system_orbit, lunar_orbit
+    button_focus, system_orbit, lunar_orbit, space_black
   };
   static_assert(sizeof(color) == bytes_per_pixel);
 

@@ -1028,7 +1028,9 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
          142, 203, 255)
   }
   }
-  fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
+  // Uncovered scene pixels are space, not UI chrome. A blue viewport fill
+  // became a camera-aligned rectangle whenever the lunar horizon exposed it.
+  fill(viewport_x, viewport_y, viewport_width, viewport_height, 0, 0, 0)
   let sun_sample = sample(first)
   let earth_sample = sample(second)
   let moon_sample = sample(third)
