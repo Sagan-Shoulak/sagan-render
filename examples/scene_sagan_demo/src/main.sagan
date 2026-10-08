@@ -112,6 +112,16 @@ fun zoom_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
   return clamp_distance(value * factor)
 }
 
+fun zoom_local_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
+  let factor = 1.0 - wheel * 0.12
+  if factor < 0.25 { factor = 0.25 }
+  if factor > 4.0 { factor = 4.0 }
+  let result = value * factor
+  if result < 45.0 meter { return 45.0 meter }
+  if result > 2000.0 meter { return 2000.0 meter }
+  return result
+}
+
 fun focus_progress(elapsed_seconds: Float64,
                    duration_seconds: Float64): Float64 {
   let progress = elapsed_seconds / duration_seconds
@@ -291,6 +301,12 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   let surface_up_x = latitude_cosine * longitude_cosine
   let surface_up_y = latitude_cosine * longitude_sine
   let surface_up_z = latitude_sine
+  let surface_origin_x = marker_sample.x() -
+    surface_up_x * marker.altitude()
+  let surface_origin_y = marker_sample.y() -
+    surface_up_y * marker.altitude()
+  let surface_origin_z = marker_sample.z() -
+    surface_up_z * marker.altitude()
   let east_x = 0.0 - longitude_sine
   let east_y = longitude_cosine
   let east_z = 0.0
@@ -317,7 +333,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 marker_sample.x(), marker_sample.y(), marker_sample.z(),
+                 surface_origin_x, surface_origin_y, surface_origin_z,
                  35.0 meter, 20.0 meter, 1.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
@@ -325,7 +341,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 marker_sample.x(), marker_sample.y(), marker_sample.z(),
+                 surface_origin_x, surface_origin_y, surface_origin_z,
                  35.0 meter, 20.0 meter, 8.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
@@ -333,7 +349,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 marker_sample.x(), marker_sample.y(), marker_sample.z(),
+                 surface_origin_x, surface_origin_y, surface_origin_z,
                  0.0 meter - 30.0 meter, 20.0 meter, 5.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
@@ -341,7 +357,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 marker_sample.x(), marker_sample.y(), marker_sample.z(),
+                 surface_origin_x, surface_origin_y, surface_origin_z,
                  0.0 meter - 28.0 meter, 0.0 meter - 15.0 meter,
                  4.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
@@ -350,7 +366,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 marker_sample.x(), marker_sample.y(), marker_sample.z(),
+                 surface_origin_x, surface_origin_y, surface_origin_z,
                  10.0 meter, 0.0 meter - 35.0 meter,
                  0.7 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
@@ -360,7 +376,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 marker_sample.x(), marker_sample.y(), marker_sample.z(),
+                 surface_origin_x, surface_origin_y, surface_origin_z,
                  0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
                  east_x, east_y, east_z, north_x, north_y, north_z,
                  surface_up_x, surface_up_y, surface_up_z,
@@ -369,9 +385,9 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
               camera_x, camera_y, camera_z,
               forward_x, forward_y, forward_z, up_x, up_y, up_z,
               0.8726646259971648, 1.0 meter, 4000000.0 meter,
-              marker_sample.x() + east_x * (0.0 meter - 5.0 meter) + north_x * 15.0 meter + surface_up_x * 6.0 meter,
-              marker_sample.y() + east_y * (0.0 meter - 5.0 meter) + north_y * 15.0 meter + surface_up_y * 6.0 meter,
-              marker_sample.z() + east_z * (0.0 meter - 5.0 meter) + north_z * 15.0 meter + surface_up_z * 6.0 meter,
+              surface_origin_x + east_x * (0.0 meter - 5.0 meter) + north_x * 15.0 meter + surface_up_x * 6.0 meter,
+              surface_origin_y + east_y * (0.0 meter - 5.0 meter) + north_y * 15.0 meter + surface_up_y * 6.0 meter,
+              surface_origin_z + east_z * (0.0 meter - 5.0 meter) + north_z * 15.0 meter + surface_up_z * 6.0 meter,
               6.0 meter, 3, false)
 }
 
@@ -776,9 +792,15 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
                       camera_yaw, camera_pitch, camera_roll,
                       viewport_x, viewport_y, viewport_width, viewport_height,
                       marker_hovered, marker_fade_stage)
-  text(24.0, window_height - 28.0,
-       "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
-       142, 164, 188)
+  if surface_detail_active {
+    text(24.0, window_height - 28.0,
+         "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CAMERA STAYS ABOVE SURFACE",
+         10.0, 142, 203, 255)
+  } else {
+    text(24.0, window_height - 28.0,
+         "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT",
+         10.0, 142, 164, 188)
+  }
   present()
 }
 
@@ -861,6 +883,18 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         }
         if key_pressed("e") {
           camera_distance = zoom_distance(camera_distance, 1.0)
+        }
+      } else {
+        if focusing == false {
+          camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
+          camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
+          camera_distance = zoom_local_distance(camera_distance, scroll_y())
+          if key_pressed("q") {
+            camera_distance = zoom_local_distance(camera_distance, -1.0)
+          }
+          if key_pressed("e") {
+            camera_distance = zoom_local_distance(camera_distance, 1.0)
+          }
         }
       }
       let look_pitch_cosine = demo_cosine(camera_pitch)
@@ -1095,6 +1129,30 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       camera_x = orbit_target_x - render_forward_x * camera_distance
       camera_y = orbit_target_y - render_forward_y * camera_distance
       camera_z = orbit_target_z - render_forward_z * camera_distance
+      if focused_marker {
+        let marker_latitude_cosine = demo_cosine(base_marker.latitude_radians())
+        let marker_latitude_sine = demo_sine(base_marker.latitude_radians())
+        let marker_longitude_cosine = demo_cosine(base_marker.longitude_radians())
+        let marker_longitude_sine = demo_sine(base_marker.longitude_radians())
+        let local_surface_up_x = marker_latitude_cosine * marker_longitude_cosine
+        let local_surface_up_y = marker_latitude_cosine * marker_longitude_sine
+        let local_surface_up_z = marker_latitude_sine
+        let surface_x = sample(marker_value).x() -
+          local_surface_up_x * base_marker.altitude()
+        let surface_y = sample(marker_value).y() -
+          local_surface_up_y * base_marker.altitude()
+        let surface_z = sample(marker_value).z() -
+          local_surface_up_z * base_marker.altitude()
+        let clearance = (camera_x - surface_x) * local_surface_up_x +
+          (camera_y - surface_y) * local_surface_up_y +
+          (camera_z - surface_z) * local_surface_up_z
+        if clearance < 5.0 meter {
+          let correction = 5.0 meter - clearance
+          camera_x = camera_x + local_surface_up_x * correction
+          camera_y = camera_y + local_surface_up_y * correction
+          camera_z = camera_z + local_surface_up_z * correction
+        }
+      }
       let surface_detail_active = local_view
       if focused_marker {
         if marker_fade_stage == 0 { surface_detail_active = true }
