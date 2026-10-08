@@ -176,8 +176,9 @@ inset camera is drawn. Focus and wheel zoom expose the lunar scale in the main
 viewport.
 At lunar framing, a body-fixed `SHACKLETON BASE` marker appears only on the
 camera-facing hemisphere. Clicking its pin starts a marker-centered approach;
-this is the first unified-navigation slice and does not yet hand off to the
-local base geometry or expose the return-to-orbit UI.
+when the approach completes, the same process displays the local base geometry
+without recreating the window or GPU compositor. The handoff does not yet
+expose the return-to-orbit UI or claim a final lunar tangent-frame transition.
 Focused CI captures initial, selected,
 right-dragged, and wheel-zoomed frames and requires the relevant frames to
 differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;

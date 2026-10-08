@@ -288,6 +288,11 @@ the renderer then performs camera projection, near-side visibility, picking,
 and presentation. The scene demo's deterministic Moon fixture supplies that
 adapter math and draws a KSP-like pin whose camera approach follows the
 marker's fresh presentation position as the Moon moves.
+When the approach completes, the same Sagan process and GPU compositor switch
+to a local base presentation anchored at the marker's measured world position.
+This first handoff proves shared window, mesh, material, lighting, depth, and
+camera-relative precision contracts. It does not yet define the final lunar
+tangent frame, terrain level-of-detail transition, or return-to-orbit UI.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples.

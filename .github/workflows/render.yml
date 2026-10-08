@@ -122,7 +122,7 @@ jobs:
             render/build/scene-sagan-demo-test/scene-demo-report.txt
             render/build/scene-sagan-demo-test/scene-marker.bmp
             render/build/scene-sagan-demo-test/scene-marker-hovered.bmp
-            render/build/scene-sagan-demo-test/scene-marker-approach.bmp
+            render/build/scene-sagan-demo-test/scene-marker-base.bmp
             render/build/surface-sagan-demo-test/surface.bmp
             render/build/surface-sagan-demo-test/surface-turned.bmp
             render/build/surface-sagan-demo-test/surface-demo-report.txt
