@@ -12,7 +12,7 @@ storage_buffers = 0
 [fragment]
 entrypoint = "PSMain"
 uniform_buffers = 2
-samplers = 0
+samplers = 1
 storage_textures = 0
 storage_buffers = 0
 
@@ -23,3 +23,7 @@ format = "float3"
 [vertex_input.normal]
 semantic = "TEXCOORD1"
 format = "float3"
+
+[vertex_input.uv]
+semantic = "TEXCOORD2"
+format = "float2"

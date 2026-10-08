@@ -1,12 +1,17 @@
 struct VertexInput {
   float3 position : TEXCOORD0;
   float3 normal : TEXCOORD1;
+  float2 uv : TEXCOORD2;
 };
 
 struct VertexOutput {
   float4 position : SV_Position;
   float3 normal : TEXCOORD0;
+  float2 uv : TEXCOORD1;
 };
+
+Texture2D surface_texture : register(t0, space2);
+SamplerState surface_sampler : register(s0, space2);
 
 cbuffer CameraUniform : register(b0, space1) {
   row_major float4x4 model_view_projection;
@@ -28,6 +33,7 @@ VertexOutput VSMain(VertexInput input) {
   VertexOutput output;
   output.position = mul(float4(input.position, 1.0), model_view_projection);
   output.normal = normalize(mul(float4(input.normal, 0.0), normal_matrix).xyz);
+  output.uv = input.uv;
   return output;
 }
 
@@ -35,7 +41,9 @@ float4 PSMain(VertexOutput input) : SV_Target0 {
   float cosine = max(0.0, dot(normalize(input.normal),
                               direction_to_light_and_intensity.xyz));
   float diffuse = cosine * direction_to_light_and_intensity.w;
-  float3 lit = base_color_linear.rgb *
+  float3 albedo = surface_texture.Sample(surface_sampler, input.uv).rgb *
+    base_color_linear.rgb;
+  float3 lit = albedo *
     (ambient_linear.rgb + light_color_linear.rgb * diffuse);
   return float4(lit + emissive_linear_and_roughness.rgb,
                 base_color_linear.a);

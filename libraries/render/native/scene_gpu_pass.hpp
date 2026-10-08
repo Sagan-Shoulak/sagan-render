@@ -18,7 +18,12 @@
 
 namespace sagan_render::scene_gpu
 {
-  struct vertex { float position[3]; float normal[3]; };
+  struct vertex
+  {
+    float position[3];
+    float normal[3];
+    float uv[2];
+  };
 
   struct target_viewport
   {
@@ -79,8 +84,8 @@ namespace sagan_render::scene_gpu
 
   class indexed_sphere_pass
   {
-    static constexpr std::uint32_t latitude_segments = 16;
-    static constexpr std::uint32_t longitude_segments = 32;
+    static constexpr std::uint32_t latitude_segments = 64;
+    static constexpr std::uint32_t longitude_segments = 128;
     std::vector<vertex> vertices;
     std::vector<std::uint16_t> indices;
     std::vector<vertex> box_vertices;
@@ -93,13 +98,19 @@ namespace sagan_render::scene_gpu
     SDL_GPUBuffer *box_vertex_buffer{};
     SDL_GPUBuffer *box_index_buffer{};
     SDL_GPUTexture *depth{};
+    SDL_GPUTexture *white_texture{};
+    SDL_GPUTexture *earth_texture{};
+    SDL_GPUTexture *moon_texture{};
+    SDL_GPUSampler *surface_sampler{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
-    static constexpr std::uint32_t map_width = longitude_segments;
-    static constexpr std::uint32_t map_height = latitude_segments;
-    using albedo_pixels = std::array<std::array<float, 3>, map_width * map_height>;
-    albedo_pixels earth_albedo{};
-    albedo_pixels moon_albedo{};
+
+    struct image
+    {
+      std::uint32_t width{};
+      std::uint32_t height{};
+      std::vector<std::uint8_t> rgba;
+    };
 
     struct shader_format
     {
@@ -129,16 +140,25 @@ namespace sagan_render::scene_gpu
                                 static_cast<float>(longitude_segments);
           const float x = ring * std::cos(azimuth);
           const float z = ring * std::sin(azimuth);
-          vertices.push_back({{x, y, z}, {x, y, z}});
+          // NASA's equirectangular maps are centered on zero longitude. The
+          // procedural sphere starts at +X, so the half-turn offset preserves
+          // the same body-fixed orientation used by the earlier albedo grid.
+          const float u = static_cast<float>(longitude) /
+              static_cast<float>(longitude_segments) + 0.5F;
+          const float v = static_cast<float>(latitude) /
+              static_cast<float>(latitude_segments);
+          vertices.push_back({{x, y, z}, {x, y, z}, {u, v}});
         }
       }
       for (std::uint32_t latitude = 0; latitude < latitude_segments; ++latitude)
       {
-        for (std::uint32_t longitude = 0; longitude < longitude_segments; ++longitude)
+        for (std::uint32_t longitude = 0; longitude < longitude_segments;
+             ++longitude)
         {
           const auto first = static_cast<std::uint16_t>(
             latitude * (longitude_segments + 1) + longitude);
-          const auto second = static_cast<std::uint16_t>(first + longitude_segments + 1);
+          const auto second = static_cast<std::uint16_t>(
+            first + longitude_segments + 1);
           indices.insert(indices.end(), {
             first, second, static_cast<std::uint16_t>(first + 1),
             static_cast<std::uint16_t>(first + 1), second,
@@ -172,7 +192,8 @@ namespace sagan_render::scene_gpu
           const auto &corner = corners[corner_index];
           box_vertices.push_back({
             {corner[0], corner[1], corner[2]},
-            {face_value.normal[0], face_value.normal[1], face_value.normal[2]}});
+            {face_value.normal[0], face_value.normal[1], face_value.normal[2]},
+            {0.0F, 0.0F}});
         }
         box_indices.insert(box_indices.end(), {
           base, static_cast<std::uint16_t>(base + 1), static_cast<std::uint16_t>(base + 2),
@@ -209,7 +230,7 @@ namespace sagan_render::scene_gpu
       return bytes;
     }
 
-    static auto load_albedo(const std::string &path) -> albedo_pixels
+    static auto load_image(const std::string &path) -> image
     {
       std::ifstream input(path, std::ios::binary);
       std::string magic;
@@ -217,26 +238,23 @@ namespace sagan_render::scene_gpu
       std::uint32_t height{};
       std::uint32_t maximum{};
       input >> magic >> width >> height >> maximum;
-      if (!input || magic != "P6" || width != map_width ||
-          height != map_height || maximum != 255)
+      if (!input || magic != "P6" || width == 0 || height == 0 || maximum != 255)
         throw std::runtime_error("Invalid planetary albedo map " + path);
       input.get();
-      std::array<std::uint8_t, map_width * map_height * 3> encoded{};
-      input.read(reinterpret_cast<char *>(encoded.data()), encoded.size());
+      std::vector<std::uint8_t> encoded(
+        static_cast<std::size_t>(width) * height * 3);
+      input.read(
+        reinterpret_cast<char *>(encoded.data()),
+        static_cast<std::streamsize>(encoded.size()));
       if (!input)
         throw std::runtime_error("Incomplete planetary albedo map " + path);
-      albedo_pixels result{};
-      for (std::size_t pixel = 0; pixel < result.size(); ++pixel)
+      image result{width, height, {}};
+      result.rgba.resize(static_cast<std::size_t>(width) * height * 4);
+      for (std::size_t pixel = 0; pixel < encoded.size() / 3; ++pixel)
       {
         for (std::size_t channel = 0; channel < 3; ++channel)
-        {
-          // The bootstrap material target is UNORM rather than sRGB and does
-          // not yet encode linear fragment output for display. Preserve the
-          // source's display values here so real albedo remains legible; the
-          // sampled-texture shader milestone will own proper transfer curves.
-          result[pixel][channel] =
-            static_cast<float>(encoded[pixel * 3 + channel]) / 255.0F;
-        }
+          result.rgba[pixel * 4 + channel] = encoded[pixel * 3 + channel];
+        result.rgba[pixel * 4 + 3] = 255;
       }
       return result;
     }
@@ -244,6 +262,7 @@ namespace sagan_render::scene_gpu
     auto load_shader(const std::string &root, const char *stage,
                      const SDL_GPUShaderStage shader_stage,
                      const std::uint32_t uniform_buffers,
+                     const std::uint32_t samplers,
                      const shader_format selected) const -> SDL_GPUShader *
     {
       const auto bytes = read_file(root + "/lit_mesh." + stage + "." + selected.extension);
@@ -254,6 +273,7 @@ namespace sagan_render::scene_gpu
       info.format = selected.format;
       info.stage = shader_stage;
       info.num_uniform_buffers = uniform_buffers;
+      info.num_samplers = samplers;
       auto *shader = SDL_CreateGPUShader(device, &info);
       if (!shader) fail(std::string("Could not create scene ") + stage + " shader");
       return shader;
@@ -266,14 +286,15 @@ namespace sagan_render::scene_gpu
         ? root_value : "shaders/generated/material";
       const auto selected = select_format();
       auto *vertex_shader = load_shader(
-        root, "vert", SDL_GPU_SHADERSTAGE_VERTEX, 1, selected);
+        root, "vert", SDL_GPU_SHADERSTAGE_VERTEX, 1, 0, selected);
       auto *fragment_shader = load_shader(
-        root, "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, selected);
+        root, "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 1, selected);
       const SDL_GPUVertexBufferDescription buffer_description{
         0, sizeof(vertex), SDL_GPU_VERTEXINPUTRATE_VERTEX, 0};
-      const std::array<SDL_GPUVertexAttribute, 2> attributes{{
+      const std::array<SDL_GPUVertexAttribute, 3> attributes{{
         {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, offsetof(vertex, position)},
-        {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, offsetof(vertex, normal)}
+        {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, offsetof(vertex, normal)},
+        {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(vertex, uv)}
       }};
       SDL_GPUColorTargetDescription color_description{};
       color_description.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -296,6 +317,64 @@ namespace sagan_render::scene_gpu
       SDL_ReleaseGPUShader(device, fragment_shader);
       SDL_ReleaseGPUShader(device, vertex_shader);
       if (!pipeline) fail("Could not create indexed scene pipeline");
+    }
+
+    auto upload_texture(const image &source) -> SDL_GPUTexture *
+    {
+      SDL_GPUTextureCreateInfo texture_info{};
+      texture_info.type = SDL_GPU_TEXTURETYPE_2D;
+      texture_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+      texture_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+      texture_info.width = source.width;
+      texture_info.height = source.height;
+      texture_info.layer_count_or_depth = 1;
+      texture_info.num_levels = 1;
+      texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+      auto *texture = SDL_CreateGPUTexture(device, &texture_info);
+      SDL_GPUTransferBufferCreateInfo transfer_info{};
+      transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+      transfer_info.size = source.rgba.size();
+      auto *upload = SDL_CreateGPUTransferBuffer(device, &transfer_info);
+      if (!texture || !upload) fail("Could not create planetary texture upload");
+      auto *mapped = static_cast<std::uint8_t *>(
+        SDL_MapGPUTransferBuffer(device, upload, false));
+      if (!mapped) fail("Could not map planetary texture upload");
+      std::memcpy(mapped, source.rgba.data(), source.rgba.size());
+      SDL_UnmapGPUTransferBuffer(device, upload);
+      auto *commands = SDL_AcquireGPUCommandBuffer(device);
+      if (!commands) fail("Could not acquire planetary texture commands");
+      auto *copy = SDL_BeginGPUCopyPass(commands);
+      const SDL_GPUTextureTransferInfo source_region{
+        upload, 0, source.width, source.height};
+      const SDL_GPUTextureRegion destination{
+        texture, 0, 0, 0, 0, 0, source.width, source.height, 1};
+      SDL_UploadToGPUTexture(copy, &source_region, &destination, false);
+      SDL_EndGPUCopyPass(copy);
+      auto *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+      if (!fence || !SDL_WaitForGPUFences(device, true, &fence, 1))
+        fail("Could not upload planetary texture");
+      SDL_ReleaseGPUFence(device, fence);
+      SDL_ReleaseGPUTransferBuffer(device, upload);
+      return texture;
+    }
+
+    auto create_surface_textures() -> void
+    {
+      const image white{1, 1, {255, 255, 255, 255}};
+      white_texture = upload_texture(white);
+      earth_texture = upload_texture(load_image(
+        "assets/planetary/earth_blue_marble_1024x512.ppm"));
+      moon_texture = upload_texture(load_image(
+        "assets/planetary/moon_lro_2048x1024.ppm"));
+      SDL_GPUSamplerCreateInfo sampler_info{};
+      sampler_info.min_filter = SDL_GPU_FILTER_LINEAR;
+      sampler_info.mag_filter = SDL_GPU_FILTER_LINEAR;
+      sampler_info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+      sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+      sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+      sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+      surface_sampler = SDL_CreateGPUSampler(device, &sampler_info);
+      if (!surface_sampler) fail("Could not create planetary surface sampler");
     }
 
     auto upload_mesh() -> void
@@ -383,17 +462,18 @@ namespace sagan_render::scene_gpu
     {
       build_sphere_mesh();
       build_box_mesh();
-      earth_albedo = load_albedo(
-        "assets/planetary/earth_blue_marble_32x16.ppm");
-      moon_albedo = load_albedo(
-        "assets/planetary/moon_lro_32x16.ppm");
       create_pipeline();
       upload_mesh();
+      create_surface_textures();
     }
 
     ~indexed_sphere_pass()
     {
       if (depth) SDL_ReleaseGPUTexture(device, depth);
+      if (surface_sampler) SDL_ReleaseGPUSampler(device, surface_sampler);
+      if (moon_texture) SDL_ReleaseGPUTexture(device, moon_texture);
+      if (earth_texture) SDL_ReleaseGPUTexture(device, earth_texture);
+      if (white_texture) SDL_ReleaseGPUTexture(device, white_texture);
       if (box_index_buffer) SDL_ReleaseGPUBuffer(device, box_index_buffer);
       if (box_vertex_buffer) SDL_ReleaseGPUBuffer(device, box_vertex_buffer);
       if (index_buffer) SDL_ReleaseGPUBuffer(device, index_buffer);
@@ -463,49 +543,23 @@ namespace sagan_render::scene_gpu
         SDL_SetGPUScissor(render_pass, &scissor);
         SDL_PushGPUVertexUniformData(
           commands, 0, &camera_uniform, sizeof(camera_uniform));
-        if (draw.kind == mesh_kind::sphere &&
-            draw.albedo_map != surface_map::none)
-        {
-          const auto &map = draw.albedo_map == surface_map::earth_blue_marble
-            ? earth_albedo : moon_albedo;
-          for (std::uint32_t latitude = 0; latitude < latitude_segments; ++latitude)
-          {
-            for (std::uint32_t longitude = 0; longitude < longitude_segments;
-                 ++longitude)
-            {
-              // NASA maps are centered on zero longitude; the procedural
-              // sphere begins at +X, so offset its first cell by half a map.
-              const std::uint32_t map_longitude =
-                (longitude + longitude_segments / 2) % longitude_segments;
-              const auto &sample = map[latitude * map_width + map_longitude];
-              auto material = draw.material;
-              material.base_color_linear.x = sample[0];
-              material.base_color_linear.y = sample[1];
-              material.base_color_linear.z = sample[2];
-              const float visibility_floor =
-                draw.albedo_map == surface_map::earth_blue_marble ? 1.0F : 0.12F;
-              material.emissive_linear_and_roughness.x +=
-                sample[0] * visibility_floor;
-              material.emissive_linear_and_roughness.y +=
-                sample[1] * visibility_floor;
-              material.emissive_linear_and_roughness.z +=
-                sample[2] * visibility_floor;
-              SDL_PushGPUFragmentUniformData(
-                commands, 0, &material, sizeof(material));
-              const std::uint32_t first_index =
-                (latitude * longitude_segments + longitude) * 6;
-              SDL_DrawGPUIndexedPrimitives(
-                render_pass, 6, 1, first_index, 0, 0);
-            }
-          }
-        }
-        else
-        {
-          SDL_PushGPUFragmentUniformData(
-            commands, 0, &draw.material, sizeof(draw.material));
-          SDL_DrawGPUIndexedPrimitives(
-            render_pass, selected_index_count, 1, 0, 0, 0);
-        }
+        auto material = draw.material;
+        SDL_GPUTexture *surface = white_texture;
+        if (draw.albedo_map == surface_map::earth_blue_marble)
+          surface = earth_texture;
+        else if (draw.albedo_map == surface_map::moon_lro)
+          surface = moon_texture;
+        if (draw.albedo_map != surface_map::none)
+          material.base_color_linear = {
+            1.0F, 1.0F, 1.0F, draw.material.base_color_linear.w};
+        const SDL_GPUTextureSamplerBinding surface_binding{
+          surface, surface_sampler};
+        SDL_BindGPUFragmentSamplers(
+          render_pass, 0, &surface_binding, 1);
+        SDL_PushGPUFragmentUniformData(
+          commands, 0, &material, sizeof(material));
+        SDL_DrawGPUIndexedPrimitives(
+          render_pass, selected_index_count, 1, 0, 0, 0);
       }
       SDL_EndGPURenderPass(render_pass);
     }

@@ -553,11 +553,14 @@ camera, body, near-plane, far-plane, and radius lengths. The compiler therefore
 rejects unit, type, or arity drift before native compilation.
 
 `scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
-contract. It builds one shared UV sphere with 16 latitude bands, 32 longitude
-segments, 561 smooth-normal vertices, and 1,024 indexed triangles, plus a
+contract. It builds one shared UV sphere with 64 latitude bands, 128 longitude
+segments, 8,385 smooth-normal vertices, and 16,384 indexed triangles, plus a
 shared hard-normal indexed box for local structures and terrain patches. Both
-shapes use the same reviewed material shader, camera-relative transform,
-lighting uniforms, resize-aware D32 depth target, and backend selection.
+shapes use the same reviewed sampled-texture material shader, camera-relative
+transform, lighting uniforms, resize-aware D32 depth target, and backend
+selection. Earth and Moon bind provenance-tracked 1024x512 and 2048x1024 NASA
+textures; untextured primitives bind a one-pixel white texture through the same
+pipeline.
 Tessellation changes presentation geometry only; entity dimensions and
 positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and

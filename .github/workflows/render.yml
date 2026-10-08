@@ -39,6 +39,7 @@ jobs:
           diff -qr build/generated-shaders/first build/generated-shaders/second
           diff -qr build/generated-shaders/first shaders/generated/material
       - uses: actions/upload-artifact@v6
+        if: always()
         with:
           name: material-shader-artifacts
           path: build/generated-shaders/first/
