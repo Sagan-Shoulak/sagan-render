@@ -297,7 +297,9 @@ cuboids, and boulder through that frame. The application or physics package
 owns that frame; the renderer validates and consumes the supplied axes. Local
 geometry subtracts the camera from its shared surface origin before applying
 metre-scale east/north/up offsets, so those offsets never round while attached
-to the distant world coordinate. The
+to the distant world coordinate. Fixture materials also retain a small
+material-local light floor so hard-normal cuboid face changes remain readable
+at shallow camera angles without raising the Moon's ambient lighting. The
 handoff interpolates target, reciprocal distance, yaw, pitch, and roll into the
 same local camera frame, fades the orbital marker through fixed-palette stages,
 and activates tangent-patch detail before the ease completes. Once settled, the

@@ -1124,13 +1124,13 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f626f78(
   sagan::render::MaterialUniform material{
     {0.36F, 0.38F, 0.4F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.8F}};
   if (appearance == 11)
-    material = {{0.1F, 0.14F, 0.18F, 1.0F}, {0.01F, 0.02F, 0.03F, 0.65F}};
+    material = {{0.1F, 0.14F, 0.18F, 1.0F}, {0.025F, 0.035F, 0.05F, 0.65F}};
   else if (appearance == 12)
-    material = {{0.72F, 0.74F, 0.7F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.72F}};
+    material = {{0.72F, 0.74F, 0.7F, 1.0F}, {0.08F, 0.08F, 0.07F, 0.72F}};
   else if (appearance == 13)
-    material = {{0.72F, 0.28F, 0.08F, 1.0F}, {0.02F, 0.005F, 0.0F, 0.65F}};
+    material = {{0.72F, 0.28F, 0.08F, 1.0F}, {0.045F, 0.012F, 0.004F, 0.65F}};
   else if (appearance == 14)
-    material = {{0.04F, 0.18F, 0.32F, 1.0F}, {0.01F, 0.04F, 0.08F, 0.52F}};
+    material = {{0.04F, 0.18F, 0.32F, 1.0F}, {0.02F, 0.065F, 0.11F, 0.52F}};
   else if (appearance >= 15)
     material = {{0.82F, 0.68F, 0.16F, 1.0F}, {0.04F, 0.025F, 0.0F, 0.58F}};
   bridge_gpu->mesh_box({
@@ -1169,13 +1169,13 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f626f785f6672616d65(
   sagan::render::MaterialUniform material{
     {0.36F, 0.38F, 0.4F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.8F}};
   if (appearance == 11)
-    material = {{0.1F, 0.14F, 0.18F, 1.0F}, {0.01F, 0.02F, 0.03F, 0.65F}};
+    material = {{0.1F, 0.14F, 0.18F, 1.0F}, {0.025F, 0.035F, 0.05F, 0.65F}};
   else if (appearance == 12)
-    material = {{0.72F, 0.74F, 0.7F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.72F}};
+    material = {{0.72F, 0.74F, 0.7F, 1.0F}, {0.08F, 0.08F, 0.07F, 0.72F}};
   else if (appearance == 13)
-    material = {{0.72F, 0.28F, 0.08F, 1.0F}, {0.02F, 0.005F, 0.0F, 0.65F}};
+    material = {{0.72F, 0.28F, 0.08F, 1.0F}, {0.045F, 0.012F, 0.004F, 0.65F}};
   else if (appearance == 14)
-    material = {{0.04F, 0.18F, 0.32F, 1.0F}, {0.01F, 0.04F, 0.08F, 0.52F}};
+    material = {{0.04F, 0.18F, 0.32F, 1.0F}, {0.02F, 0.065F, 0.11F, 0.52F}};
   else if (appearance >= 15)
     material = {{0.82F, 0.68F, 0.16F, 1.0F}, {0.04F, 0.025F, 0.0F, 0.58F}};
   bridge_gpu->mesh_oriented_box({
