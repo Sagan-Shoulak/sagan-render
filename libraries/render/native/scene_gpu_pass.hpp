@@ -101,6 +101,7 @@ namespace sagan_render::scene_gpu
     SDL_GPUTexture *white_texture{};
     SDL_GPUTexture *earth_texture{};
     SDL_GPUTexture *moon_texture{};
+    SDL_GPUTexture *moon_detail_texture{};
     SDL_GPUSampler *surface_sampler{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
@@ -110,6 +111,13 @@ namespace sagan_render::scene_gpu
       std::uint32_t width{};
       std::uint32_t height{};
       std::vector<std::uint8_t> rgba;
+    };
+
+    struct surface_lod_uniform
+    {
+      float center_and_angular_width[4]{};
+      float east_and_enabled[4]{};
+      float north_and_blend[4]{};
     };
 
     struct shader_format
@@ -288,7 +296,7 @@ namespace sagan_render::scene_gpu
       auto *vertex_shader = load_shader(
         root, "vert", SDL_GPU_SHADERSTAGE_VERTEX, 1, 0, selected);
       auto *fragment_shader = load_shader(
-        root, "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 1, selected);
+        root, "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 3, 2, selected);
       const SDL_GPUVertexBufferDescription buffer_description{
         0, sizeof(vertex), SDL_GPU_VERTEXINPUTRATE_VERTEX, 0};
       const std::array<SDL_GPUVertexAttribute, 3> attributes{{
@@ -366,6 +374,8 @@ namespace sagan_render::scene_gpu
         "assets/planetary/earth_blue_marble_1024x512.ppm"));
       moon_texture = upload_texture(load_image(
         "assets/planetary/moon_lro_2048x1024.ppm"));
+      moon_detail_texture = upload_texture(load_image(
+        "assets/planetary/moon_shackleton_rim_2048x2048.ppm"));
       SDL_GPUSamplerCreateInfo sampler_info{};
       sampler_info.min_filter = SDL_GPU_FILTER_LINEAR;
       sampler_info.mag_filter = SDL_GPU_FILTER_LINEAR;
@@ -471,6 +481,8 @@ namespace sagan_render::scene_gpu
     {
       if (depth) SDL_ReleaseGPUTexture(device, depth);
       if (surface_sampler) SDL_ReleaseGPUSampler(device, surface_sampler);
+      if (moon_detail_texture)
+        SDL_ReleaseGPUTexture(device, moon_detail_texture);
       if (moon_texture) SDL_ReleaseGPUTexture(device, moon_texture);
       if (earth_texture) SDL_ReleaseGPUTexture(device, earth_texture);
       if (white_texture) SDL_ReleaseGPUTexture(device, white_texture);
@@ -545,19 +557,51 @@ namespace sagan_render::scene_gpu
           commands, 0, &camera_uniform, sizeof(camera_uniform));
         auto material = draw.material;
         SDL_GPUTexture *surface = white_texture;
+        SDL_GPUTexture *detail = white_texture;
+        surface_lod_uniform surface_lod{};
         if (draw.albedo_map == surface_map::earth_blue_marble)
           surface = earth_texture;
         else if (draw.albedo_map == surface_map::moon_lro)
+        {
           surface = moon_texture;
+          const double camera_dx =
+            draw.camera.position.x_metres - draw.item.position.x_metres;
+          const double camera_dy =
+            draw.camera.position.y_metres - draw.item.position.y_metres;
+          const double camera_dz =
+            draw.camera.position.z_metres - draw.item.position.z_metres;
+          const double camera_altitude = std::sqrt(
+            camera_dx * camera_dx + camera_dy * camera_dy +
+            camera_dz * camera_dz) - draw.item.radius_metres;
+          if (camera_altitude < 100000.0)
+          {
+            constexpr float marker_latitude_sine = 0.5F;
+            constexpr float marker_latitude_cosine = 0.8660254038F;
+            constexpr float detail_width_metres = 1638.4F;
+            const float angular_width = detail_width_metres /
+              static_cast<float>(draw.item.radius_metres);
+            surface_lod.center_and_angular_width[0] = marker_latitude_cosine;
+            surface_lod.center_and_angular_width[2] = marker_latitude_sine;
+            surface_lod.center_and_angular_width[3] = angular_width;
+            surface_lod.east_and_enabled[1] = 1.0F;
+            surface_lod.east_and_enabled[3] = 1.0F;
+            surface_lod.north_and_blend[0] = -marker_latitude_sine;
+            surface_lod.north_and_blend[2] = marker_latitude_cosine;
+            surface_lod.north_and_blend[3] = 0.08F;
+            detail = moon_detail_texture;
+          }
+        }
         if (draw.albedo_map != surface_map::none)
           material.base_color_linear = {
             1.0F, 1.0F, 1.0F, draw.material.base_color_linear.w};
-        const SDL_GPUTextureSamplerBinding surface_binding{
-          surface, surface_sampler};
+        const std::array<SDL_GPUTextureSamplerBinding, 2> surface_bindings{{
+          {surface, surface_sampler}, {detail, surface_sampler}}};
         SDL_BindGPUFragmentSamplers(
-          render_pass, 0, &surface_binding, 1);
+          render_pass, 0, surface_bindings.data(), surface_bindings.size());
         SDL_PushGPUFragmentUniformData(
           commands, 0, &material, sizeof(material));
+        SDL_PushGPUFragmentUniformData(
+          commands, 2, &surface_lod, sizeof(surface_lod));
         SDL_DrawGPUIndexedPrimitives(
           render_pass, selected_index_count, 1, 0, 0, 0);
       }

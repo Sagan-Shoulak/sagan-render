@@ -560,7 +560,10 @@ shapes use the same reviewed sampled-texture material shader, camera-relative
 transform, lighting uniforms, resize-aware D32 depth target, and backend
 selection. Earth and Moon bind provenance-tracked 1024x512 and 2048x1024 NASA
 textures; untextured primitives bind a one-pixel white texture through the same
-pipeline.
+pipeline. Below 100 kilometres above the Moon, the same sphere draw also binds
+a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
+through the marker's body-fixed tangent basis and feather-blends its boundary
+into the global map; it does not replace the Moon mesh or move local geometry.
 Tessellation changes presentation geometry only; entity dimensions and
 positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and
