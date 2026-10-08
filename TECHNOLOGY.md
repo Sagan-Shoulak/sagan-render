@@ -310,7 +310,9 @@ maintenance, and launchpad status. These values are labeled as a deterministic
 demo snapshot; production, storage, and outpost rules remain game-owned. Five
 local structures carry stable fixture presentation IDs. Pointer picking or
 Tab/Shift-Tab selection updates the selected-object cue and structure-specific
-summary without giving the renderer ownership of structure behavior. A
+summary without giving the renderer ownership of structure behavior. Pointer
+hit regions scale from each structure's projected bounding radius and
+overlapping candidates resolve to the nearest camera depth. A
 pointer-accessible button plus R and Escape return through the same live-target
 camera transition to the saved Moon orbital framing. It does not yet define
 production terrain level-of-detail assets.
@@ -575,7 +577,10 @@ shapes use the same reviewed sampled-texture material shader, camera-relative
 transform, lighting uniforms, resize-aware D32 depth target, and backend
 selection. Earth and Moon bind provenance-tracked 1024x512 and 2048x1024 NASA
 textures; untextured primitives bind a one-pixel white texture through the same
-pipeline. Below 100 kilometres above the Moon, the same sphere draw also binds
+pipeline. Planetary uploads allocate and GPU-generate a complete mip chain;
+trilinear sampling with 8x anisotropy stabilizes oblique close-surface motion
+without changing the source texture identity. Below 100 kilometres above the
+Moon, the same sphere draw also binds
 a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
 through the marker's body-fixed tangent basis and feather-blends its boundary
 into the global map. Below five kilometres altitude, a 255-by-255 indexed

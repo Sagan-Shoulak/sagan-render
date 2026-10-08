@@ -641,6 +641,35 @@ fun projected_depth(value: SpatialRenderable,
          relative_z * demo_sine(camera_pitch)
 }
 
+fun projected_structure_hit(value: SpatialRenderable,
+                            click_x: Float64, click_y: Float64,
+                            camera_x: Float64<meter>,
+                            camera_y: Float64<meter>,
+                            camera_z: Float64<meter>, camera_yaw: Float64,
+                            camera_pitch: Float64, camera_roll: Float64,
+                            viewport_x: Float64, viewport_y: Float64,
+                            viewport_width: Float64,
+                            viewport_height: Float64): Bool {
+  let depth = projected_depth(
+    value, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+  if depth <= 0.0 meter { return false }
+  let half_extent =
+    (sample(value).radius() / depth) / 0.577350269 * viewport_height / 2.0
+  if half_extent < 14.0 { half_extent = 14.0 }
+  if half_extent > 52.0 { half_extent = 52.0 }
+  let center_x = projected_x(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_x, viewport_width, viewport_height)
+  let center_y = projected_y(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_y, viewport_height)
+  return pick_rectangle(
+    click_x, click_y, center_x - half_extent, center_y - half_extent,
+    half_extent * 2.0, half_extent * 2.0)
+}
+
 fun draw_surface_marker(marker: SurfaceLocationMarker,
                         marker_value: SpatialRenderable,
                         moon: SpatialRenderable,
@@ -1308,50 +1337,71 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let click_y = pointer_y()
         if local_view {
           if click_x < panel_x {
-            if pick_circle(click_x, click_y,
-                 projected_x(local_launchpad, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_x, viewport_width, viewport_height),
-                 projected_y(local_launchpad, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_y, viewport_height), 24.0) {
-              selected_structure = 401
+            let nearest_hit = 1e12 kilometer
+            if projected_structure_hit(
+                 local_launchpad, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_launchpad, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 401
+              }
             }
-            if pick_circle(click_x, click_y,
-                 projected_x(local_habitat, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_x, viewport_width, viewport_height),
-                 projected_y(local_habitat, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_y, viewport_height), 24.0) {
-              selected_structure = 402
+            if projected_structure_hit(
+                 local_habitat, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_habitat, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 402
+              }
             }
-            if pick_circle(click_x, click_y,
-                 projected_x(local_refinery, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_x, viewport_width, viewport_height),
-                 projected_y(local_refinery, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_y, viewport_height), 24.0) {
-              selected_structure = 403
+            if projected_structure_hit(
+                 local_refinery, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_refinery, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 403
+              }
             }
-            if pick_circle(click_x, click_y,
-                 projected_x(local_solar, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_x, viewport_width, viewport_height),
-                 projected_y(local_solar, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_y, viewport_height), 24.0) {
-              selected_structure = 404
+            if projected_structure_hit(
+                 local_solar, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_solar, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 404
+              }
             }
-            if pick_circle(click_x, click_y,
-                 projected_x(local_tower, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_x, viewport_width, viewport_height),
-                 projected_y(local_tower, camera_x, camera_y, camera_z,
-                             camera_yaw, camera_pitch, camera_roll,
-                             viewport_y, viewport_height), 24.0) {
-              selected_structure = 405
+            if projected_structure_hit(
+                 local_tower, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_tower, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 405
+              }
             }
           }
           if pick_rectangle(click_x, click_y,

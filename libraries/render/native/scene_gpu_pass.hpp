@@ -5,6 +5,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -384,14 +385,19 @@ namespace sagan_render::scene_gpu
 
     auto upload_texture(const image &source) -> SDL_GPUTexture *
     {
+      std::uint32_t mip_levels = 1;
+      for (std::uint32_t extent = std::max(source.width, source.height);
+           extent > 1; extent /= 2)
+        ++mip_levels;
       SDL_GPUTextureCreateInfo texture_info{};
       texture_info.type = SDL_GPU_TEXTURETYPE_2D;
       texture_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-      texture_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+      texture_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER |
+        SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
       texture_info.width = source.width;
       texture_info.height = source.height;
       texture_info.layer_count_or_depth = 1;
-      texture_info.num_levels = 1;
+      texture_info.num_levels = mip_levels;
       texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
       auto *texture = SDL_CreateGPUTexture(device, &texture_info);
       SDL_GPUTransferBufferCreateInfo transfer_info{};
@@ -413,6 +419,8 @@ namespace sagan_render::scene_gpu
         texture, 0, 0, 0, 0, 0, source.width, source.height, 1};
       SDL_UploadToGPUTexture(copy, &source_region, &destination, false);
       SDL_EndGPUCopyPass(copy);
+      if (mip_levels > 1)
+        SDL_GenerateMipmapsForGPUTexture(commands, texture);
       auto *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
       if (!fence || !SDL_WaitForGPUFences(device, true, &fence, 1))
         fail("Could not upload planetary texture");
@@ -438,6 +446,10 @@ namespace sagan_render::scene_gpu
       sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
       sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
       sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+      sampler_info.max_anisotropy = 8.0F;
+      sampler_info.min_lod = 0.0F;
+      sampler_info.max_lod = 16.0F;
+      sampler_info.enable_anisotropy = true;
       surface_sampler = SDL_CreateGPUSampler(device, &sampler_info);
       if (!surface_sampler) fail("Could not create planetary surface sampler");
     }
