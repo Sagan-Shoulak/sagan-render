@@ -11,6 +11,7 @@ import surface_location_visible from render.scene
 import SelectionState from render.scene
 import smooth_focus_axis from render.scene
 import pick_circle from render.scene
+import pick_rectangle from render.scene
 
 class PresentationBody has SpatialRenderable {
   let identifier_value: Int64
@@ -67,5 +68,9 @@ fun main(): Int {
        origin, origin, origin - 10.0 meter,
        origin, origin, origin,
        origin, origin, origin + 100.0 meter) { return 17 }
+  if pick_rectangle(72.0, 25.0, 40.0, 10.0, 140.0, 36.0) == false {
+    return 18
+  }
+  if pick_rectangle(20.0, 25.0, 40.0, 10.0, 140.0, 36.0) { return 19 }
   return 0
 }

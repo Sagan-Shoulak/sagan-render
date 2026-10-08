@@ -27,6 +27,7 @@ import perspective_axis from render.scene
 import depth_visible from render.scene
 import SelectionState from render.scene
 import pick_circle from render.scene
+import pick_rectangle from render.scene
 import SurfaceLocationMarker from render.scene
 import surface_location_visible from render.scene
 
@@ -622,8 +623,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
               marker_value, camera_x, camera_y, camera_z,
               camera_yaw, camera_pitch,
               viewport_y, viewport_height) - 68.0
-            if pick_circle(click_x, click_y,
-                           marker_icon_x, marker_icon_y, 40.0) {
+            if pick_rectangle(click_x, click_y,
+                              marker_icon_x - 16.0, marker_icon_y - 18.0,
+                              176.0, 104.0) {
               marker_requested = true
               selection.select!(3)
             }

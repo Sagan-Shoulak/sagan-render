@@ -153,6 +153,16 @@ fun pick_circle(pointer_x: Float64, pointer_y: Float64,
   return difference_x * difference_x + difference_y * difference_y <= radius * radius
 }
 
+fun pick_rectangle(pointer_x: Float64, pointer_y: Float64,
+                   x: Float64, y: Float64,
+                   width: Float64, height: Float64): Bool {
+  if pointer_x < x { return false }
+  if pointer_y < y { return false }
+  if pointer_x > x + width { return false }
+  if pointer_y > y + height { return false }
+  return true
+}
+
 export SpatialRenderable
 export RenderSample
 export sample
@@ -164,3 +174,4 @@ export surface_location_visible
 export SelectionState
 export smooth_focus_axis
 export pick_circle
+export pick_rectangle
