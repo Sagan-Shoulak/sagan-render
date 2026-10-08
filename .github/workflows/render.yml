@@ -93,6 +93,7 @@ jobs:
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_test.sh
+          bash tests/integration/surface_demo_test.sh
           bash tests/integration/ui_gpu_demo_test.sh
           bash tests/integration/loading_demo_test.sh
           bash tests/integration/toolbar_demo_test.sh
@@ -119,6 +120,9 @@ jobs:
             render/build/scene-sagan-demo-test/scene-camera-turned.bmp
             render/build/scene-sagan-demo-test/scene-zoomed.bmp
             render/build/scene-sagan-demo-test/scene-demo-report.txt
+            render/build/surface-sagan-demo-test/surface.bmp
+            render/build/surface-sagan-demo-test/surface-turned.bmp
+            render/build/surface-sagan-demo-test/surface-demo-report.txt
             render/build/ui-sagan-demo/ui-sagan-960x540.bmp
             render/build/ui-sagan-demo/ui-sagan-800x600.bmp
             render/build/ui-sagan-demo/ui-sagan-demo-report.txt
@@ -187,6 +191,7 @@ jobs:
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/scene_demo_portable_test.sh
+          xvfb-run --auto-servernum bash tests/integration/surface_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/ui_gpu_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/loading_demo_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/toolbar_demo_portable_test.sh
@@ -206,6 +211,7 @@ jobs:
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_portable_test.sh
+          bash tests/integration/surface_demo_portable_test.sh
           bash tests/integration/ui_gpu_demo_portable_test.sh
           bash tests/integration/loading_demo_portable_test.sh
           bash tests/integration/toolbar_demo_portable_test.sh
@@ -229,6 +235,9 @@ jobs:
             build/scene-sagan-demo-test/scene-camera-turned.bmp
             build/scene-sagan-demo-test/scene-zoomed.bmp
             build/scene-sagan-demo-test/scene-demo-report.txt
+            build/surface-sagan-demo-test/surface.bmp
+            build/surface-sagan-demo-test/surface-turned.bmp
+            build/surface-sagan-demo-test/surface-demo-report.txt
             build/ui-sagan-demo/ui-sagan-960x540.bmp
             build/ui-sagan-demo/ui-sagan-800x600.bmp
             build/ui-sagan-demo/ui-sagan-demo-report.txt

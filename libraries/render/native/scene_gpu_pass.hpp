@@ -36,17 +36,44 @@ namespace sagan_render::scene_gpu
     sagan::render::MaterialUniform material;
   };
 
+  struct box_draw
+  {
+    scene::render_item item;
+    scene::length3 half_extents;
+    scene::scalar yaw_radians{};
+    scene::camera camera;
+    target_viewport target;
+    sagan::render::MaterialUniform material;
+  };
+
+  enum class mesh_kind { sphere, box };
+
+  struct mesh_draw
+  {
+    mesh_kind kind{mesh_kind::sphere};
+    scene::render_item item;
+    scene::length3 half_extents{};
+    scene::scalar yaw_radians{};
+    scene::camera camera;
+    target_viewport target;
+    sagan::render::MaterialUniform material;
+  };
+
   class indexed_sphere_pass
   {
     static constexpr std::uint32_t latitude_segments = 16;
     static constexpr std::uint32_t longitude_segments = 32;
     std::vector<vertex> vertices;
     std::vector<std::uint16_t> indices;
+    std::vector<vertex> box_vertices;
+    std::vector<std::uint16_t> box_indices;
 
     SDL_GPUDevice *device{};
     SDL_GPUGraphicsPipeline *pipeline{};
     SDL_GPUBuffer *vertex_buffer{};
     SDL_GPUBuffer *index_buffer{};
+    SDL_GPUBuffer *box_vertex_buffer{};
+    SDL_GPUBuffer *box_index_buffer{};
     SDL_GPUTexture *depth{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
@@ -94,6 +121,39 @@ namespace sagan_render::scene_gpu
             static_cast<std::uint16_t>(first + 1), second,
             static_cast<std::uint16_t>(second + 1)});
         }
+      }
+    }
+
+    auto build_box_mesh() -> void
+    {
+      constexpr std::array<std::array<float, 3>, 8> corners{{
+        {{-1.0F, -1.0F, -1.0F}}, {{1.0F, -1.0F, -1.0F}},
+        {{1.0F, 1.0F, -1.0F}}, {{-1.0F, 1.0F, -1.0F}},
+        {{-1.0F, -1.0F, 1.0F}}, {{1.0F, -1.0F, 1.0F}},
+        {{1.0F, 1.0F, 1.0F}}, {{-1.0F, 1.0F, 1.0F}}
+      }};
+      struct face { std::array<std::uint8_t, 4> corner; std::array<float, 3> normal; };
+      constexpr std::array<face, 6> faces{{
+        {{{0, 3, 2, 1}}, {{0.0F, 0.0F, -1.0F}}},
+        {{{4, 5, 6, 7}}, {{0.0F, 0.0F, 1.0F}}},
+        {{{0, 1, 5, 4}}, {{0.0F, -1.0F, 0.0F}}},
+        {{{1, 2, 6, 5}}, {{1.0F, 0.0F, 0.0F}}},
+        {{{2, 3, 7, 6}}, {{0.0F, 1.0F, 0.0F}}},
+        {{{3, 0, 4, 7}}, {{-1.0F, 0.0F, 0.0F}}}
+      }};
+      for (const auto &face_value : faces)
+      {
+        const auto base = static_cast<std::uint16_t>(box_vertices.size());
+        for (const auto corner_index : face_value.corner)
+        {
+          const auto &corner = corners[corner_index];
+          box_vertices.push_back({
+            {corner[0], corner[1], corner[2]},
+            {face_value.normal[0], face_value.normal[1], face_value.normal[2]}});
+        }
+        box_indices.insert(box_indices.end(), {
+          base, static_cast<std::uint16_t>(base + 1), static_cast<std::uint16_t>(base + 2),
+          base, static_cast<std::uint16_t>(base + 2), static_cast<std::uint16_t>(base + 3)});
       }
     }
 
@@ -189,22 +249,37 @@ namespace sagan_render::scene_gpu
       buffer.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
       const auto vertex_bytes = static_cast<std::uint32_t>(vertices.size() * sizeof(vertex));
       const auto index_bytes = static_cast<std::uint32_t>(indices.size() * sizeof(std::uint16_t));
+      const auto box_vertex_bytes = static_cast<std::uint32_t>(
+        box_vertices.size() * sizeof(vertex));
+      const auto box_index_bytes = static_cast<std::uint32_t>(
+        box_indices.size() * sizeof(std::uint16_t));
       buffer.size = vertex_bytes;
       vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
       buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
       buffer.size = index_bytes;
       index_buffer = SDL_CreateGPUBuffer(device, &buffer);
+      buffer.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+      buffer.size = box_vertex_bytes;
+      box_vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
+      buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+      buffer.size = box_index_bytes;
+      box_index_buffer = SDL_CreateGPUBuffer(device, &buffer);
       SDL_GPUTransferBufferCreateInfo transfer{
         SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        vertex_bytes + index_bytes, 0};
+        vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes, 0};
       auto *upload = SDL_CreateGPUTransferBuffer(device, &transfer);
-      if (!vertex_buffer || !index_buffer || !upload)
+      if (!vertex_buffer || !index_buffer || !box_vertex_buffer ||
+          !box_index_buffer || !upload)
         fail("Could not create indexed scene buffers");
       auto *mapped = static_cast<std::uint8_t *>(
         SDL_MapGPUTransferBuffer(device, upload, false));
       if (!mapped) fail("Could not map indexed scene upload");
       std::memcpy(mapped, vertices.data(), vertex_bytes);
       std::memcpy(mapped + vertex_bytes, indices.data(), index_bytes);
+      std::memcpy(mapped + vertex_bytes + index_bytes,
+                  box_vertices.data(), box_vertex_bytes);
+      std::memcpy(mapped + vertex_bytes + index_bytes + box_vertex_bytes,
+                  box_indices.data(), box_index_bytes);
       SDL_UnmapGPUTransferBuffer(device, upload);
       auto *commands = SDL_AcquireGPUCommandBuffer(device);
       if (!commands) fail("Could not acquire indexed scene upload commands");
@@ -214,6 +289,12 @@ namespace sagan_render::scene_gpu
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
       source.offset = vertex_bytes;
       destination = {index_buffer, 0, index_bytes};
+      SDL_UploadToGPUBuffer(copy, &source, &destination, false);
+      source.offset = vertex_bytes + index_bytes;
+      destination = {box_vertex_buffer, 0, box_vertex_bytes};
+      SDL_UploadToGPUBuffer(copy, &source, &destination, false);
+      source.offset = vertex_bytes + index_bytes + box_vertex_bytes;
+      destination = {box_index_buffer, 0, box_index_bytes};
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
       SDL_EndGPUCopyPass(copy);
       auto *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
@@ -246,6 +327,7 @@ namespace sagan_render::scene_gpu
     explicit indexed_sphere_pass(SDL_GPUDevice *value) : device{value}
     {
       build_sphere_mesh();
+      build_box_mesh();
       create_pipeline();
       upload_mesh();
     }
@@ -253,6 +335,8 @@ namespace sagan_render::scene_gpu
     ~indexed_sphere_pass()
     {
       if (depth) SDL_ReleaseGPUTexture(device, depth);
+      if (box_index_buffer) SDL_ReleaseGPUBuffer(device, box_index_buffer);
+      if (box_vertex_buffer) SDL_ReleaseGPUBuffer(device, box_vertex_buffer);
       if (index_buffer) SDL_ReleaseGPUBuffer(device, index_buffer);
       if (vertex_buffer) SDL_ReleaseGPUBuffer(device, vertex_buffer);
       if (pipeline) SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
@@ -263,7 +347,7 @@ namespace sagan_render::scene_gpu
 
     auto render(SDL_GPUCommandBuffer *commands, SDL_GPUTexture *color,
                 const std::uint32_t width, const std::uint32_t height,
-                const std::vector<sphere_draw> &draws,
+                const std::vector<mesh_draw> &draws,
                 const sagan::render::LightingUniform &lighting) -> void
     {
       if (draws.empty()) return;
@@ -281,17 +365,31 @@ namespace sagan_render::scene_gpu
         commands, &color_target, 1, &depth_target);
       if (!render_pass) fail("Could not begin indexed scene pass");
       SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
-      const SDL_GPUBufferBinding vertex_binding{vertex_buffer, 0};
-      const SDL_GPUBufferBinding index_binding{index_buffer, 0};
-      SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
-      SDL_BindGPUIndexBuffer(
-        render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
       SDL_PushGPUFragmentUniformData(commands, 1, &lighting, sizeof(lighting));
       for (const auto &draw : draws)
       {
         const scene::viewport logical{draw.target.width, draw.target.height};
-        const auto prepared = scene::prepare_sphere_draw(
-          draw.item, draw.camera, logical);
+        sagan::render::CameraUniform camera_uniform{};
+        SDL_GPUBuffer *selected_vertex_buffer = vertex_buffer;
+        SDL_GPUBuffer *selected_index_buffer = index_buffer;
+        std::size_t selected_index_count = indices.size();
+        if (draw.kind == mesh_kind::sphere)
+          camera_uniform = scene::prepare_sphere_draw(
+            draw.item, draw.camera, logical).camera_uniform;
+        else
+        {
+          camera_uniform = scene::prepare_box_draw(
+            draw.item, draw.half_extents, draw.yaw_radians,
+            draw.camera, logical).camera_uniform;
+          selected_vertex_buffer = box_vertex_buffer;
+          selected_index_buffer = box_index_buffer;
+          selected_index_count = box_indices.size();
+        }
+        const SDL_GPUBufferBinding vertex_binding{selected_vertex_buffer, 0};
+        const SDL_GPUBufferBinding index_binding{selected_index_buffer, 0};
+        SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+        SDL_BindGPUIndexBuffer(
+          render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
         const SDL_GPUViewport viewport{
           draw.target.x, draw.target.y, draw.target.width, draw.target.height,
           0.0F, 1.0F};
@@ -301,13 +399,26 @@ namespace sagan_render::scene_gpu
         SDL_SetGPUViewport(render_pass, &viewport);
         SDL_SetGPUScissor(render_pass, &scissor);
         SDL_PushGPUVertexUniformData(
-          commands, 0, &prepared.camera_uniform, sizeof(prepared.camera_uniform));
+          commands, 0, &camera_uniform, sizeof(camera_uniform));
         SDL_PushGPUFragmentUniformData(
           commands, 0, &draw.material, sizeof(draw.material));
         SDL_DrawGPUIndexedPrimitives(
-          render_pass, indices.size(), 1, 0, 0, 0);
+          render_pass, selected_index_count, 1, 0, 0, 0);
       }
       SDL_EndGPURenderPass(render_pass);
+    }
+
+    auto render(SDL_GPUCommandBuffer *commands, SDL_GPUTexture *color,
+                const std::uint32_t width, const std::uint32_t height,
+                const std::vector<sphere_draw> &draws,
+                const sagan::render::LightingUniform &lighting) -> void
+    {
+      std::vector<mesh_draw> meshes;
+      meshes.reserve(draws.size());
+      for (const auto &draw : draws)
+        meshes.push_back({mesh_kind::sphere, draw.item, {}, 0.0,
+                          draw.camera, draw.target, draw.material});
+      render(commands, color, width, height, meshes, lighting);
     }
   };
 }

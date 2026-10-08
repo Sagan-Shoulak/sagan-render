@@ -531,12 +531,23 @@ rejects unit, type, or arity drift before native compilation.
 
 `scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
 contract. It builds one shared UV sphere with 16 latitude bands, 32 longitude
-segments, 561 smooth-normal vertices, and 1,024 indexed triangles. It also owns
-reviewed backend shader selection, the material pipeline, and a resize-aware
-D32 depth target. Tessellation changes presentation geometry only; entity
-radii and positions remain measured inputs.
+segments, 561 smooth-normal vertices, and 1,024 indexed triangles, plus a
+shared hard-normal indexed box for local structures and terrain patches. Both
+shapes use the same reviewed material shader, camera-relative transform,
+lighting uniforms, resize-aware D32 depth target, and backend selection.
+Tessellation changes presentation geometry only; entity dimensions and
+positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and
 materials; the pass does not store or advance simulation state.
+
+The separate `surface_sagan_demo` exercises the same path near a `1e15 metre`
+origin with a one-kilometre local tangent patch. Its renderer-neutral vertical
+slice composes a landing pad, habitat cluster, power array, communications
+tower, compact lander silhouette, and nearby boulders. These are reusable
+primitive presentations, not game content or terrain-generation policy. The
+demo deliberately does not claim a finished orbit-to-surface transition: that
+future application handoff must preserve the Moon asset/material identity and
+derive the local tangent frame from a physics-owned reference frame.
 
 The first deterministic capture renders one measured Sun, Earth, and Moon
 snapshot through a system camera plus focused body evidence cameras.

@@ -40,6 +40,7 @@ bash tests/integration/window_contract_test.sh
 bash tests/integration/ui_contract_test.sh
 bash tests/integration/scene_contract_test.sh
 bash tests/integration/scene_demo_test.sh
+bash tests/integration/surface_demo_test.sh
 bash tests/integration/ui_gpu_demo_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
@@ -95,6 +96,7 @@ bash scripts/ui_gpu_demo.sh
 bash scripts/loading_demo.sh
 bash scripts/toolbar_demo.sh
 bash scripts/scene_demo.sh
+bash scripts/surface_demo.sh
 ```
 
 These open native windows. The tests set `SAGAN_RENDER_AUTOCLOSE_MS` to avoid
@@ -183,6 +185,22 @@ smooth-normal UV sphere through the GPU compositor. It proves the indexed mesh,
 depth, material, and camera seams, not production model loading, textures, or
 multi-light fidelity. The Moon callout offset is presentation-only at system
 scale; its stored position remains the measured fixture coordinate.
+
+## Local surface demo
+
+The separate local view runs on Windows with `bash scripts/surface_demo.sh`, or
+on Linux/macOS with `bash scripts/surface_demo_portable.sh`. Right-button drag
+orbits its target and the wheel changes altitude. It starts in a close oblique
+top-down view of a one-kilometre lunar tangent patch containing a landing pad,
+lander, habitat modules, a solar array, a communications tower, and boulders.
+
+The demo reuses the scene camera-relative origin subtraction, indexed mesh
+pipeline, material shader, lighting, depth target, and platform backend used by
+the orbital scene. Its structures are renderer-neutral primitive compositions,
+not Space Game content. The flat patch is an inspectable local bootstrap, not a
+claim that orbit-to-surface terrain, texture identity, or physics reference-
+frame transition is complete. Focused CI captures the initial view and an
+injected orbit input and requires different D3D12 frames plus clean shutdown.
 
 ## Interactive UI GPU demo
 
