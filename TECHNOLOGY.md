@@ -300,9 +300,11 @@ metre-scale east/north/up offsets, so those offsets never round while attached
 to the distant world coordinate. Fixture materials also retain a small
 material-local light floor so hard-normal cuboid face changes remain readable
 at shallow camera angles without raising the Moon's ambient lighting. The
-handoff interpolates target, reciprocal distance, yaw, pitch, and roll into the
-same local camera frame, fades the orbital marker through fixed-palette stages,
-and activates tangent-patch detail before the ease completes. Once settled, the
+handoff first orbits yaw, pitch, and roll into the marker-facing local camera
+frame, then translates the target and reduces reciprocal distance so the
+descent cannot cut a chord through the Moon. It fades the orbital marker
+through fixed-palette stages, hides it when local detail owns the view, and
+activates tangent-patch detail near the end of the ease. Once settled, the
 base view orbits in the marker's east/north/up frame, treating the local surface
 normal as camera up while the wheel retains measured-distance zoom. Elevation
 is clamped above the local horizon and the camera keeps at least five metres of
@@ -589,13 +591,17 @@ Moon, the same sphere draw also binds
 a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
 through the marker's body-fixed tangent basis and feather-blends its boundary
 into the global map. Below five kilometres altitude, a 255-by-255 indexed
-spherical patch replaces the coarse global sphere over a 16.384-kilometre
-square centered on the marker. Its vertices are projected onto the same Moon
+spherical patch replaces the coarse global sphere over a 262.144-kilometre
+square centered on the marker. Quadratic vertex spacing concentrates resolution
+around the base while extending beyond the horizon at maximum local zoom. Its
+vertices are projected onto the same Moon
 radius, then stored as metre-scale offsets from the marker's surface anchor.
 The patch reuses the Moon material, texture blend, lighting, and depth target,
-but its camera-relative transform follows the exact same anchor arithmetic as
-the local structures. This avoids quantizing ground height through a
-1,737,400-metre float transform. The global and local meshes are never drawn
+but its camera-relative transform follows the same anchor arithmetic as the
+local structures. This avoids quantizing ground height through a
+1,737,400-metre float transform. A small underground foundation datum and
+downward-only structure skirts keep low buildings visibly seated without
+changing their roof heights. The global and local meshes are never drawn
 together, so the change adds close-range geometry resolution without creating
 a second ground surface, a second Moon, or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and

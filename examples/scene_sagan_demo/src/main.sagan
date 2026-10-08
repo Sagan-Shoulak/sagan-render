@@ -343,6 +343,13 @@ fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
                    half_x: Float64<meter>, half_y: Float64<meter>,
                    half_z: Float64<meter>, yaw: Float64,
                    appearance: Int64): Void {
+  // Extend a hidden foundation below the nominal surface while preserving the
+  // visible roof height. Small surface/anchor rounding can then never erase a
+  // whole low structure, and the building still reads as seated rather than
+  // hovering above the terrain.
+  let foundation_depth = 0.5 meter
+  let seated_z = z - foundation_depth * 0.5
+  let seated_half_z = half_z + foundation_depth * 0.5
   let yaw_cosine = demo_cosine(yaw)
   let yaw_sine = demo_sine(yaw)
   let axis_x_x = east_x * yaw_cosine + north_x * yaw_sine
@@ -358,10 +365,10 @@ fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
                  0.0 meter, 0.0 meter, 0.0 meter,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  0.8726646259971648, 1.0 meter, 4000000.0 meter,
-                 relative_origin_x + east_x * x + north_x * y + surface_up_x * z,
-                 relative_origin_y + east_y * x + north_y * y + surface_up_y * z,
-                 relative_origin_z + east_z * x + north_z * y + surface_up_z * z,
-                 half_x, half_y, half_z,
+                 relative_origin_x + east_x * x + north_x * y + surface_up_x * seated_z,
+                 relative_origin_y + east_y * x + north_y * y + surface_up_y * seated_z,
+                 relative_origin_z + east_z * x + north_z * y + surface_up_z * seated_z,
+                 half_x, half_y, seated_half_z,
                  axis_x_x, axis_x_y, axis_x_z,
                  axis_y_x, axis_y_y, axis_y_z,
                  surface_up_x, surface_up_y, surface_up_z, appearance)
@@ -1105,11 +1112,13 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
       }
     }
   }
-  draw_surface_marker(marker, marker_value, third,
-                      camera_x, camera_y, camera_z,
-                      camera_yaw, camera_pitch, camera_roll,
-                      viewport_x, viewport_y, viewport_width, viewport_height,
-                      marker_hovered, marker_fade_stage)
+  if surface_detail_active == false {
+    draw_surface_marker(marker, marker_value, third,
+                        camera_x, camera_y, camera_z,
+                        camera_yaw, camera_pitch, camera_roll,
+                        viewport_x, viewport_y, viewport_width, viewport_height,
+                        marker_hovered, marker_fade_stage)
+  }
   if surface_detail_active {
     text(24.0, window_height - 28.0,
          "RIGHT-DRAG: LOCAL ORBIT | WHEEL: ZOOM | SURFACE NORMAL IS UP",
@@ -1544,16 +1553,27 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         }
         }
         let base_progress = focus_progress(focus_elapsed, focus_duration)
+        let transition_progress = base_progress
         if focused_marker {
+          // First orbit to the marker-facing local camera. Only after that
+          // orientation is established do target translation and zoom descend
+          // toward the surface, avoiding a chord through the Moon.
+          let orientation_duration = focus_duration * 0.38
+          let orientation_progress = focus_progress(
+            focus_elapsed, orientation_duration)
+          let descent_elapsed = focus_elapsed - focus_duration * 0.32
+          if descent_elapsed < 0.0 { descent_elapsed = 0.0 }
+          transition_progress = focus_progress(
+            descent_elapsed, focus_duration * 0.68)
           camera_yaw = focus_scalar_at(
-            focus_start_yaw, LOCAL_CAMERA_YAW, base_progress)
+            focus_start_yaw, LOCAL_CAMERA_YAW, orientation_progress)
           camera_pitch = focus_scalar_at(
-            focus_start_pitch, LOCAL_CAMERA_PITCH, base_progress)
+            focus_start_pitch, LOCAL_CAMERA_PITCH, orientation_progress)
           camera_roll = focus_scalar_at(
-            focus_start_roll, LOCAL_CAMERA_ROLL, base_progress)
+            focus_start_roll, LOCAL_CAMERA_ROLL, orientation_progress)
           if base_progress > 0.35 { marker_fade_stage = 2 }
           if base_progress > 0.58 { marker_fade_stage = 1 }
-          if base_progress > 0.78 { marker_fade_stage = 0 }
+          if base_progress > 0.94 { marker_fade_stage = 0 }
         }
         if returning_to_orbit {
           camera_yaw = focus_scalar_at(
@@ -1563,18 +1583,18 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           camera_roll = focus_scalar_at(
             focus_start_roll, saved_orbit_roll, base_progress)
         }
-        let pan_progress = base_progress
-        let zoom_progress = base_progress
+        let pan_progress = transition_progress
+        let zoom_progress = transition_progress
         if focus_target_distance < focus_start_distance {
           // A family change may span hundreds of times in apparent scale.
           // Squaring the already-eased progress softens that initial scale
           // acceleration without introducing another phase boundary.
-          zoom_progress = base_progress * base_progress
+          zoom_progress = transition_progress * transition_progress
         }
         if focus_target_distance > focus_start_distance {
           // Ancestor focus derives pan from zoom below; there is no separate
           // pan phase or handoff that could read as two back-to-back focuses.
-          zoom_progress = base_progress
+          zoom_progress = transition_progress
         }
         camera_distance = focus_distance_at(
           focus_start_distance, focus_target_distance, zoom_progress)
@@ -1584,7 +1604,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           // cannot grow beyond its starting offset while both motions retain
           // zero endpoint velocity.
           pan_progress = 1.0 -
-            (camera_distance / focus_start_distance) * (1.0 - base_progress)
+            (camera_distance / focus_start_distance) *
+              (1.0 - transition_progress)
         }
         if focus_target_distance > focus_start_distance {
           // Keep the descendant's projected motion on one smooth curve. At
@@ -1592,7 +1613,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           // reveals context, pan grows continuously to the final framing. The
           // squared remaining fraction advances the middle sooner while giving
           // the final approach a visibly longer ease-out tail.
-          let remaining_pan = 1.0 - base_progress
+          let remaining_pan = 1.0 - transition_progress
           let pan_curve = 1.0 - remaining_pan * remaining_pan
           pan_progress = pan_curve *
             camera_distance / focus_target_distance

@@ -219,7 +219,10 @@ namespace sagan_render::scene_gpu
       constexpr std::uint32_t segments = 255;
       constexpr double pi = 3.14159265358979323846;
       constexpr double moon_radius_metres = 1737400.0;
-      constexpr double patch_half_width_metres = 8192.0;
+      // Cover beyond the roughly 83 km lunar horizon visible from the local
+      // camera's 2 km maximum distance. Quadratic spacing keeps dense vertices
+      // around the base while allowing one patch to replace the coarse globe.
+      constexpr double patch_half_width_metres = 131072.0;
       constexpr std::array<double, 3> center{{
         0.8660254037835535, 0.0, 0.49999999999996425}};
       constexpr std::array<double, 3> east{{0.0, 1.0, 0.0}};
@@ -229,14 +232,19 @@ namespace sagan_render::scene_gpu
       surface_patch_indices.reserve(segments * segments * 6);
       for (std::uint32_t row = 0; row <= segments; ++row)
       {
-        const double north_metres = -patch_half_width_metres +
-          2.0 * patch_half_width_metres * static_cast<double>(row) /
-            static_cast<double>(segments);
+        const double north_normalized = -1.0 +
+          2.0 * static_cast<double>(row) / static_cast<double>(segments);
+        const double north_metres = std::copysign(
+          north_normalized * north_normalized * patch_half_width_metres,
+          north_normalized);
         for (std::uint32_t column = 0; column <= segments; ++column)
         {
-          const double east_metres = -patch_half_width_metres +
-            2.0 * patch_half_width_metres * static_cast<double>(column) /
+          const double east_normalized = -1.0 +
+            2.0 * static_cast<double>(column) /
               static_cast<double>(segments);
+          const double east_metres = std::copysign(
+            east_normalized * east_normalized * patch_half_width_metres,
+            east_normalized);
           double x = center[0] + east[0] * east_metres / moon_radius_metres +
             north[0] * north_metres / moon_radius_metres;
           double y = center[1] + east[1] * east_metres / moon_radius_metres +
@@ -690,7 +698,7 @@ namespace sagan_render::scene_gpu
           {
             constexpr float marker_latitude_sine = 0.5F;
             constexpr float marker_latitude_cosine = 0.8660254038F;
-            constexpr float detail_width_metres = 1638.4F;
+            constexpr float detail_width_metres = 16384.0F;
             const float angular_width = detail_width_metres /
               static_cast<float>(draw.item.radius_metres);
             surface_lod.center_and_angular_width[0] = marker_latitude_cosine;
@@ -724,6 +732,7 @@ namespace sagan_render::scene_gpu
           constexpr scene::direction3 patch_center{
             0.8660254037835535, 0.0, 0.49999999999996425};
           constexpr double marker_altitude_metres = 10.0;
+          constexpr double foundation_datum_metres = 0.25;
           scene::render_item patch_anchor = draw.item;
           // Match the demo's marker construction and altitude removal exactly.
           // Reassociating this as center + radius changes the rounded anchor at
@@ -743,12 +752,29 @@ namespace sagan_render::scene_gpu
             patch_center.y * marker_altitude_metres;
           patch_anchor.position.z_metres -=
             patch_center.z * marker_altitude_metres;
+          patch_anchor.position.x_metres -=
+            patch_center.x * foundation_datum_metres;
+          patch_anchor.position.y_metres -=
+            patch_center.y * foundation_datum_metres;
+          patch_anchor.position.z_metres -=
+            patch_center.z * foundation_datum_metres;
           camera_uniform = scene::prepare_oriented_box_draw(
             patch_anchor, {1.0, 1.0, 1.0},
             {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
             draw.camera, logical).camera_uniform;
           SDL_PushGPUVertexUniformData(
             commands, 0, &camera_uniform, sizeof(camera_uniform));
+          // Patch vertices are metre offsets rather than unit-sphere points,
+          // so detail lookup must use the same marker-relative metre frame.
+          surface_lod_uniform patch_surface_lod{};
+          patch_surface_lod.center_and_angular_width[3] = 16384.0F;
+          patch_surface_lod.east_and_enabled[1] = 1.0F;
+          patch_surface_lod.east_and_enabled[3] = 1.0F;
+          patch_surface_lod.north_and_blend[0] = -0.5F;
+          patch_surface_lod.north_and_blend[2] = 0.8660254038F;
+          patch_surface_lod.north_and_blend[3] = 0.08F;
+          SDL_PushGPUFragmentUniformData(
+            commands, 2, &patch_surface_lod, sizeof(patch_surface_lod));
           const SDL_GPUBufferBinding patch_vertex_binding{
             surface_patch_vertex_buffer, 0};
           const SDL_GPUBufferBinding patch_index_binding{
