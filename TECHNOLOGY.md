@@ -304,11 +304,14 @@ handoff first orbits yaw, pitch, and roll into the marker-facing local camera
 frame, then translates the target and reduces reciprocal distance so the
 descent cannot cut a chord through the Moon. It fades the orbital marker
 through fixed-palette stages, hides it when local detail owns the view, and
-activates tangent-patch detail near the end of the ease. Once settled, the
-base view orbits in the marker's east/north/up frame, treating the local surface
-normal as camera up while the wheel retains measured-distance zoom. Elevation
-is clamped above the local horizon and the camera keeps at least five metres of
-tangent-plane ground clearance. Once local detail is active, the compositor
+activates tangent-patch detail near the end of the ease. Base structures remain
+submitted throughout descent and return, so their apparent size changes with
+camera distance instead of switching on at the detail threshold. Once settled,
+the base view begins at a steep local elevation and orbits in the marker's
+east/north/up frame, treating the local surface normal as camera up while the
+wheel retains measured-distance zoom. Elevation is clamped above the local
+horizon and the camera keeps at least five metres of tangent-plane ground
+clearance. Once local detail is active, the compositor
 suppresses orbital guides and planetary labels while retaining physical scene
 geometry and reserves a right sidebar for local-view UI. The renderer-neutral
 demo presents GDD-informed overview, resource, and system tabs covering power
