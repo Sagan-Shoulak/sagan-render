@@ -90,6 +90,8 @@ namespace sagan_render::scene_gpu
     std::vector<std::uint16_t> indices;
     std::vector<vertex> box_vertices;
     std::vector<std::uint16_t> box_indices;
+    std::vector<vertex> surface_patch_vertices;
+    std::vector<std::uint16_t> surface_patch_indices;
 
     SDL_GPUDevice *device{};
     SDL_GPUGraphicsPipeline *pipeline{};
@@ -97,6 +99,8 @@ namespace sagan_render::scene_gpu
     SDL_GPUBuffer *index_buffer{};
     SDL_GPUBuffer *box_vertex_buffer{};
     SDL_GPUBuffer *box_index_buffer{};
+    SDL_GPUBuffer *surface_patch_vertex_buffer{};
+    SDL_GPUBuffer *surface_patch_index_buffer{};
     SDL_GPUTexture *depth{};
     SDL_GPUTexture *white_texture{};
     SDL_GPUTexture *earth_texture{};
@@ -206,6 +210,57 @@ namespace sagan_render::scene_gpu
         box_indices.insert(box_indices.end(), {
           base, static_cast<std::uint16_t>(base + 1), static_cast<std::uint16_t>(base + 2),
           base, static_cast<std::uint16_t>(base + 2), static_cast<std::uint16_t>(base + 3)});
+      }
+    }
+
+    auto build_surface_patch_mesh() -> void
+    {
+      constexpr std::uint32_t segments = 64;
+      constexpr float pi = 3.14159265358979323846F;
+      constexpr float moon_radius_metres = 1737400.0F;
+      constexpr float patch_half_width_metres = 819.2F;
+      constexpr std::array<float, 3> center{{0.8660254038F, 0.0F, 0.5F}};
+      constexpr std::array<float, 3> east{{0.0F, 1.0F, 0.0F}};
+      constexpr std::array<float, 3> north{{-0.5F, 0.0F, 0.8660254038F}};
+      surface_patch_vertices.reserve((segments + 1) * (segments + 1));
+      surface_patch_indices.reserve(segments * segments * 6);
+      for (std::uint32_t row = 0; row <= segments; ++row)
+      {
+        const float north_metres = -patch_half_width_metres +
+          2.0F * patch_half_width_metres * static_cast<float>(row) /
+            static_cast<float>(segments);
+        for (std::uint32_t column = 0; column <= segments; ++column)
+        {
+          const float east_metres = -patch_half_width_metres +
+            2.0F * patch_half_width_metres * static_cast<float>(column) /
+              static_cast<float>(segments);
+          float x = center[0] + east[0] * east_metres / moon_radius_metres +
+            north[0] * north_metres / moon_radius_metres;
+          float y = center[1] + east[1] * east_metres / moon_radius_metres +
+            north[1] * north_metres / moon_radius_metres;
+          float z = center[2] + east[2] * east_metres / moon_radius_metres +
+            north[2] * north_metres / moon_radius_metres;
+          const float length = std::sqrt(x * x + y * y + z * z);
+          x /= length;
+          y /= length;
+          z /= length;
+          const float u = std::atan2(z, x) / (2.0F * pi) + 0.5F;
+          const float v = std::acos(std::clamp(y, -1.0F, 1.0F)) / pi;
+          surface_patch_vertices.push_back({{x, y, z}, {x, y, z}, {u, v}});
+        }
+      }
+      for (std::uint32_t row = 0; row < segments; ++row)
+      {
+        for (std::uint32_t column = 0; column < segments; ++column)
+        {
+          const auto first = static_cast<std::uint16_t>(
+            row * (segments + 1) + column);
+          const auto second = static_cast<std::uint16_t>(first + segments + 1);
+          surface_patch_indices.insert(surface_patch_indices.end(), {
+            first, second, static_cast<std::uint16_t>(first + 1),
+            static_cast<std::uint16_t>(first + 1), second,
+            static_cast<std::uint16_t>(second + 1)});
+        }
       }
     }
 
@@ -397,6 +452,10 @@ namespace sagan_render::scene_gpu
         box_vertices.size() * sizeof(vertex));
       const auto box_index_bytes = static_cast<std::uint32_t>(
         box_indices.size() * sizeof(std::uint16_t));
+      const auto surface_patch_vertex_bytes = static_cast<std::uint32_t>(
+        surface_patch_vertices.size() * sizeof(vertex));
+      const auto surface_patch_index_bytes = static_cast<std::uint32_t>(
+        surface_patch_indices.size() * sizeof(std::uint16_t));
       buffer.size = vertex_bytes;
       vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
       buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
@@ -408,12 +467,20 @@ namespace sagan_render::scene_gpu
       buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
       buffer.size = box_index_bytes;
       box_index_buffer = SDL_CreateGPUBuffer(device, &buffer);
+      buffer.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+      buffer.size = surface_patch_vertex_bytes;
+      surface_patch_vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
+      buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+      buffer.size = surface_patch_index_bytes;
+      surface_patch_index_buffer = SDL_CreateGPUBuffer(device, &buffer);
       SDL_GPUTransferBufferCreateInfo transfer{
         SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes, 0};
+        vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes +
+          surface_patch_vertex_bytes + surface_patch_index_bytes, 0};
       auto *upload = SDL_CreateGPUTransferBuffer(device, &transfer);
       if (!vertex_buffer || !index_buffer || !box_vertex_buffer ||
-          !box_index_buffer || !upload)
+          !box_index_buffer || !surface_patch_vertex_buffer ||
+          !surface_patch_index_buffer || !upload)
         fail("Could not create indexed scene buffers");
       auto *mapped = static_cast<std::uint8_t *>(
         SDL_MapGPUTransferBuffer(device, upload, false));
@@ -424,6 +491,13 @@ namespace sagan_render::scene_gpu
                   box_vertices.data(), box_vertex_bytes);
       std::memcpy(mapped + vertex_bytes + index_bytes + box_vertex_bytes,
                   box_indices.data(), box_index_bytes);
+      std::memcpy(
+        mapped + vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes,
+        surface_patch_vertices.data(), surface_patch_vertex_bytes);
+      std::memcpy(
+        mapped + vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes +
+          surface_patch_vertex_bytes,
+        surface_patch_indices.data(), surface_patch_index_bytes);
       SDL_UnmapGPUTransferBuffer(device, upload);
       auto *commands = SDL_AcquireGPUCommandBuffer(device);
       if (!commands) fail("Could not acquire indexed scene upload commands");
@@ -439,6 +513,15 @@ namespace sagan_render::scene_gpu
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
       source.offset = vertex_bytes + index_bytes + box_vertex_bytes;
       destination = {box_index_buffer, 0, box_index_bytes};
+      SDL_UploadToGPUBuffer(copy, &source, &destination, false);
+      source.offset = vertex_bytes + index_bytes + box_vertex_bytes +
+        box_index_bytes;
+      destination = {
+        surface_patch_vertex_buffer, 0, surface_patch_vertex_bytes};
+      SDL_UploadToGPUBuffer(copy, &source, &destination, false);
+      source.offset += surface_patch_vertex_bytes;
+      destination = {
+        surface_patch_index_buffer, 0, surface_patch_index_bytes};
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
       SDL_EndGPUCopyPass(copy);
       auto *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
@@ -472,6 +555,7 @@ namespace sagan_render::scene_gpu
     {
       build_sphere_mesh();
       build_box_mesh();
+      build_surface_patch_mesh();
       create_pipeline();
       upload_mesh();
       create_surface_textures();
@@ -480,6 +564,10 @@ namespace sagan_render::scene_gpu
     ~indexed_sphere_pass()
     {
       if (depth) SDL_ReleaseGPUTexture(device, depth);
+      if (surface_patch_index_buffer)
+        SDL_ReleaseGPUBuffer(device, surface_patch_index_buffer);
+      if (surface_patch_vertex_buffer)
+        SDL_ReleaseGPUBuffer(device, surface_patch_vertex_buffer);
       if (surface_sampler) SDL_ReleaseGPUSampler(device, surface_sampler);
       if (moon_detail_texture)
         SDL_ReleaseGPUTexture(device, moon_detail_texture);
@@ -559,6 +647,7 @@ namespace sagan_render::scene_gpu
         SDL_GPUTexture *surface = white_texture;
         SDL_GPUTexture *detail = white_texture;
         surface_lod_uniform surface_lod{};
+        bool draw_surface_patch = false;
         if (draw.albedo_map == surface_map::earth_blue_marble)
           surface = earth_texture;
         else if (draw.albedo_map == surface_map::moon_lro)
@@ -589,6 +678,7 @@ namespace sagan_render::scene_gpu
             surface_lod.north_and_blend[2] = marker_latitude_cosine;
             surface_lod.north_and_blend[3] = 0.08F;
             detail = moon_detail_texture;
+            draw_surface_patch = true;
           }
         }
         if (draw.albedo_map != surface_map::none)
@@ -604,6 +694,20 @@ namespace sagan_render::scene_gpu
           commands, 2, &surface_lod, sizeof(surface_lod));
         SDL_DrawGPUIndexedPrimitives(
           render_pass, selected_index_count, 1, 0, 0, 0);
+        if (draw_surface_patch)
+        {
+          const SDL_GPUBufferBinding patch_vertex_binding{
+            surface_patch_vertex_buffer, 0};
+          const SDL_GPUBufferBinding patch_index_binding{
+            surface_patch_index_buffer, 0};
+          SDL_BindGPUVertexBuffers(
+            render_pass, 0, &patch_vertex_binding, 1);
+          SDL_BindGPUIndexBuffer(
+            render_pass, &patch_index_binding,
+            SDL_GPU_INDEXELEMENTSIZE_16BIT);
+          SDL_DrawGPUIndexedPrimitives(
+            render_pass, surface_patch_indices.size(), 1, 0, 0, 0);
+        }
       }
       SDL_EndGPURenderPass(render_pass);
     }

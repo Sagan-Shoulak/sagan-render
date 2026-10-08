@@ -297,8 +297,12 @@ cuboids, and boulder through that frame. The application or physics package
 owns that frame; the renderer validates and consumes the supplied axes. The
 handoff interpolates target, reciprocal distance, yaw, pitch, and roll into the
 same local camera frame, fades the orbital marker through fixed-palette stages,
-and activates tangent-patch detail before the ease completes. It does not yet
-define production terrain level-of-detail assets or the return-to-orbit UI.
+and activates tangent-patch detail before the ease completes. Once settled, the
+base view replaces orbit rotation with bounded east/north surface panning while
+the wheel retains measured-distance zoom. The camera keeps at least five metres
+of tangent-plane ground clearance and the pan remains within 600 metres of the
+selected location. It does not yet define production terrain level-of-detail
+assets or the return-to-orbit UI.
 
 The interactive scene demo uses Left and Right to select every sample, Enter to
 start a focus transition, and pointer clicks to pick projected samples.
@@ -563,7 +567,12 @@ textures; untextured primitives bind a one-pixel white texture through the same
 pipeline. Below 100 kilometres above the Moon, the same sphere draw also binds
 a 0.8-metre-per-pixel LROC Shackleton rim tile. The shader projects that tile
 through the marker's body-fixed tangent basis and feather-blends its boundary
-into the global map; it does not replace the Moon mesh or move local geometry.
+into the global map. At the same threshold, a 64-by-64 indexed spherical patch
+adds close-range geometry resolution over a 1.6384-kilometre square centered on
+the marker. Its vertices are projected onto the same Moon radius and it reuses
+the Moon draw's transform, material, texture blend, lighting, and depth target;
+this prevents the local base from floating above a large chord of the coarse
+orbital sphere without creating a second Moon or an independent ground plane.
 Tessellation changes presentation geometry only; entity dimensions and
 positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and
@@ -602,7 +611,10 @@ actions use the same hierarchy-aware transitions as before.
 
 The UI bridge reports accumulated right-drag deltas and wheel movement rather
 than exposing SDL event structures. Sagan consumes each delta once and owns the
-orbit target, yaw, pitch, and unit-typed camera distance. Focusing changes the
+orbit target, yaw, pitch, and unit-typed camera distance. Orbital view maps
+right-drag to yaw and pitch; settled base view maps the same gesture to local
+east/north surface pan without changing its approach orientation. Focusing
+changes the
 target and distance smoothly; following a moving selected body updates only the
 target snapshot. During the transition, the eased destination is refreshed
 from each new immutable body snapshot; otherwise the camera would ease toward

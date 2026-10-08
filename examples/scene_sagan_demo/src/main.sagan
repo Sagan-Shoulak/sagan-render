@@ -122,6 +122,12 @@ fun zoom_local_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
   return result
 }
 
+fun clamp_local_pan(value: Float64<meter>): Float64<meter> {
+  if value < 0.0 meter - 600.0 meter { return 0.0 meter - 600.0 meter }
+  if value > 600.0 meter { return 600.0 meter }
+  return value
+}
+
 fun focus_progress(elapsed_seconds: Float64,
                    duration_seconds: Float64): Float64 {
   let progress = elapsed_seconds / duration_seconds
@@ -794,7 +800,7 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
                       marker_hovered, marker_fade_stage)
   if surface_detail_active {
     text(24.0, window_height - 28.0,
-         "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CAMERA STAYS ABOVE SURFACE",
+         "RIGHT-DRAG: PAN SURFACE | WHEEL: ZOOM | CAMERA STAYS ABOVE GROUND",
          10.0, 142, 203, 255)
   } else {
     text(24.0, window_height - 28.0,
@@ -839,6 +845,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focused_identifier: Int64 = 1
   let focused_marker = false
   let local_view = false
+  let local_pan_east = 0.0 meter
+  let local_pan_north = 0.0 meter
   let running = true
   while running {
     if poll() == false { running = false }
@@ -886,8 +894,10 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         }
       } else {
         if focusing == false {
-          camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
-          camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
+          local_pan_east = clamp_local_pan(
+            local_pan_east - orbit_delta_x() * 0.5 meter)
+          local_pan_north = clamp_local_pan(
+            local_pan_north + orbit_delta_y() * 0.5 meter)
           camera_distance = zoom_local_distance(camera_distance, scroll_y())
           if key_pressed("q") {
             camera_distance = zoom_local_distance(camera_distance, -1.0)
@@ -1109,9 +1119,27 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       }
       if focusing == false {
         if focused_marker {
-          orbit_target_x = local_target_x(base_marker, marker_value)
-          orbit_target_y = local_target_y(base_marker, marker_value)
-          orbit_target_z = local_target_z(base_marker, marker_value)
+          let local_longitude_cosine =
+            demo_cosine(base_marker.longitude_radians())
+          let local_longitude_sine =
+            demo_sine(base_marker.longitude_radians())
+          let local_latitude_cosine =
+            demo_cosine(base_marker.latitude_radians())
+          let local_latitude_sine =
+            demo_sine(base_marker.latitude_radians())
+          let local_east_x = 0.0 - local_longitude_sine
+          let local_east_y = local_longitude_cosine
+          let local_north_x = 0.0 - local_latitude_sine *
+            local_longitude_cosine
+          let local_north_y = 0.0 - local_latitude_sine *
+            local_longitude_sine
+          let local_north_z = local_latitude_cosine
+          orbit_target_x = local_target_x(base_marker, marker_value) +
+            local_east_x * local_pan_east + local_north_x * local_pan_north
+          orbit_target_y = local_target_y(base_marker, marker_value) +
+            local_east_y * local_pan_east + local_north_y * local_pan_north
+          orbit_target_z = local_target_z(base_marker, marker_value) +
+            local_north_z * local_pan_north
         } else {
         if focused_identifier > 0 {
           orbit_target_x = selected_target_x(focused_identifier, first, second, third)
