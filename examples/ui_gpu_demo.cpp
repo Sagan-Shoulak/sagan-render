@@ -437,6 +437,20 @@ namespace
         draw.yaw_radians, draw.camera, draw.target, draw.material});
     }
 
+    auto mesh_oriented_box(sagan_render::scene_gpu::oriented_box_draw draw) -> void
+    {
+      if (!scene_pass)
+        scene_pass = std::make_unique<sagan_render::scene_gpu::indexed_sphere_pass>(device);
+      sagan_render::scene_gpu::mesh_draw mesh{
+        sagan_render::scene_gpu::mesh_kind::box, draw.item, draw.half_extents,
+        0.0, draw.camera, draw.target, draw.material};
+      mesh.oriented = true;
+      mesh.axis_x = draw.axis_x;
+      mesh.axis_y = draw.axis_y;
+      mesh.axis_z = draw.axis_z;
+      scene_draws.push_back(std::move(mesh));
+    }
+
     auto resize(const std::uint32_t width, const std::uint32_t height) -> bool
     {
       if (width == 0 || height == 0 ||
@@ -1118,6 +1132,54 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f626f78(
     {static_cast<std::uint64_t>(appearance), {center_x, center_y, center_z},
      std::max({half_x, half_y, half_z}), ""},
     {half_x, half_y, half_z}, yaw_radians,
+    {{camera_x, camera_y, camera_z}, {forward_x, forward_y, forward_z},
+     {up_x, up_y, up_z}, field_of_view, near_distance, far_distance},
+    {static_cast<float>(viewport_x), static_cast<float>(viewport_y),
+     static_cast<float>(viewport_width), static_cast<float>(viewport_height)},
+    material});
+}
+
+auto sagan_5f5f72656e6465725f75695f6d6573685f626f785f6672616d65(
+  const double viewport_x, const double viewport_y,
+  const double viewport_width, const double viewport_height,
+  const double camera_x, const double camera_y, const double camera_z,
+  const double forward_x, const double forward_y, const double forward_z,
+  const double up_x, const double up_y, const double up_z,
+  const double field_of_view, const double near_distance,
+  const double far_distance, const double center_x, const double center_y,
+  const double center_z, const double half_x, const double half_y,
+  const double half_z, const double axis_x_x, const double axis_x_y,
+  const double axis_x_z, const double axis_y_x, const double axis_y_y,
+  const double axis_y_z, const double axis_z_x, const double axis_z_y,
+  const double axis_z_z, const std::int64_t appearance) -> void
+{
+  if (!bridge_gpu || !bridge_list)
+    throw std::runtime_error("UI oriented mesh box requires begin");
+  const sagan_render::scene::direction3 forward{forward_x, forward_y, forward_z};
+  const sagan_render::scene::length3 relative{
+    center_x - camera_x, center_y - camera_y, center_z - camera_z};
+  if (!sagan_render::scene::mesh_center_is_projectable(
+        relative, forward, near_distance))
+    return;
+  sagan::render::MaterialUniform material{
+    {0.36F, 0.38F, 0.4F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.8F}};
+  if (appearance == 11)
+    material = {{0.1F, 0.14F, 0.18F, 1.0F}, {0.01F, 0.02F, 0.03F, 0.65F}};
+  else if (appearance == 12)
+    material = {{0.72F, 0.74F, 0.7F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.72F}};
+  else if (appearance == 13)
+    material = {{0.72F, 0.28F, 0.08F, 1.0F}, {0.02F, 0.005F, 0.0F, 0.65F}};
+  else if (appearance == 14)
+    material = {{0.04F, 0.18F, 0.32F, 1.0F}, {0.01F, 0.04F, 0.08F, 0.52F}};
+  else if (appearance >= 15)
+    material = {{0.82F, 0.68F, 0.16F, 1.0F}, {0.04F, 0.025F, 0.0F, 0.58F}};
+  bridge_gpu->mesh_oriented_box({
+    {static_cast<std::uint64_t>(appearance), {center_x, center_y, center_z},
+     std::max({half_x, half_y, half_z}), ""},
+    {half_x, half_y, half_z},
+    {axis_x_x, axis_x_y, axis_x_z},
+    {axis_y_x, axis_y_y, axis_y_z},
+    {axis_z_x, axis_z_y, axis_z_z},
     {{camera_x, camera_y, camera_z}, {forward_x, forward_y, forward_z},
      {up_x, up_y, up_z}, field_of_view, near_distance, far_distance},
     {static_cast<float>(viewport_x), static_cast<float>(viewport_y),

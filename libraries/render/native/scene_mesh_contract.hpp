@@ -104,11 +104,13 @@ namespace sagan_render::scene
     length3 half_extents_metres{};
   };
 
-  inline auto prepare_box_draw(const render_item &item,
-                               const length3 half_extents,
-                               const scalar yaw_radians,
-                               const camera &view,
-                               const viewport output)
+  inline auto prepare_oriented_box_draw(const render_item &item,
+                                        const length3 half_extents,
+                                        const direction3 axis_x,
+                                        const direction3 axis_y,
+                                        const direction3 axis_z,
+                                        const camera &view,
+                                        const viewport output)
     -> prepared_box_draw
   {
     if (output.width_logical <= 0.0 || output.height_logical <= 0.0 ||
@@ -118,9 +120,8 @@ namespace sagan_render::scene
     if (half_extents.x_metres <= 0.0 || half_extents.y_metres <= 0.0 ||
         half_extents.z_metres <= 0.0 || !std::isfinite(half_extents.x_metres) ||
         !std::isfinite(half_extents.y_metres) ||
-        !std::isfinite(half_extents.z_metres) ||
-        !std::isfinite(yaw_radians))
-      throw std::invalid_argument("Box half extents and yaw must be valid");
+        !std::isfinite(half_extents.z_metres))
+      throw std::invalid_argument("Box half extents must be valid");
     if (view.near_metres <= 0.0 || view.far_metres <= view.near_metres ||
         !std::isfinite(view.near_metres) || !std::isfinite(view.far_metres) ||
         view.vertical_field_of_view_radians <= 0.0 ||
@@ -145,12 +146,12 @@ namespace sagan_render::scene
       view.far_metres / (view.far_metres - view.near_metres);
     const scalar x_scale = 1.0 / (aspect * tangent_half_field);
     const scalar y_scale = 1.0 / tangent_half_field;
-    const scalar yaw_cosine = std::cos(yaw_radians);
-    const scalar yaw_sine = std::sin(yaw_radians);
     const direction3 axes[3] = {
-      {yaw_cosine, yaw_sine, 0.0},
-      {-yaw_sine, yaw_cosine, 0.0},
-      {0.0, 0.0, 1.0}};
+      normalize(axis_x), normalize(axis_y), normalize(axis_z)};
+    if (std::abs(dot(axes[0], axes[1])) > 0.000001 ||
+        std::abs(dot(axes[0], axes[2])) > 0.000001 ||
+        std::abs(dot(axes[1], axes[2])) > 0.000001)
+      throw std::invalid_argument("Box axes must be orthogonal");
     const scalar scales[3] = {
       half_extents.x_metres, half_extents.y_metres, half_extents.z_metres};
 
@@ -186,5 +187,23 @@ namespace sagan_render::scene
     normal[15] = 1.0F;
 
     return {uniform, relative, half_extents};
+  }
+
+  inline auto prepare_box_draw(const render_item &item,
+                               const length3 half_extents,
+                               const scalar yaw_radians,
+                               const camera &view,
+                               const viewport output)
+    -> prepared_box_draw
+  {
+    if (!std::isfinite(yaw_radians))
+      throw std::invalid_argument("Box yaw must be finite");
+    const scalar yaw_cosine = std::cos(yaw_radians);
+    const scalar yaw_sine = std::sin(yaw_radians);
+    return prepare_oriented_box_draw(
+      item, half_extents,
+      {yaw_cosine, yaw_sine, 0.0},
+      {-yaw_sine, yaw_cosine, 0.0},
+      {0.0, 0.0, 1.0}, view, output);
   }
 }

@@ -72,6 +72,36 @@ int main(int argc, char **argv)
   assert(near(box_draw.camera_uniform.normal_matrix[5], 0.0));
   assert(box_draw.camera_uniform.normal_matrix[10] == 1.0F);
 
+  const auto oriented_box_draw = prepare_oriented_box_draw(
+    local_structure, {10.0, 20.0, 30.0},
+    {0.0, 1.0, 0.0}, {-0.5, 0.0, 0.8660254037844386},
+    {0.8660254037844386, 0.0, 0.5}, view, {960.0, 540.0});
+  assert(oriented_box_draw.camera_relative_center.x_metres == 32.0);
+  assert(oriented_box_draw.camera_relative_center.y_metres == -16.0);
+  assert(oriented_box_draw.camera_relative_center.z_metres == -500.0);
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[0], 0.0));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[1], 1.0));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[4], -0.5));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[6],
+              0.8660254037844386));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[8],
+              0.8660254037844386));
+  assert(near(oriented_box_draw.camera_uniform.normal_matrix[10], 0.5));
+
+  bool non_orthogonal_box_rejected = false;
+  try
+  {
+    prepare_oriented_box_draw(
+      local_structure, {10.0, 20.0, 30.0},
+      {1.0, 0.0, 0.0}, {1.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
+      view, {960.0, 540.0});
+  }
+  catch (const std::invalid_argument &)
+  {
+    non_orthogonal_box_rejected = true;
+  }
+  assert(non_orthogonal_box_rejected);
+
   const render_item tiny_far_body{
     12, {anchor, anchor, anchor - 8000000.0}, 10.0, "tiny"};
   const auto tiny_draw = prepare_sphere_draw(

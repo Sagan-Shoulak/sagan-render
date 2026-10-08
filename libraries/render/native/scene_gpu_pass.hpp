@@ -46,6 +46,18 @@ namespace sagan_render::scene_gpu
     sagan::render::MaterialUniform material;
   };
 
+  struct oriented_box_draw
+  {
+    scene::render_item item;
+    scene::length3 half_extents;
+    scene::direction3 axis_x;
+    scene::direction3 axis_y;
+    scene::direction3 axis_z;
+    scene::camera camera;
+    target_viewport target;
+    sagan::render::MaterialUniform material;
+  };
+
   enum class mesh_kind { sphere, box };
 
   struct mesh_draw
@@ -57,6 +69,10 @@ namespace sagan_render::scene_gpu
     scene::camera camera;
     target_viewport target;
     sagan::render::MaterialUniform material;
+    bool oriented{};
+    scene::direction3 axis_x{};
+    scene::direction3 axis_y{};
+    scene::direction3 axis_z{};
   };
 
   class indexed_sphere_pass
@@ -378,9 +394,13 @@ namespace sagan_render::scene_gpu
             draw.item, draw.camera, logical).camera_uniform;
         else
         {
-          camera_uniform = scene::prepare_box_draw(
-            draw.item, draw.half_extents, draw.yaw_radians,
-            draw.camera, logical).camera_uniform;
+          camera_uniform = draw.oriented
+            ? scene::prepare_oriented_box_draw(
+                draw.item, draw.half_extents, draw.axis_x, draw.axis_y,
+                draw.axis_z, draw.camera, logical).camera_uniform
+            : scene::prepare_box_draw(
+                draw.item, draw.half_extents, draw.yaw_radians,
+                draw.camera, logical).camera_uniform;
           selected_vertex_buffer = box_vertex_buffer;
           selected_index_buffer = box_index_buffer;
           selected_index_count = box_indices.size();

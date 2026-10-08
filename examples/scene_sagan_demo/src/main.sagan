@@ -10,7 +10,7 @@ import fill from render.ui
 import line from render.ui
 import text from render.ui
 import mesh_sphere from render.ui
-import mesh_box from render.ui
+import mesh_box_frame from render.ui
 import present from render.ui
 import key_pressed from render.ui
 import pointer_pressed from render.ui
@@ -208,18 +208,36 @@ fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
                    origin_x: Float64<meter>, origin_y: Float64<meter>,
                    origin_z: Float64<meter>, x: Float64<meter>,
                    y: Float64<meter>, z: Float64<meter>,
+                   east_x: Float64, east_y: Float64, east_z: Float64,
+                   north_x: Float64, north_y: Float64, north_z: Float64,
+                   surface_up_x: Float64, surface_up_y: Float64,
+                   surface_up_z: Float64,
                    half_x: Float64<meter>, half_y: Float64<meter>,
                    half_z: Float64<meter>, yaw: Float64,
                    appearance: Int64): Void {
-  mesh_box(viewport_x, viewport_y, viewport_width, viewport_height,
-           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
-           up_x, up_y, up_z, 0.8726646259971648,
-           1.0 meter, 4000000.0 meter,
-           origin_x + x, origin_y + y, origin_z + z,
-           half_x, half_y, half_z, yaw, appearance)
+  let yaw_cosine = demo_cosine(yaw)
+  let yaw_sine = demo_sine(yaw)
+  let axis_x_x = east_x * yaw_cosine + north_x * yaw_sine
+  let axis_x_y = east_y * yaw_cosine + north_y * yaw_sine
+  let axis_x_z = east_z * yaw_cosine + north_z * yaw_sine
+  let axis_y_x = north_x * yaw_cosine - east_x * yaw_sine
+  let axis_y_y = north_y * yaw_cosine - east_y * yaw_sine
+  let axis_y_z = north_z * yaw_cosine - east_z * yaw_sine
+  mesh_box_frame(viewport_x, viewport_y, viewport_width, viewport_height,
+                 camera_x, camera_y, camera_z,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 0.8726646259971648, 1.0 meter, 4000000.0 meter,
+                 origin_x + east_x * x + north_x * y + surface_up_x * z,
+                 origin_y + east_y * x + north_y * y + surface_up_y * z,
+                 origin_z + east_z * x + north_z * y + surface_up_z * z,
+                 half_x, half_y, half_z,
+                 axis_x_x, axis_x_y, axis_x_z,
+                 axis_y_x, axis_y_y, axis_y_z,
+                 surface_up_x, surface_up_y, surface_up_z, appearance)
 }
 
-fun compose_local_base(marker_value: SpatialRenderable): Void {
+fun compose_local_base(marker: SurfaceLocationMarker,
+                       marker_value: SpatialRenderable): Void {
   let marker_sample = sample(marker_value)
   let window_width = width()
   let window_height = height()
@@ -229,18 +247,37 @@ fun compose_local_base(marker_value: SpatialRenderable): Void {
   let viewport_height = window_height - 102.0
   let yaw = 0.75
   let pitch = 0.68
+  let latitude_cosine = demo_cosine(marker.latitude_radians())
+  let latitude_sine = demo_sine(marker.latitude_radians())
+  let longitude_cosine = demo_cosine(marker.longitude_radians())
+  let longitude_sine = demo_sine(marker.longitude_radians())
+  let surface_up_x = latitude_cosine * longitude_cosine
+  let surface_up_y = latitude_cosine * longitude_sine
+  let surface_up_z = latitude_sine
+  let east_x = 0.0 - longitude_sine
+  let east_y = longitude_cosine
+  let east_z = 0.0
+  let north_x = 0.0 - latitude_sine * longitude_cosine
+  let north_y = 0.0 - latitude_sine * longitude_sine
+  let north_z = latitude_cosine
   let pitch_cosine = demo_cosine(pitch)
   let pitch_sine = demo_sine(pitch)
-  let forward_x = 0.0 - demo_cosine(yaw) * pitch_cosine
-  let forward_y = 0.0 - demo_sine(yaw) * pitch_cosine
-  let forward_z = 0.0 - pitch_sine
-  let up_x = 0.0 - demo_cosine(yaw) * pitch_sine
-  let up_y = 0.0 - demo_sine(yaw) * pitch_sine
-  let up_z = pitch_cosine
+  let local_forward_x = 0.0 - demo_cosine(yaw) * pitch_cosine
+  let local_forward_y = 0.0 - demo_sine(yaw) * pitch_cosine
+  let local_forward_z = 0.0 - pitch_sine
+  let local_up_x = 0.0 - demo_cosine(yaw) * pitch_sine
+  let local_up_y = 0.0 - demo_sine(yaw) * pitch_sine
+  let local_up_z = pitch_cosine
+  let forward_x = east_x * local_forward_x + north_x * local_forward_y + surface_up_x * local_forward_z
+  let forward_y = east_y * local_forward_x + north_y * local_forward_y + surface_up_y * local_forward_z
+  let forward_z = east_z * local_forward_x + north_z * local_forward_y + surface_up_z * local_forward_z
+  let up_x = east_x * local_up_x + north_x * local_up_y + surface_up_x * local_up_z
+  let up_y = east_y * local_up_x + north_y * local_up_y + surface_up_y * local_up_z
+  let up_z = east_z * local_up_x + north_z * local_up_y + surface_up_z * local_up_z
   let distance: Float64<meter> = 620.0 meter
-  let target_x = marker_sample.x() - 15.0 meter
-  let target_y = marker_sample.y() - 5.0 meter
-  let target_z = marker_sample.z() + 4.0 meter
+  let target_x = marker_sample.x() + east_x * (0.0 meter - 15.0 meter) + north_x * (0.0 meter - 5.0 meter) + surface_up_x * 4.0 meter
+  let target_y = marker_sample.y() + east_y * (0.0 meter - 15.0 meter) + north_y * (0.0 meter - 5.0 meter) + surface_up_y * 4.0 meter
+  let target_z = marker_sample.z() + east_z * (0.0 meter - 15.0 meter) + north_z * (0.0 meter - 5.0 meter) + surface_up_z * 4.0 meter
   let camera_x = target_x - forward_x * distance
   let camera_y = target_y - forward_y * distance
   let camera_z = target_z - forward_z * distance
@@ -257,51 +294,67 @@ fun compose_local_base(marker_value: SpatialRenderable): Void {
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
                  0.0 meter, 0.0 meter, 0.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
                  520.0 meter, 420.0 meter, 5.0 meter, 0.0, 10)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
                  115.0 meter, 70.0 meter, 6.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
                  72.0 meter, 72.0 meter, 1.0 meter, 0.0, 11)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
                  115.0 meter, 70.0 meter, 22.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
                  18.0 meter, 13.0 meter, 9.0 meter, 0.35, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
                  0.0 meter - 95.0 meter, 25.0 meter, 19.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
                  54.0 meter, 25.0 meter, 14.0 meter, 0.0 - 0.18, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
                  0.0 meter - 130.0 meter, 0.0 meter - 55.0 meter,
-                 16.0 meter, 38.0 meter, 22.0 meter, 11.0 meter, 0.25, 12)
+                 16.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 38.0 meter, 22.0 meter, 11.0 meter, 0.25, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
                  0.0 meter - 10.0 meter, 0.0 meter - 135.0 meter,
-                 9.0 meter, 92.0 meter, 28.0 meter, 2.0 meter,
+                 9.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 92.0 meter, 28.0 meter, 2.0 meter,
                  0.0 - 0.12, 14)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  marker_sample.x(), marker_sample.y(), marker_sample.z(),
                  0.0 meter - 205.0 meter, 85.0 meter, 42.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
                  5.0 meter, 5.0 meter, 38.0 meter, 0.0, 13)
   mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
               camera_x, camera_y, camera_z,
               forward_x, forward_y, forward_z, up_x, up_y, up_z,
               0.8726646259971648, 1.0 meter, 4000000.0 meter,
-              marker_sample.x() - 70.0 meter,
-              marker_sample.y() + 18.0 meter,
-              marker_sample.z() + 31.0 meter,
+              marker_sample.x() + east_x * (0.0 meter - 70.0 meter) + north_x * 18.0 meter + surface_up_x * 31.0 meter,
+              marker_sample.y() + east_y * (0.0 meter - 70.0 meter) + north_y * 18.0 meter + surface_up_y * 31.0 meter,
+              marker_sample.z() + east_z * (0.0 meter - 70.0 meter) + north_z * 18.0 meter + surface_up_z * 31.0 meter,
               17.0 meter, 3, false)
   text(20.0, window_height - 25.0,
        "SAME PROCESS - SAME GPU SCENE CONTRACT", 10.0, 142, 164, 188)
@@ -909,7 +962,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       camera_y = orbit_target_y - look_forward_y * camera_distance
       camera_z = orbit_target_z - look_forward_z * camera_distance
       if local_view {
-        compose_local_base(marker_value)
+        compose_local_base(base_marker, marker_value)
       } else {
         compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
                 selection, first, second, third, base_marker, marker_value,

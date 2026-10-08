@@ -7,6 +7,7 @@ entry = "window"
 [native]
 __render_ui_mesh_sphere = "(Float64, Float64, Float64, Float64, Float64<meter>, Float64<meter>, Float64<meter>, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Int64, Bool) -> Void"
 __render_ui_mesh_box = "(Float64, Float64, Float64, Float64, Float64<meter>, Float64<meter>, Float64<meter>, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64, Int64) -> Void"
+__render_ui_mesh_box_frame = "(Float64, Float64, Float64, Float64, Float64<meter>, Float64<meter>, Float64<meter>, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64<meter>, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Int64) -> Void"
 __render_ui_line = "(Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Int64, Int64, Int64) -> Void"
 __render_ui_orbit_delta_x = "() -> Float64"
 __render_ui_orbit_delta_y = "() -> Float64"
