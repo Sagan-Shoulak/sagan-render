@@ -1,4 +1,13 @@
-# Planetary albedo textures
+---
+title: Planetary texture fixtures
+status: review-needed
+publication_ready: false
+verified_in: null
+verified_on: null
+verified_by: null
+---
+
+# Planetary texture fixtures
 
 These PPM files are renderer fixtures derived from public NASA imagery. PPM is
 used so the native demo can upload exact RGB pixels without adding an image
@@ -13,9 +22,13 @@ decoder dependency. The renderer samples them with the shared material shader.
   https://svs.gsfc.nasa.gov/4720/
 - `moon_shackleton_rim_2048x2048.ppm` is a 2048-pixel square crop beginning at
   source pixel (1000, 18000) in NASA SVS's 0.8-metre-per-pixel LROC NAC
-  Shackleton rim mosaic. It is retained as a provenance fixture but is not
-  bound as albedo: its extreme-angle illumination is baked into the pixels and
-  is not photometrically compatible with the global Moon map:
+  Shackleton rim mosaic. Its 1,638.4-metre footprint supplies close-view demo
+  detail. Its extreme-angle illumination is baked into the pixels, so it is
+  not bound directly as albedo. The upload extracts spatial residuals against
+  an 81-pixel (64.8-metre) box average and centers them on the global anchor
+  luminance, with bounded contrast. This removes broad illumination mismatch
+  without editing this provenance asset. It is a neutral detail convention,
+  not photometric calibration or a terrain height model:
   https://svs.gsfc.nasa.gov/3634/
 
 Source download SHA-256 values:
@@ -33,7 +46,8 @@ Committed PPM SHA-256 values:
 - `moon_shackleton_rim_2048x2048.ppm`:
   `d6021bf68380c0b525e12d200aea39c78b077dc96f9b954e6466e58cda15c243`
 
-The source images are equirectangular, north-up maps. The sphere UVs shift their
+The global source images are equirectangular, north-up maps; world +Z is north.
+The sphere UVs shift their
 zero-longitude center by half a turn to match the procedural sphere's first +X
 longitude. The RGB values remain display encoded because the bootstrap
 offscreen target is UNORM and does not yet apply an sRGB output transfer curve.
