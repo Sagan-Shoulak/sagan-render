@@ -31,8 +31,15 @@ int main() {
   };
   const LightingUniform lighting{
     .ambient_linear = {0.1F, 0.1F, 0.1F, 0.0F},
-    .direction_to_light_and_intensity = {0.0F, 0.0F, 1.0F, 0.75F},
-    .light_color_linear = {1.0F, 0.8F, 0.6F, 0.0F},
+    .direction_to_light_and_intensity = {{
+      {0.0F, 0.0F, 1.0F, 0.75F},
+      {1.0F, 0.0F, 0.0F, 0.5F},
+      {}, {}}},
+    .light_color_linear = {{
+      {1.0F, 0.8F, 0.6F, 0.0F},
+      {0.2F, 0.4F, 1.0F, 0.0F},
+      {}, {}}},
+    .light_count_and_padding = {2.0F, 0.0F, 0.0F, 0.0F},
   };
 
   const Float4 front = lambert_reference({0.0F, 0.0F, 1.0F, 0.0F}, material, lighting);
@@ -46,6 +53,11 @@ int main() {
   assert(near(back.y, 0.06F));
   assert(near(back.z, 0.05F));
 
+  const Float4 side = lambert_reference({1.0F, 0.0F, 0.0F, 0.0F}, material, lighting);
+  assert(near(side.x, 0.17F));
+  assert(near(side.y, 0.14F));
+  assert(near(side.z, 0.15F));
+
   std::cout << "Material contract passed: std140 layout, linear color, "
-               "Lambert clamp, ambient, and emission verified.\n";
+               "four-light Lambert accumulation, ambient, and emission verified.\n";
 }

@@ -137,9 +137,16 @@ int main()
     const auto earth_material = material(0.04F, 0.18F, 0.92F);
     const auto moon_material = material(0.48F, 0.52F, 0.58F);
     const sagan::render::LightingUniform lighting{
-      {0.28F, 0.28F, 0.3F, 0.0F},
-      {-0.45F, 0.55F, 0.7F, 0.95F},
-      {1.0F, 0.95F, 0.86F, 0.0F}};
+      .ambient_linear = {0.2F, 0.2F, 0.22F, 0.0F},
+      .direction_to_light_and_intensity = {{
+        {-0.45F, 0.55F, 0.7F, 0.95F},
+        {0.7F, -0.2F, 0.45F, 0.35F},
+        {}, {}}},
+      .light_color_linear = {{
+        {1.0F, 0.95F, 0.86F, 0.0F},
+        {0.35F, 0.5F, 1.0F, 0.0F},
+        {}, {}}},
+      .light_count_and_padding = {2.0F, 0.0F, 0.0F, 0.0F}};
 
     auto *commands = SDL_AcquireGPUCommandBuffer(device);
     if (!commands) fail("Could not acquire 3D scene commands");

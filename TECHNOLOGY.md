@@ -440,11 +440,13 @@ lighting uniforms. It does not receive mass, velocity, orbital elements, or
 other simulation state.
 
 The material separates linear base color, linear emissive color, and roughness.
-The initial shader uses ambient plus one clamped Lambert diffuse term; roughness
-is reserved in the stable layout but is not interpreted until the chosen
-specular model is reviewed. Light direction, color, and intensity are frame
-inputs rather than properties of a physics body. This keeps a future Sun light
-or application-authored lights outside the renderer's scene/snapshot contract.
+The initial shader uses ambient plus as many as four clamped Lambert diffuse
+terms; roughness is reserved in the stable layout but is not interpreted until
+the chosen specular model is reviewed. Light count, direction, color, and
+intensity are frame inputs rather than properties of a physics body. The live
+scene submits a warm key light and a cooler fill light. This keeps a future Sun
+light or other application-authored lights outside the renderer's
+scene/snapshot contract.
 
 CPU and HLSL layouts use 16-byte groups compatible with SDL GPU's std140
 uniform-data requirement. The vertex uniform occupies `b0, space1`; fragment
@@ -456,9 +458,10 @@ SDL binding convention on every supported platform.
 
 The material contract is now compiled ahead of time, reflected, and consumed
 by the indexed depth-tested scene pipeline. The scene binds filtered global and
-local textures through the same sampled-material ABI. Multiple lights and the
-runtime post-processing pass remain open under #16; generated source plus a
-manifest is not treated as equivalent to reviewed DXIL, SPIR-V, and MSL.
+local textures through the same sampled-material ABI and accumulates two of the
+four available directional-light slots. The runtime post-processing pass
+remains open under #16; generated source plus a manifest is not treated as
+equivalent to reviewed DXIL, SPIR-V, and MSL.
 
 The first shader-toolchain dependency boundary is now pinned in
 `third_party/sdl-shadercross.lock`. `fetch-shadercross-source.sh` checks out

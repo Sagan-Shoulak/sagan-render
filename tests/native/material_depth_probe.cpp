@@ -33,11 +33,17 @@ namespace
 
   struct alignas(16) CameraUniform { float transform[16]; float normal[16]; };
   struct alignas(16) MaterialUniform { float base[4]; float emissive_roughness[4]; };
-  struct alignas(16) LightingUniform { float ambient[4]; float direction_intensity[4]; float color[4]; };
+  struct alignas(16) LightingUniform
+  {
+    float ambient[4];
+    float direction_intensity[4][4];
+    float color[4][4];
+    float light_count_padding[4];
+  };
   struct alignas(16) SurfaceLodUniform { float center_width[4]; float east_enabled[4]; float north_blend[4]; };
   static_assert(sizeof(CameraUniform) == 128);
   static_assert(sizeof(MaterialUniform) == 32);
-  static_assert(sizeof(LightingUniform) == 48);
+  static_assert(sizeof(LightingUniform) == 160);
   static_assert(sizeof(SurfaceLodUniform) == 48);
 
   auto fail(const std::string &message) -> void
@@ -188,7 +194,16 @@ namespace
 
   auto lighting() -> LightingUniform
   {
-    return {{0.28F, 0.28F, 0.28F, 0}, {0, 0, -1, 0.9F}, {1, 1, 1, 0}};
+    LightingUniform result{};
+    result.ambient[0] = 0.2F; result.ambient[1] = 0.2F; result.ambient[2] = 0.22F;
+    result.direction_intensity[0][2] = -1.0F;
+    result.direction_intensity[0][3] = 0.9F;
+    result.color[0][0] = 1.0F; result.color[0][1] = 0.9F; result.color[0][2] = 0.75F;
+    result.direction_intensity[1][0] = 1.0F;
+    result.direction_intensity[1][3] = 0.35F;
+    result.color[1][0] = 0.25F; result.color[1][1] = 0.45F; result.color[1][2] = 1.0F;
+    result.light_count_padding[0] = 2.0F;
+    return result;
   }
 
   struct Evidence { std::uint32_t blue{}; std::uint32_t orange{}; std::uint32_t lit{}; };
