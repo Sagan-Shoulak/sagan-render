@@ -1,0 +1,28 @@
+0 resize 960 540
+4000 click 550 220
+9000 resize 1280 900
+9500 key tab
+9550 key enter
+9600 key tab
+9650 key enter
+9700 key shift-tab
+9750 key shift-tab
+9800 key enter
+9850 key tab
+9900 key tab
+9950 key tab
+10000 key tab
+10050 key tab
+10100 key tab
+10150 key tab
+10200 key tab
+10250 key enter
+10300 key tab
+10350 key enter
+10400 key enter
+10450 key enter
+10500 key escape
+10550 key tab
+10600 key enter
+10650 key r
+10700 key escape

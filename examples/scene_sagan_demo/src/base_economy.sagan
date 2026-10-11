@@ -1,0 +1,664 @@
+module base_economy
+
+/// Session-only application fixture: steel, aluminum, copper, polymers, silicon,
+/// water, ice, oxygen, hydrogen, food and repair kits. Bulk stock is integer grams.
+/// Power uses integer watts and battery energy uses watt-seconds, never fake UI data.
+class BaseEconomy {
+  let inventory: Array<Int64>
+  let kinds: Array<Int64>
+  let remaining: Array<Float64>
+  let deadlines: Array<Float64>
+  let durability_values: Array<Int64>
+  let cycle_elapsed: Array<Float64>
+  let clock: Float64
+  let observed_time: Float64
+  let wear_elapsed: Float64
+  let life_elapsed: Float64
+  let life_supplied_value: Bool
+  let life_powered_value: Bool
+  let powered_values: Array<Int64>
+  let sunlight_value: Int64
+  let battery_energy_value: Int64
+  let generation_value: Int64
+  let demand_value: Int64
+  let served_value: Int64
+  let auto_repairs_value: Int64
+  let vented_hydrogen_value: Int64
+  let flow_inputs: Array<Int64>
+  let flow_outputs: Array<Int64>
+  let observed_inputs: Array<Int64>
+  let observed_outputs: Array<Int64>
+  let flow_seconds: Int64
+  let completed_flow_window: Bool
+  let battery_flow_value: Int64
+
+  new() {
+    let initial_steel: Int64 = 1400000
+    let empty: Int64 = 0
+    let chassis_durability: Int64 = 85
+    self.inventory = [initial_steel, 300000, 125000, 120000, 100000,
+                      600000, 100000, 120000, 0, 600000, 8]
+    self.kinds = [empty, empty, empty, empty]
+    self.remaining = [0.0, 0.0, 0.0, 0.0]
+    self.deadlines = [0.0, 0.0, 0.0, 0.0]
+    // Chassis, solar, battery, life support, storage, then four machine slots.
+    self.durability_values = [chassis_durability, 90, 90, 90, 90, 0, 0, 0, 0]
+    self.cycle_elapsed = [0.0, 0.0, 0.0, 0.0]
+    self.clock = 0.0
+    self.observed_time = 0.0
+    self.wear_elapsed = 0.0
+    self.life_elapsed = 0.0
+    self.life_supplied_value = true
+    self.life_powered_value = true
+    self.powered_values = [empty, empty, empty, empty]
+    self.sunlight_value = 1000
+    self.battery_energy_value = 576000000
+    self.generation_value = 120000
+    self.demand_value = 24000
+    self.served_value = 24000
+    self.auto_repairs_value = 0
+    self.vented_hydrogen_value = 0
+    self.flow_inputs = [
+      empty, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    ]
+    self.flow_outputs = [
+      empty, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    ]
+    self.observed_inputs = [
+      empty, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    ]
+    self.observed_outputs = [
+      empty, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    ]
+    self.flow_seconds = 0
+    self.completed_flow_window = false
+    self.battery_flow_value = 0
+  }
+
+  /// Read-only telemetry: completed 60-second operating windows, or elapsed
+  /// startup seconds until the first minute. Imports/build costs are excluded.
+  /// Bulk rates are grams/minute; item rates are milli-items/minute.
+  fun flow_window_seconds(): Int64 {
+    if self.completed_flow_window { return 60 }
+    return self.flow_seconds
+  }
+  fun record_flow!(system: Int64, resource: Int64, input: Int64, output: Int64): Void {
+    let index = system * 11 + resource
+    self.flow_inputs[index] = self.flow_inputs[index] + input
+    self.flow_outputs[index] = self.flow_outputs[index] + output
+  }
+  fun input_rate(system: Int64, resource: Int64): Int64 {
+    if system < 0 or system >= 9 or resource < 0 or resource >= 11 { return 0 }
+    if self.flow_window_seconds() == 0 { return 0 }
+    let amount = self.flow_inputs[system * 11 + resource]
+    if self.completed_flow_window { amount = self.observed_inputs[system * 11 + resource] }
+    if resource == 10 { amount = amount * 1000 }
+    return amount * 60 / self.flow_window_seconds()
+  }
+  fun output_rate(system: Int64, resource: Int64): Int64 {
+    if system < 0 or system >= 9 or resource < 0 or resource >= 11 { return 0 }
+    if self.flow_window_seconds() == 0 { return 0 }
+    let amount = self.flow_outputs[system * 11 + resource]
+    if self.completed_flow_window { amount = self.observed_outputs[system * 11 + resource] }
+    if resource == 10 { amount = amount * 1000 }
+    return amount * 60 / self.flow_window_seconds()
+  }
+  fun net_rate(resource: Int64): Int64 {
+    let result: Int64 = 0
+    let system: Int64 = 0
+    while system < 9 {
+      result = result + self.output_rate(system, resource) - self.input_rate(system, resource)
+      system = system + 1
+    }
+    return result
+  }
+  fun hydrogen_vent_rate(): Int64 => self.input_rate(0, 8)
+  fun battery_flow_watts(): Int64 => self.battery_flow_value
+  fun life_powered(): Bool => self.life_powered_value
+  fun powered(slot: Int64): Bool {
+    if slot < 0 or slot >= 4 { return false }
+    return self.powered_values[slot] == 1
+  }
+  fun sunlight(): Int64 => self.sunlight_value
+  fun finish_flow_tick!(): Void {
+    self.flow_seconds = self.flow_seconds + 1
+    if self.flow_seconds == 60 {
+      let index: Int64 = 0
+      while index < 99 {
+        self.observed_inputs[index] = self.flow_inputs[index]
+        self.observed_outputs[index] = self.flow_outputs[index]
+        self.flow_inputs[index] = 0
+        self.flow_outputs[index] = 0
+        index = index + 1
+      }
+      self.completed_flow_window = true
+      self.flow_seconds = 0
+    }
+  }
+
+  fun resource_count(): Int64 => 11
+  fun stock(resource: Int64): Int64 {
+    if resource < 0 or resource >= self.resource_count() { return 0 }
+    return self.inventory[resource]
+  }
+  fun item_mass(resource: Int64): Int64 {
+    if resource == 10 { return 8000 }
+    return 1
+  }
+  fun capacity(): Int64 => 10000000
+  fun storage_used(): Int64 {
+    let total: Int64 = 0
+    let resource: Int64 = 0
+    while resource < self.resource_count() {
+      total = total + self.stock(resource) * self.item_mass(resource)
+      resource = resource + 1
+    }
+    return total
+  }
+  /// All writes enforce both nonnegative stock and mass-based storage capacity.
+  fun add_stock!(resource: Int64, amount: Int64): Bool {
+    if resource < 0 or resource >= self.resource_count() { return false }
+    if amount < 0 { return false }
+    if amount * self.item_mass(resource) > self.capacity() - self.storage_used() { return false }
+    self.inventory[resource] = self.inventory[resource] + amount
+    return true
+  }
+  fun consume!(resource: Int64, amount: Int64): Bool {
+    if resource < 0 or resource >= self.resource_count() { return false }
+    if amount < 0 or self.stock(resource) < amount { return false }
+    self.inventory[resource] = self.inventory[resource] - amount
+    return true
+  }
+
+  fun recipe_amount(kind: Int64, resource: Int64): Int64 {
+    if kind == 1 {
+      if resource == 0 { return 150 }
+      if resource == 1 { return 30 }
+      if resource == 2 { return 10 }
+      if resource == 3 { return 10 }
+      if resource == 4 { return 5 }
+    }
+    if kind == 2 {
+      if resource == 0 { return 400 }
+      if resource == 1 { return 50 }
+      if resource == 2 { return 25 }
+      if resource == 3 { return 15 }
+      if resource == 4 { return 5 }
+    }
+    if kind == 3 {
+      if resource == 0 { return 180 }
+      if resource == 1 { return 80 }
+      if resource == 2 { return 60 }
+      if resource == 3 { return 30 }
+      if resource == 4 { return 10 }
+    }
+    if kind == 4 {
+      if resource == 0 { return 250 }
+      if resource == 1 { return 40 }
+      if resource == 2 { return 20 }
+      if resource == 3 { return 15 }
+      if resource == 4 { return 5 }
+    }
+    return 0
+  }
+  fun cost(kind: Int64, resource: Int64): Int64 {
+    let amount = self.recipe_amount(kind, resource)
+    if resource >= 0 and resource < 5 { return amount * 1000 }
+    return amount
+  }
+  fun build_seconds(kind: Int64): Float64 {
+    if kind == 1 { return 10.0 }
+    if kind == 2 { return 15.0 }
+    if kind == 3 { return 20.0 }
+    if kind == 4 { return 15.0 }
+    return 0.0
+  }
+  fun can_afford(kind: Int64): Bool {
+    if kind < 1 or kind > 4 { return false }
+    let resource: Int64 = 0
+    while resource < self.resource_count() {
+      if self.stock(resource) < self.cost(kind, resource) { return false }
+      resource = resource + 1
+    }
+    return true
+  }
+  fun machine(slot: Int64): Int64 {
+    if slot < 0 or slot >= 4 { return 0 }
+    return self.kinds[slot]
+  }
+  fun building(slot: Int64): Bool {
+    if slot < 0 or slot >= 4 { return false }
+    return self.remaining[slot] > 0.0
+  }
+  fun seconds_left(slot: Int64): Int64 {
+    if slot < 0 or slot >= 4 { return 0 }
+    // Rounded-up display without changing the underlying timer.
+    return Int.round(self.remaining[slot] + 0.499999)
+  }
+  fun can_build(slot: Int64, kind: Int64): Bool {
+    if slot < 0 or slot >= 4 { return false }
+    if self.machine(slot) != 0 { return false }
+    return self.can_afford(kind)
+  }
+  fun start_build!(slot: Int64, kind: Int64): Bool {
+    if self.can_build(slot, kind) == false { return false }
+    // Atomic reservation: affordability of the entire recipe is checked first.
+    let resource: Int64 = 0
+    while resource < self.resource_count() {
+      self.inventory[resource] = self.inventory[resource] - self.cost(kind, resource)
+      resource = resource + 1
+    }
+    self.kinds[slot] = kind
+    self.remaining[slot] = self.build_seconds(kind)
+    self.deadlines[slot] = self.observed_time + self.build_seconds(kind)
+    self.durability_values[5 + slot] = 100
+    self.cycle_elapsed[slot] = 0.0
+    return true
+  }
+
+  fun durability(system: Int64): Int64 {
+    if system < 0 or system >= 9 { return 0 }
+    return self.durability_values[system]
+  }
+  fun installed_system(system: Int64): Bool {
+    if system < 0 or system >= 9 { return false }
+    if system < 5 { return true }
+    if self.machine(system - 5) == 0 { return false }
+    return self.building(system - 5) == false
+  }
+  fun services_ready(): Bool {
+    let system: Int64 = 0
+    while system < 5 {
+      if self.durability(system) <= 0 { return false }
+      system = system + 1
+    }
+    return true
+  }
+  fun can_repair(system: Int64): Bool {
+    if self.installed_system(system) == false { return false }
+    // Never spend a kit when its complete 25-point repair would be wasted.
+    if self.durability(system) > 75 { return false }
+    return self.stock(10) > 0
+  }
+  fun repair!(system: Int64): Bool {
+    if self.can_repair(system) == false { return false }
+    self.inventory[10] = self.inventory[10] - 1
+    self.record_flow!(system, 10, 1, 0)
+    self.durability_values[system] = self.durability(system) + 25
+    return true
+  }
+  fun automatic_repairs!(): Void {
+    // Mechanical recovery also works offline, so a stored kit can restart service.
+    let system: Int64 = 0
+    while system < 9 {
+      while self.can_repair(system) {
+        self.repair!(system)
+        self.auto_repairs_value = self.auto_repairs_value + 1
+      }
+      system = system + 1
+    }
+  }
+  fun automatic_repair_count(): Int64 => self.auto_repairs_value
+  fun damage_system!(system: Int64, points: Int64): Bool {
+    if self.installed_system(system) == false or points < 0 { return false }
+    let value = self.durability(system) - points
+    if value < 0 { value = 0 }
+    self.durability_values[system] = value
+    return true
+  }
+  fun kit_cost(resource: Int64): Int64 {
+    if resource == 0 { return 5000 }
+    if resource == 1 { return 2000 }
+    // Trace copper: three kits/minute use 30 g against the sifter's 40 g/minute.
+    // Silicon replaces the removed copper mass, keeping each kit at 8 kg.
+    if resource == 2 { return 10 }
+    if resource == 4 { return 990 }
+    return 0
+  }
+  fun can_make_kit(): Bool {
+    let resource: Int64 = 0
+    while resource < self.resource_count() {
+      if self.stock(resource) < self.kit_cost(resource) { return false }
+      resource = resource + 1
+    }
+    return true
+  }
+  fun make_kit!(): Bool {
+    if self.can_make_kit() == false { return false }
+    // 8 kg inputs -> one 8 kg kit, so the transaction is mass neutral.
+    let resource: Int64 = 0
+    while resource < self.resource_count() {
+      self.inventory[resource] = self.inventory[resource] - self.kit_cost(resource)
+      resource = resource + 1
+    }
+    self.inventory[10] = self.inventory[10] + 1
+    return true
+  }
+  fun running(slot: Int64): Bool {
+    if self.machine(slot) == 0 or self.building(slot) { return false }
+    if self.durability(5 + slot) <= 0 { return false }
+    return self.services_ready() and self.powered_values[slot] == 1
+  }
+  fun cycle_seconds(kind: Int64): Float64 {
+    if kind == 4 { return 20.0 }
+    if kind == 1 { return 60.0 }
+    return 5.0
+  }
+  /// Fictional polar-regolith recovery per 100 kg processed every minute.
+  /// Major metals/oxygen dominate; copper, polymers and hydrogen are trace yields.
+  /// Integrated refining/alloying/volatile chemistry is intentionally hand-waved.
+  fun sifter_yield(resource: Int64): Int64 {
+    if resource == 0 { return 6000 }
+    if resource == 1 { return 12000 }
+    if resource == 2 { return 40 }
+    if resource == 3 { return 100 }
+    if resource == 4 { return 20000 }
+    if resource == 5 { return 200 }
+    if resource == 6 { return 1000 }
+    if resource == 7 { return 25000 }
+    if resource == 8 { return 10 }
+    return 0
+  }
+  fun stock_target(resource: Int64): Int64 {
+    if resource == 0 { return 1500000 }
+    if resource == 1 { return 600000 }
+    if resource == 2 { return 200000 }
+    if resource == 3 { return 120000 }
+    if resource == 4 { return 500000 }
+    if resource == 5 { return 300000 }
+    if resource == 6 { return 1500000 }
+    if resource == 7 { return 500000 }
+    if resource == 8 { return 50000 }
+    if resource == 10 { return 20 }
+    return 0
+  }
+  /// Shared feed line: water first, then equal-mass ice thawed by the consumer.
+  /// Phase stocks stay visible, but no transfer job or dedicated slot is needed.
+  fun water_supply(): Int64 => self.stock(5) + self.stock(6)
+  fun consume_water!(amount: Int64): Bool {
+    if amount < 0 or self.water_supply() < amount { return false }
+    let liquid = amount
+    if liquid > self.stock(5) { liquid = self.stock(5) }
+    self.inventory[5] = self.inventory[5] - liquid
+    self.inventory[6] = self.inventory[6] - (amount - liquid)
+    return true
+  }
+  fun life_cost(resource: Int64): Int64 {
+    if resource == 5 { return 300 }
+    if resource == 7 { return 7600 }
+    if resource == 9 { return 25 }
+    return 0
+  }
+  fun can_feed_life_support(): Bool {
+    return self.water_supply() >= self.life_cost(5) and
+           self.stock(7) >= self.life_cost(7) and self.stock(9) >= self.life_cost(9)
+  }
+  fun feed_life_support!(): Bool {
+    if self.can_feed_life_support() == false { return false }
+    let liquid = self.life_cost(5)
+    if liquid > self.stock(5) { liquid = self.stock(5) }
+    self.record_flow!(3, 5, liquid, 0)
+    self.record_flow!(3, 6, self.life_cost(5) - liquid, 0)
+    self.record_flow!(3, 7, self.life_cost(7), 0)
+    self.record_flow!(3, 9, self.life_cost(9), 0)
+    self.consume_water!(self.life_cost(5))
+    self.inventory[7] = self.inventory[7] - self.life_cost(7)
+    self.inventory[9] = self.inventory[9] - self.life_cost(9)
+    return true
+  }
+  fun life_support_ready(): Bool {
+    return self.life_powered_value and self.life_supplied_value and
+           self.durability(3) > 0 and self.can_feed_life_support()
+  }
+  fun can_electrolyze(): Bool {
+    // Reserve 30 kg H2O for life support, never for mineral-only repair kits.
+    return self.water_supply() >= 39000 and self.stock(7) <= 492000
+  }
+  fun electrolyze!(): Bool {
+    if self.can_electrolyze() == false { return false }
+    self.consume_water!(9000)
+    self.inventory[7] = self.inventory[7] + 8000
+    let stored_hydrogen: Int64 = 1000
+    let room = self.stock_target(8) - self.stock(8)
+    if stored_hydrogen > room { stored_hydrogen = room }
+    if stored_hydrogen < 0 { stored_hydrogen = 0 }
+    self.inventory[8] = self.inventory[8] + stored_hydrogen
+    // A full unused H2 buffer must not shut down the crew's oxygen supply.
+    self.vented_hydrogen_value = self.vented_hydrogen_value + 1000 - stored_hydrogen
+    return true
+  }
+  fun vented_hydrogen(): Int64 => self.vented_hydrogen_value
+
+  fun solar_watts(): Int64 {
+    if self.durability(1) <= 0 or self.durability(0) <= 0 { return 0 }
+    return 120000 * self.sunlight_value / 1000
+  }
+  /// Fixture-controlled illumination, not an ephemeris or lunar day/night model.
+  fun set_sunlight!(per_mille: Int64): Bool {
+    if per_mille < 0 or per_mille > 1000 { return false }
+    self.sunlight_value = per_mille
+    return true
+  }
+  fun battery_capacity(): Int64 => 720000000
+  fun battery_energy(): Int64 => self.battery_energy_value
+  fun generated_watts(): Int64 => self.generation_value
+  fun demanded_watts(): Int64 => self.demand_value
+  fun served_watts(): Int64 => self.served_value
+  fun net_watts(): Int64 => self.generation_value - self.demand_value
+  fun power_shortage(): Bool => self.served_value < self.demand_value
+  fun essential_watts(): Int64 {
+    // Chassis 2, controller 1, battery conditioning 1, storage 2, life support 18 kW.
+    let power: Int64 = 6000
+    if self.durability(3) > 0 {
+      power = power + 18000
+      if self.stock(5) < self.life_cost(5) and self.stock(6) > 0 { power = power + 2000 }
+    }
+    return power
+  }
+  fun wants_work(slot: Int64): Bool {
+    if slot < 0 or slot >= 4 or self.machine(slot) == 0 { return false }
+    if self.building(slot) { return true }
+    if self.durability(5 + slot) <= 0 or self.services_ready() == false { return false }
+    let kind = self.machine(slot)
+    if kind == 1 {
+      if self.storage_used() >= self.capacity() { return false }
+      let resource: Int64 = 0
+      while resource < self.resource_count() {
+        if self.sifter_yield(resource) > 0 and self.stock(resource) < self.stock_target(resource) { return true }
+        resource = resource + 1
+      }
+      return false
+    }
+    if kind == 2 { return self.stock(6) < self.stock_target(6) and self.storage_used() < self.capacity() }
+    if kind == 3 { return self.can_electrolyze() }
+    if kind == 4 { return self.stock(10) < self.stock_target(10) and self.can_make_kit() }
+    return false
+  }
+  fun machine_watts(slot: Int64): Int64 {
+    if self.wants_work(slot) == false { return 0 }
+    if self.building(slot) { return 6000 }
+    let kind = self.machine(slot)
+    if kind == 1 { return 25000 }
+    if kind == 2 { return 20000 }
+    if kind == 3 {
+      let power: Int64 = 35000
+      if self.stock(5) < 9000 + self.life_cost(5) { power = power + 2000 }
+      return power
+    }
+    if kind == 4 { return 10000 }
+    return 0
+  }
+  fun supply_power!(): Void {
+    let energy_before = self.battery_energy_value
+    self.generation_value = self.solar_watts()
+    let battery_available: Int64 = 0
+    if self.durability(2) > 0 {
+      battery_available = self.battery_energy_value * 900 / 1000
+      if battery_available > 120000 { battery_available = 120000 }
+    }
+    let available = self.generation_value + battery_available
+    let essential = self.essential_watts()
+    self.demand_value = essential
+    self.served_value = essential
+    self.life_powered_value = available >= essential and self.durability(0) > 0 and
+                              self.durability(3) > 0 and self.durability(4) > 0
+    if available < essential { self.served_value = available }
+    let slot: Int64 = 0
+    while slot < 4 {
+      self.powered_values[slot] = 0
+      let wanted = self.machine_watts(slot)
+      self.demand_value = self.demand_value + wanted
+      if wanted > 0 and available - self.served_value >= wanted and self.life_powered_value {
+        self.served_value = self.served_value + wanted
+        self.powered_values[slot] = 1
+      }
+      slot = slot + 1
+    }
+    // One-second ticks: watts * one second gives watt-seconds. Both directions
+    // have 90% efficiency and a 120 kW limit. Full batteries curtail surplus.
+    if self.durability(2) > 0 {
+      if self.generation_value >= self.served_value {
+        let charge = (self.generation_value - self.served_value) * 900 / 1000
+        self.battery_energy_value = self.battery_energy_value + charge
+        if self.battery_energy_value > self.battery_capacity() { self.battery_energy_value = self.battery_capacity() }
+      } else {
+        let discharge = ((self.served_value - self.generation_value) * 1000 + 899) / 900
+        self.battery_energy_value = self.battery_energy_value - discharge
+        if self.battery_energy_value < 0 { self.battery_energy_value = 0 }
+      }
+    }
+    self.battery_flow_value = self.battery_energy_value - energy_before
+  }
+  fun sift!(): Void {
+    let resource: Int64 = 0
+    while resource < self.resource_count() {
+      let amount = self.sifter_yield(resource)
+      let room = self.stock_target(resource) - self.stock(resource)
+      if amount > room { amount = room }
+      let storage_room = self.capacity() - self.storage_used()
+      if amount > storage_room { amount = storage_room }
+      if amount > 0 { self.add_stock!(resource, amount) }
+      resource = resource + 1
+    }
+  }
+  fun produce!(kind: Int64): Void {
+    // Stock targets prevent unused gas/feedstock from filling storage forever.
+    if kind == 1 { self.sift!() }
+    if kind == 2 {
+      // Ice only: all mineral maintenance inputs must come from the sifter.
+      let amount: Int64 = 9500
+      let room = self.stock_target(6) - self.stock(6)
+      if amount > room { amount = room }
+      let storage_room = self.capacity() - self.storage_used()
+      if amount > storage_room { amount = storage_room }
+      if amount > 0 { self.add_stock!(6, amount) }
+    }
+    if kind == 3 {
+      self.electrolyze!()
+    }
+    if kind == 4 {
+      if self.stock(10) < 20 { self.make_kit!() }
+    }
+  }
+  /// Fixed one-second fixture steps make elapsed-time partitioning deterministic.
+  /// All completed machinery keeps operating when the player returns to orbit.
+  fun update!(now: Float64): Void {
+    if now < self.observed_time { return }
+    self.observed_time = now
+    while self.clock + 1.0 <= now {
+      self.clock = self.clock + 1.0
+      self.automatic_repairs!()
+      self.supply_power!()
+      if self.life_powered_value {
+        self.life_elapsed = self.life_elapsed + 1.0
+        if self.life_elapsed >= 5.0 {
+          self.life_elapsed = 0.0
+          self.life_supplied_value = self.feed_life_support!()
+        }
+      } else { self.life_supplied_value = false }
+      let slot: Int64 = 0
+      while slot < 4 {
+        if self.building(slot) {
+          if self.powered_values[slot] == 0 { self.deadlines[slot] = self.deadlines[slot] + 1.0 }
+          self.remaining[slot] = self.deadlines[slot] - self.clock
+          if self.remaining[slot] < 0.0 { self.remaining[slot] = 0.0 }
+        } else {
+          if self.running(slot) {
+            self.cycle_elapsed[slot] = self.cycle_elapsed[slot] + 1.0
+            if self.cycle_elapsed[slot] >= self.cycle_seconds(self.machine(slot)) {
+              self.cycle_elapsed[slot] = 0.0
+              let zero: Int64 = 0
+              let before: Array<Int64> = [zero, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+              let resource: Int64 = 0
+              while resource < 11 {
+                before[resource] = self.stock(resource)
+                resource = resource + 1
+              }
+              let vent_before = self.vented_hydrogen()
+              self.produce!(self.machine(slot))
+              resource = 0
+              while resource < 11 {
+                let delta = self.stock(resource) - before[resource]
+                if delta < 0 { self.record_flow!(5 + slot, resource, 0 - delta, 0) }
+                else { self.record_flow!(5 + slot, resource, 0, delta) }
+                resource = resource + 1
+              }
+              let vent = self.vented_hydrogen() - vent_before
+              self.record_flow!(5 + slot, 8, 0, vent)
+              // Chassis telemetry owns the shared disposal line, not a slot.
+              self.record_flow!(0, 8, vent, 0)
+            }
+          }
+        }
+        slot = slot + 1
+      }
+      self.wear_elapsed = self.wear_elapsed + 1.0
+      if self.wear_elapsed >= 60.0 {
+        self.wear_elapsed = 0.0
+        let system: Int64 = 0
+        while system < 9 {
+          if self.installed_system(system) and self.durability(system) > 0 {
+            self.durability_values[system] = self.durability_values[system] - 1
+          }
+          system = system + 1
+        }
+      }
+      self.automatic_repairs!()
+      self.finish_flow_tick!()
+    }
+  }
+}
+
+export BaseEconomy

@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -55,10 +56,12 @@ namespace
   constexpr color system_orbit{47, 75, 104, 255};
   constexpr color lunar_orbit{70, 92, 118, 255};
   constexpr color space_black{0, 0, 0, 255};
+  constexpr color surplus{86, 222, 157, 255};
+  constexpr color deficit{255, 132, 132, 255};
   constexpr std::array palette{
     background, panel, panel_light, scene, accent, focus_color, sun, earth,
     moon, sun_shadow, earth_shadow, moon_shadow, white, muted, modal, button,
-    button_focus, system_orbit, lunar_orbit, space_black
+    button_focus, system_orbit, lunar_orbit, space_black, surplus, deficit
   };
   static_assert(sizeof(color) == bytes_per_pixel);
 
@@ -151,6 +154,9 @@ namespace
       case '9': return {14, 17, 17, 15, 1, 1, 14};
       case ':': return {0, 4, 4, 0, 4, 4, 0};
       case '-': return {0, 0, 0, 31, 0, 0, 0};
+      case '+': return {0, 4, 4, 31, 4, 4, 0};
+      case '/': return {1, 2, 2, 4, 8, 8, 16};
+      case '%': return {25, 25, 2, 4, 8, 19, 19};
       case '.': return {0, 0, 0, 0, 0, 12, 12};
       default: return {};
     }
@@ -768,6 +774,18 @@ namespace
   bitmap_shaper bridge_shaper;
   std::vector<std::string> bridge_keys;
   std::vector<std::string> bridge_delayed_keys;
+  struct test_input_event
+  {
+    std::uint64_t at{};
+    std::string action;
+    std::string key;
+    double x{};
+    double y{};
+  };
+  std::vector<test_input_event> bridge_test_inputs;
+  std::size_t bridge_test_input_next{};
+  int bridge_test_logical_width{};
+  int bridge_test_logical_height{};
   std::uint64_t bridge_delayed_keys_at{};
   bool bridge_delayed_keys_delivered{};
   std::uint64_t bridge_delayed_pointer_at{};
@@ -790,6 +808,9 @@ namespace
   std::uint64_t bridge_deadline{};
   std::uint64_t bridge_started_at{};
   std::uint64_t bridge_test_step_ms{};
+  std::uint64_t bridge_test_late_step_ms{};
+  std::uint64_t bridge_test_late_after_ms{};
+  std::vector<std::uint64_t> bridge_test_capture_times;
   std::uint64_t bridge_test_time_ms{};
   double bridge_elapsed_override{-1.0};
   bool bridge_captured{};
@@ -835,6 +856,11 @@ namespace
     int width{};
     int height{};
     SDL_GetWindowSize(bridge_gpu->native_window(), &width, &height);
+    if (bridge_test_logical_width && bridge_test_logical_height)
+    {
+      width = bridge_test_logical_width;
+      height = bridge_test_logical_height;
+    }
     if (width > 0 && height > 0)
     {
       bridge_width = width;
@@ -856,6 +882,9 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   bridge_captured = false;
   bridge_keys.clear();
   bridge_delayed_keys.clear();
+  bridge_test_inputs.clear();
+  bridge_test_input_next = 0;
+  bridge_test_logical_width = bridge_test_logical_height = 0;
   bridge_delayed_keys_at = 0;
   bridge_delayed_keys_delivered = false;
   bridge_delayed_pointer_at = 0;
@@ -868,7 +897,54 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   bridge_started_at = SDL_GetTicks();
   const char *step_value = std::getenv("SAGAN_RENDER_TEST_STEP_MS");
   bridge_test_step_ms = step_value ? std::strtoull(step_value, nullptr, 10) : 0;
+  const char *late_step = std::getenv("SAGAN_RENDER_TEST_LATE_STEP_MS");
+  const char *late_after = std::getenv("SAGAN_RENDER_TEST_LATE_AFTER_MS");
+  bridge_test_late_step_ms = late_step ? std::strtoull(late_step, nullptr, 10) : 0;
+  bridge_test_late_after_ms = late_after ? std::strtoull(late_after, nullptr, 10) : 0;
+  bridge_test_capture_times.clear();
+  if (const char *times = std::getenv("SAGAN_RENDER_TEST_CAPTURE_TIMES_MS"))
+  {
+    std::istringstream entries{times};
+    std::string value;
+    while (std::getline(entries, value, ','))
+      bridge_test_capture_times.push_back(std::strtoull(value.c_str(), nullptr, 10));
+  }
   bridge_test_time_ms = 0;
+  // Private deterministic input script. It only feeds existing key/pointer
+  // edges; Sagan still owns hit testing, focus, modal policy and construction.
+  const char *input_path = std::getenv("SAGAN_RENDER_TEST_INPUT_FILE");
+  if (input_path && *input_path)
+  {
+    std::ifstream input{input_path};
+    if (!input) throw std::runtime_error("Cannot open UI test input script");
+    std::string row;
+    while (std::getline(input, row))
+    {
+      if (row.empty() || row.front() == '#') continue;
+      std::istringstream fields{row};
+      test_input_event item;
+      if (!(fields >> item.at >> item.action))
+        throw std::runtime_error("Invalid UI test input event");
+      if (item.action == "key")
+      {
+        if (!(fields >> item.key)) throw std::runtime_error("Missing UI test key");
+      }
+      else if (item.action == "click" || item.action == "down" ||
+               item.action == "up" || item.action == "move" || item.action == "resize" ||
+               item.action == "wheel")
+      {
+        if (!(fields >> item.x >> item.y))
+          throw std::runtime_error("Missing UI test pointer coordinates");
+        if (item.action == "resize" && (item.x < 640 || item.y < 400))
+          throw std::runtime_error("UI test resize is below the minimum logical size");
+      }
+      else throw std::runtime_error("Unknown UI test input action");
+      if (!bridge_test_inputs.empty() && item.at < bridge_test_inputs.back().at)
+        throw std::runtime_error("UI test input events must be time ordered");
+      bridge_test_inputs.push_back(std::move(item));
+    }
+    bridge_pointer_test_override = true;
+  }
   // The manual launcher intentionally clears AUTOCLOSE. Allow a deterministic
   // launcher-validation run to close itself without changing launcher policy.
   const char *stop_value = std::getenv("SAGAN_RENDER_TEST_STOP_AFTER_MS");
@@ -941,6 +1017,25 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
 auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
 {
   if (!bridge_gpu || !bridge_running) return false;
+  while (bridge_test_input_next < bridge_test_inputs.size() &&
+         bridge_elapsed_ms() >= bridge_test_inputs[bridge_test_input_next].at)
+  {
+    const auto &item = bridge_test_inputs[bridge_test_input_next++];
+    if (item.action == "key") remember_key(item.key);
+    else if (item.action == "resize")
+    {
+      bridge_test_logical_width = static_cast<int>(item.x);
+      bridge_test_logical_height = static_cast<int>(item.y);
+    }
+    else if (item.action == "wheel") bridge_scroll_y += item.y;
+    else
+    {
+      bridge_pointer_x = item.x;
+      bridge_pointer_y = item.y;
+      if (item.action == "click" || item.action == "down") bridge_pointer_down = true;
+      if (item.action == "click" || item.action == "up") bridge_pointer_up = true;
+    }
+  }
   if (bridge_test_orbit_pending && bridge_elapsed_ms() >= bridge_test_orbit_at)
   {
     bridge_orbit_delta_x += bridge_test_orbit_x;
@@ -968,7 +1063,13 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
       bridge_running = false;
     else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
     {
-      if (event.key.key == SDLK_ESCAPE) { remember_key("escape"); bridge_running = false; }
+      if (event.key.key == SDLK_ESCAPE)
+      {
+        remember_key("escape");
+        // The scene's Sagan UI owns modal cancel / local return / orbital close.
+        const char *kind = std::getenv("SAGAN_RENDER_DEMO_KIND");
+        if (!kind || std::string_view{kind} != "scene") bridge_running = false;
+      }
       else if (event.key.key == SDLK_TAB)
         remember_key((event.key.mod & SDL_KMOD_SHIFT) != 0 ? "shift-tab" : "tab");
       else if (event.key.key == SDLK_RETURN) remember_key("enter");
@@ -1281,11 +1382,37 @@ auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void
   std::string capture = !bridge_captured && capture_ready && capture_value && *capture_value
     ? capture_value : std::string{};
   const char *sequence_value = std::getenv("SAGAN_RENDER_TEST_CAPTURE_PREFIX");
-  if (bridge_test_step_ms && capture_ready && sequence_value && *sequence_value)
+  const char *sequence_times = std::getenv("SAGAN_RENDER_TEST_CAPTURE_TIMES_MS");
+  const bool sequence_frame_selected = !sequence_times || !*sequence_times ||
+    ("," + std::string{sequence_times} + ",").find(
+      "," + std::to_string(bridge_elapsed_ms()) + ",") != std::string::npos;
+  if (bridge_test_step_ms && capture_ready && sequence_value && *sequence_value &&
+      sequence_frame_selected)
     capture = std::string{sequence_value} + std::to_string(bridge_elapsed_ms()) + ".bmp";
   bridge_gpu->render(*bridge_list, true, capture);
   if (!capture.empty()) bridge_captured = true;
-  bridge_test_time_ms += bridge_test_step_ms;
+  auto next_step = bridge_test_step_ms;
+  if (bridge_test_step_ms && bridge_test_late_step_ms &&
+      bridge_test_time_ms >= bridge_test_late_after_ms)
+  {
+    next_step = bridge_test_late_step_ms;
+    // Sparse long UI/economy checks can skip intermediate presentations, never
+    // simulation time or a timed input/capture edge. Dense camera tests opt out.
+    const auto stop_at = [&](const std::uint64_t at)
+    {
+      if (at > bridge_test_time_ms)
+        next_step = std::min(next_step, at - bridge_test_time_ms);
+    };
+    if (bridge_test_input_next < bridge_test_inputs.size())
+      stop_at(bridge_test_inputs[bridge_test_input_next].at);
+    for (const auto at : bridge_test_capture_times) stop_at(at);
+    if (!bridge_delayed_keys_delivered && !bridge_delayed_keys.empty()) stop_at(bridge_delayed_keys_at);
+    if (bridge_delayed_pointer_pending) stop_at(bridge_delayed_pointer_at);
+    if (bridge_test_orbit_pending) stop_at(bridge_test_orbit_at);
+    if (!bridge_captured && capture_value && *capture_value) stop_at(capture_delay);
+    if (bridge_deadline) stop_at(bridge_deadline);
+  }
+  bridge_test_time_ms += next_step;
 }
 
 auto sagan_5f5f72656e6465725f75695f6b65795f70726573736564(

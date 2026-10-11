@@ -104,7 +104,11 @@ namespace sagan_render::scene
     length3 half_extents_metres{};
   };
 
-  inline auto prepare_oriented_box_draw(const render_item &item,
+  // A mesh's coordinate origin is not necessarily its visibility/culling center.
+  // Anchor-relative lunar vertices can remain in front while their origin is
+  // behind the eye plane. Preserve signed depth and let GPU vertex clipping
+  // handle geometry; the caller must cull the actual object's bounding volume.
+  inline auto prepare_oriented_mesh_draw(const render_item &item,
                                         const length3 half_extents,
                                         const direction3 axis_x,
                                         const direction3 axis_y,
@@ -136,8 +140,8 @@ namespace sagan_render::scene
     const scalar camera_x = dot(relative, right);
     const scalar camera_y = dot(relative, camera_up);
     const scalar camera_z = dot(relative, forward);
-    if (camera_z <= 0.0 || !std::isfinite(camera_z))
-      throw std::invalid_argument("Mesh box center must be in front of the camera");
+    if (!std::isfinite(camera_z))
+      throw std::invalid_argument("Mesh coordinate origin must have finite camera depth");
 
     const scalar tangent_half_field =
       std::tan(view.vertical_field_of_view_radians / 2.0);
@@ -187,6 +191,24 @@ namespace sagan_render::scene
     normal[15] = 1.0F;
 
     return {uniform, relative, half_extents};
+  }
+
+  inline auto prepare_oriented_box_draw(const render_item &item,
+                                        const length3 half_extents,
+                                        const direction3 axis_x,
+                                        const direction3 axis_y,
+                                        const direction3 axis_z,
+                                        const camera &view,
+                                        const viewport output)
+    -> prepared_box_draw
+  {
+    const auto prepared = prepare_oriented_mesh_draw(
+      item, half_extents, axis_x, axis_y, axis_z, view, output);
+    // Unlike an arbitrary mesh origin, a box item's position is its center.
+    // Keep the existing box-facing contract rather than disabling it globally.
+    if (dot(prepared.camera_relative_center, normalize(view.forward)) <= 0.0)
+      throw std::invalid_argument("Mesh box center must be in front of the camera");
+    return prepared;
   }
 
   inline auto prepare_box_draw(const render_item &item,

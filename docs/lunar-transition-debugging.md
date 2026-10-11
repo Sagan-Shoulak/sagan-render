@@ -42,7 +42,8 @@ would not correct these geometry/identity/projection errors.
 - Shared edges have two incident triangles. Lunar indices are 32-bit;
   spherical UVs unwrap the antimeridian and world +Z is north.
 - Structures and lunar geometry share the same camera projection. Near-plane
-  adaptation depends continuously on forward lunar clearance, not UI state.
+  adaptation depends continuously on radial lunar surface distance, not UI state
+  or an off-screen body's forward-depth crossing.
 - Descent and settled view share one tangent-frame conversion. Sidebar space
   eases in and out over the transition.
 - The close observation remains available. Its 2048 x 2048 crop at 0.8 m/pixel
@@ -98,3 +99,53 @@ guard, so launcher verification did not leave a test window running.
 Issue #13's production tile catalog, physical terrain/displacement, and broader
 base/UI completion work are not closed by this fix. Language/math compiler pin
 and sampled shader ABI remain unchanged; Linux launcher work is untouched.
+
+## Earth-zoom mesh-origin crash
+
+The owner subsequently reported `SAG-RUN-0999` with native message
+`Mesh box center must be in front of the camera` while zooming Earth. This is
+not an Earth texture or UI error. The Moon draw reused a box transform for its
+surface anchor, incorrectly requiring that coordinate origin to be in front of
+the camera even after the actual Moon center had passed the queue's visibility
+check.
+
+A deterministic Right/Enter Earth focus, followed by wheel inputs at 3500 and
+4000 ms, reproduced the exact error at 4435 ms with a 1 ms clock; 4434 ms was
+the last completed frame. Reducing the second wheel input from 6 to 2 places
+the same crossing at the 4450 ms sample on the standard 50 ms clock. The native
+case has Moon center depth approximately +1,421,830 m and anchor depth
+approximately -315,572 m. The Moon is off-screen during this Earth view, but its
+coordinate origin is not an object visibility center.
+
+`prepare_oriented_mesh_draw` now builds the same affine MVP and normal matrices
+for finite coordinate origins on either side of the eye plane. GPU clipping
+evaluates transformed vertices, not the mesh's origin. The box wrapper retains
+the original center-in-front guard. No source texture, detail weighting, mesh,
+foundation datum, north-up orientation, projection equation or dependency pin
+changes are part of this fix.
+
+After removing the crash, visual inspection exposed a second linked fault:
+Earth disappeared at the crossing. The shared near plane fell from about
+174,804 m at 4400 ms to 1 m at 4450 ms even though the Moon was over 382 million
+metres away. With a 500-billion-metre far plane, Earth's float MVP depth row
+rounded to its clip-W row; every Earth fragment had clear depth 1 and failed
+the strict LESS test. The old global blue-pixel check counted HUD/guide colors
+and therefore accepted the black viewport.
+
+Near-plane adaptation now uses one percent of radial surface distance, clamped
+to the same 1 m / 1000 km bounds. This stays continuous and conservative near
+the lunar ground without treating an off-screen object's forward depth as
+surface proximity. The Earth sequence now keeps near=1000 km and requires more
+than 5000 blue Earth pixels in a central disk region excluding HUD/guide colors.
+The local D3D12 capture has 25,127 such pixels at all three checkpoints.
+
+`lunar_anchor_projection_test.cpp` checks signed rear/zero/front origins,
+positive vertex clip W, finite matrices, unchanged front-origin transforms,
+non-finite rejection and the strict box guard. `earth_zoom_test.sh` rejects
+stale BMPs and requires new frames at 4400, 4450 and 4500 ms, including the
+previously failing sample, with the existing scene/white/Earth pixel validation
+and clean exit. It also reproduces the float clear-depth collapse, requires
+visible central-disk Earth pixels and records the shared clipping planes.
+Windows and portable scene entry points run it and retain
+`build/earth-zoom-test/` evidence. The complete 124-frame lunar/base regression
+continues to guard close detail, grounded structures and transition continuity.

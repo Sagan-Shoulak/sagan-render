@@ -692,7 +692,7 @@ namespace sagan_render::scene_gpu
             anchor_direction.y * foundation_datum_metres;
           surface_anchor.position.z_metres -=
             anchor_direction.z * foundation_datum_metres;
-          camera_uniform = scene::prepare_oriented_box_draw(
+          camera_uniform = scene::prepare_oriented_mesh_draw(
             surface_anchor, {
               draw.item.radius_metres / scene::lunar_mesh_radius_metres,
               draw.item.radius_metres / scene::lunar_mesh_radius_metres,
