@@ -1,0 +1,2 @@
+# Keep canonical orbital captures independent of the manual demo's larger window.
+0 resize 960 540

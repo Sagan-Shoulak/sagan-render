@@ -1,0 +1,1390 @@
+module base_ui
+
+import fill from render.ui
+import text from render.ui
+import width from render.ui
+import height from render.ui
+import BaseEconomy from base_economy
+
+/// Application-owned fixture data, not renderer API or production game rules.
+/// The chassis owns capacity and restrictions. This demo supplies one plain form.
+class DemoChassis {
+  fun name(): String => "PLAIN CHASSIS"
+  fun mandatory_slots(): Int64 => 4
+  fun machine_slots(): Int64 => 4
+  fun mandatory_type(slot: Int64): Int64 {
+    if slot < 0 { return 0 }
+    if slot >= self.mandatory_slots() { return 0 }
+    return slot + 1
+  }
+}
+
+fun system_name(kind: Int64): String {
+  if kind == 1 { return "SOLAR POWER SYSTEM" }
+  if kind == 2 { return "BATTERY SYSTEM" }
+  if kind == 3 { return "LIFE SUPPORT SYSTEM" }
+  if kind == 4 { return "STORAGE SYSTEM" }
+  return "UNKNOWN SYSTEM"
+}
+
+fun machine_name(kind: Int64): String {
+  if kind == 1 { return "REGOLITH SIFTER" }
+  if kind == 2 { return "MINING DRILL" }
+  if kind == 3 { return "ELECTROLYSIS PLANT" }
+  if kind == 4 { return "REPAIR KIT FABRICATOR" }
+  return "EMPTY SLOT"
+}
+
+class ContextFormat {
+  new() {}
+  fun resource_name(resource: Int64): String {
+    if resource == 0 { return "STEEL" }
+    if resource == 1 { return "ALUMINUM" }
+    if resource == 2 { return "COPPER" }
+    if resource == 3 { return "POLYMERS" }
+    if resource == 4 { return "SILICON" }
+    if resource == 5 { return "WATER" }
+    if resource == 6 { return "ICE" }
+    if resource == 7 { return "OXYGEN" }
+    if resource == 8 { return "HYDROGEN" }
+    if resource == 9 { return "FOOD" }
+    return "REPAIR KITS"
+  }
+
+  fun resource_unit(resource: Int64): String {
+    if resource == 10 { return "items" }
+    return "kg"
+  }
+
+  fun scaled_amount(amount: Int64, unit_label: String): String {
+    let absolute = amount
+    let sign = ""
+    if amount < 0 {
+      absolute = 0 - amount
+      sign = "-"
+    }
+    let kilograms = absolute / 1000
+    let grams = absolute % 1000
+    let suffix = " ${unit_label}"
+    if unit_label == "" { suffix = "" }
+    if grams == 0 { return "${sign}${kilograms}${suffix}" }
+    let fraction = "${grams}"
+    if grams < 100 { fraction = "0${grams}" }
+    if grams < 10 { fraction = "00${grams}" }
+    if grams % 100 == 0 { fraction = "${grams / 100}" }
+    else {
+      if grams % 10 == 0 {
+        fraction = "${grams / 10}"
+        if grams < 100 { fraction = "0${grams / 10}" }
+      }
+    }
+    return "${sign}${kilograms}.${fraction}${suffix}"
+  }
+
+  fun resource_amount(resource: Int64, amount: Int64): String {
+    if self.resource_unit(resource) == "items" { return "${amount} items" }
+    return self.scaled_amount(amount, "kg")
+  }
+
+  fun balance_label(amount: Int64): String {
+    if amount > 0 { return "SURPLUS" }
+    if amount < 0 { return "DEFICIT" }
+    return "NOMINAL"
+  }
+
+  fun signed_amount(amount: Int64, unit_label: String): String {
+    if amount > 0 { return "+${self.scaled_amount(amount, unit_label)}" }
+    return self.scaled_amount(amount, unit_label)
+  }
+
+  fun duration(seconds: Int64): String {
+    if seconds < 60 { return "${seconds} s" }
+    if seconds < 3600 { return "${seconds / 60} m ${seconds % 60} s" }
+    if seconds < 86400 { return "${seconds / 3600} h ${(seconds % 3600) / 60} m" }
+    return "${seconds / 86400} d ${(seconds % 86400) / 3600} h"
+  }
+
+}
+
+fun resource_name(resource: Int64): String => ContextFormat().resource_name(resource)
+fun scaled_amount(amount: Int64, unit_label: String): String => ContextFormat().scaled_amount(amount, unit_label)
+fun resource_amount(resource: Int64, amount: Int64): String => ContextFormat().resource_amount(resource, amount)
+
+fun base_status(state: BaseUIState): String {
+  return state.status()
+}
+
+fun machine_slot_name(slot: Int64): String {
+  if slot == 0 { return "MACHINE SLOT 01" }
+  if slot == 1 { return "MACHINE SLOT 02" }
+  if slot == 2 { return "MACHINE SLOT 03" }
+  return "MACHINE SLOT 04"
+}
+
+class BaseUIState {
+  let format_value: ContextFormat
+  let chassis_value: DemoChassis
+  let economy_value: BaseEconomy
+  let tab_value: Int64
+  let inspected_value: Int64
+  let build_slot_value: Int64
+  let choice_value: Int64
+  let focus_value: Int64
+  let pressed_value: Int64
+  let hovered_value: Int64
+  let return_value: Bool
+  let scroll_value: Float64
+  let layout_width: Float64
+  let layout_height: Float64
+
+  new() {
+    self.format_value = ContextFormat()
+    self.chassis_value = DemoChassis()
+    self.economy_value = BaseEconomy()
+    self.tab_value = 0
+    self.inspected_value = 0
+    self.build_slot_value = -1
+    self.choice_value = 1
+    self.focus_value = 1
+    self.pressed_value = 0
+    self.hovered_value = 0
+    self.return_value = false
+    self.scroll_value = 0.0
+    self.layout_width = 960.0
+    self.layout_height = 540.0
+  }
+
+  fun chassis(): DemoChassis => self.chassis_value
+  fun status(): String {
+    if self.economy_value.services_ready() == false { return "NEEDS REPAIR" }
+    if self.economy_value.power_shortage() { return "LOW POWER" }
+    if self.economy_value.life_support_ready() == false { return "LIFE SUPPLY LOW" }
+    return "OPERATIONAL"
+  }
+  fun economy(): BaseEconomy => self.economy_value
+  fun update!(now: Float64): Void { self.economy_value.update!(now) }
+  fun tab(): Int64 => self.tab_value
+  fun inspected(): Int64 => self.inspected_value
+  fun build_slot(): Int64 => self.build_slot_value
+  fun choice(): Int64 => self.choice_value
+  fun focused(): Int64 => self.focus_value
+  fun hovered(): Int64 => self.hovered_value
+  fun pressed(): Int64 => self.pressed_value
+  fun scroll(): Float64 => self.scroll_value
+  fun modal(): Bool => self.build_slot_value >= 0
+  fun machine(slot: Int64): Int64 => self.economy_value.machine(slot)
+  fun installed(): Int64 {
+    let result: Int64 = 0
+    let slot: Int64 = 0
+    while slot < self.chassis_value.machine_slots() {
+      if self.machine(slot) != 0 { result = result + 1 }
+      slot = slot + 1
+    }
+    return result
+  }
+  fun install!(slot: Int64, kind: Int64): Bool => self.economy_value.start_build!(slot, kind)
+  fun inspected_system(): Int64 {
+    if self.inspected_value == 4 { return 0 }
+    if self.inspected_value >= 10 and self.inspected_value <= 13 { return self.inspected_value - 9 }
+    if self.inspected_value >= 20 and self.inspected_value <= 23 { return self.inspected_value - 15 }
+    return -1
+  }
+
+  // Presentation-only virtual resources: 11 shared H2O, 12 battery, 13 grid.
+  // Bulk amounts/rates are grams and grams/min; kits use milli-items/min.
+  // Battery/grid rates are watts, and battery stock is watt-seconds.
+  fun balance_name(resource: Int64): String {
+    if resource == 11 { return "H2O" }
+    if resource == 12 { return "BATTERY" }
+    if resource == 13 { return "POWER" }
+    if resource == 7 { return "OXYGEN" }
+    if resource == 10 { return "KITS" }
+    return self.format_value.resource_name(resource)
+  }
+  fun balance_rate(resource: Int64): Int64 {
+    if resource == 11 { return self.economy_value.net_rate(5) + self.economy_value.net_rate(6) }
+    if resource == 12 { return self.economy_value.battery_flow_watts() }
+    if resource == 13 { return self.economy_value.net_watts() }
+    return self.economy_value.net_rate(resource)
+  }
+  fun balance_stock(resource: Int64): Int64 {
+    if resource == 11 { return self.economy_value.water_supply() }
+    if resource == 12 or resource == 13 { return self.economy_value.battery_energy() }
+    return self.economy_value.stock(resource)
+  }
+  fun balance_state(resource: Int64): String {
+    if resource != 13 and self.balance_stock(resource) == 0 { return "EMPTY" }
+    if resource < 12 and self.economy_value.flow_window_seconds() == 0 { return "SAMPLING" }
+    let net = self.balance_rate(resource)
+    if net > 0 { return "SURPLUS" }
+    if net < 0 { return "DEFICIT" }
+    return "BALANCED"
+  }
+  /// -1 means no measured drain; -2 means the first material sample is pending.
+  /// Ceiling to seconds avoids displaying a positive reserve as already empty.
+  fun depletion_seconds(resource: Int64): Int64 {
+    let stock = self.balance_stock(resource)
+    if stock == 0 { return 0 }
+    if resource < 12 and self.economy_value.flow_window_seconds() == 0 { return -2 }
+    let rate = self.balance_rate(resource)
+    if resource == 13 { rate = self.balance_rate(12) }
+    if rate >= 0 { return -1 }
+    let amount = stock
+    if resource < 12 { amount = amount * 60 }
+    if resource == 10 { amount = amount * 1000 }
+    let drain = 0 - rate
+    return (amount + drain - 1) / drain
+  }
+  fun balance_line(resource: Int64): String {
+    let unit_label = "kg/min"
+    if resource == 10 { unit_label = "kits/min" }
+    if resource >= 12 { unit_label = "kW" }
+    return "${self.balance_name(resource)} ${self.balance_state(resource)} ${self.format_value.signed_amount(self.balance_rate(resource), unit_label)}"
+  }
+  fun reserve_line(resource: Int64): String {
+    let stock = self.format_value.resource_amount(resource, self.balance_stock(resource))
+    if resource == 11 { stock = self.format_value.resource_amount(5, self.balance_stock(resource)) }
+    if resource >= 12 { stock = self.format_value.scaled_amount(self.balance_stock(resource) / 3600, "kWh") }
+    let seconds = self.depletion_seconds(resource)
+    if seconds == 0 {
+      if self.balance_rate(resource) > 0 { return "${stock} / EMPTY - REFILLING" }
+      return "${stock} / EMPTY NOW"
+    }
+    if seconds == -2 { return "${stock} / ETA AFTER SAMPLE" }
+    if seconds < 0 { return "${stock} / NO DRAIN" }
+    return "${stock} / EMPTY IN ${self.format_value.duration(seconds)}"
+  }
+  fun system_resources(system: Int64): Int64 {
+    if system == 0 { return 3 }
+    if system == 1 or system == 2 { return 1 }
+    if system == 3 { return 3 }
+    if system == 4 { return 10 }
+    if self.economy_value.machine(system - 5) == 0 or self.economy_value.building(system - 5) { return 0 }
+    let kind = self.economy_value.machine(system - 5)
+    if kind == 1 { return 8 }
+    if kind == 2 { return 1 }
+    if kind == 3 { return 3 }
+    if kind == 4 { return 5 }
+    return 0
+  }
+  fun system_resource(system: Int64, row: Int64): Int64 {
+    if system == 0 {
+      if row == 0 { return 13 }
+      if row == 1 { return 10 }
+      return 9
+    }
+    if system == 1 { return 13 }
+    if system == 2 { return 12 }
+    if system == 3 {
+      if row == 0 { return 11 }
+      if row == 1 { return 7 }
+      return 9
+    }
+    if system == 4 {
+      // Water and ice are one usable supply, not competing depletion alarms.
+      if row < 5 { return row }
+      if row == 5 { return 11 }
+      return row + 1
+    }
+    let kind = self.economy_value.machine(system - 5)
+    if kind == 1 {
+      if row == 0 { return 2 }
+      if row == 1 { return 0 }
+      if row == 2 { return 1 }
+      if row == 3 { return 4 }
+      if row == 4 { return 3 }
+      if row == 5 { return 11 }
+      if row == 6 { return 7 }
+      return 8
+    }
+    if kind == 2 { return 11 }
+    if kind == 3 {
+      if row == 0 { return 11 }
+      if row == 1 { return 7 }
+      return 8
+    }
+    if row == 0 { return 10 }
+    if row == 1 { return 0 }
+    if row == 2 { return 1 }
+    if row == 3 { return 2 }
+    return 4
+  }
+  fun worst_resource(system: Int64): Int64 {
+    let result = self.system_resource(system, 0)
+    let shortest: Int64 = -1
+    let row: Int64 = 0
+    while row < self.system_resources(system) {
+      let resource = self.system_resource(system, row)
+      let seconds = self.depletion_seconds(resource)
+      if seconds >= 0 and self.balance_rate(resource) < 0 and (shortest < 0 or seconds < shortest) {
+        shortest = seconds
+        result = resource
+      }
+      row = row + 1
+    }
+    return result
+  }
+  fun balance_badge(system: Int64): String {
+    let deficits: Int64 = 0
+    let surpluses: Int64 = 0
+    let empty: Int64 = 0
+    let row: Int64 = 0
+    while row < self.system_resources(system) {
+      let status = self.balance_state(self.system_resource(system, row))
+      if status == "DEFICIT" { deficits = deficits + 1 }
+      if status == "EMPTY" { empty = empty + 1 }
+      if status == "SURPLUS" { surpluses = surpluses + 1 }
+      row = row + 1
+    }
+    if self.system_resources(system) == 0 { return "OUTPUT AFTER CONSTRUCTION" }
+    if empty > 0 { return "${deficits} DEFICIT / ${surpluses} UP / ${empty} EMPTY" }
+    if deficits > 0 { return "${deficits} DEFICIT / ${surpluses} SURPLUS" }
+    if surpluses > 0 { return "${surpluses} SURPLUS / NO DEFICITS" }
+    if self.economy_value.flow_window_seconds() == 0 and system != 1 and system != 2 { return "WAITING FOR FLOW SAMPLE" }
+    return "BALANCED / NO STOCK DRAIN"
+  }
+  fun system_has_surplus(system: Int64): Bool {
+    let row: Int64 = 0
+    while row < self.system_resources(system) {
+      if self.balance_state(self.system_resource(system, row)) == "SURPLUS" { return true }
+      row = row + 1
+    }
+    return false
+  }
+  fun sampling_caption(): String {
+    if self.economy_value.flow_window_seconds() == 60 { return "LAST 60 s NET / ETA IF RATE HOLDS" }
+    return "STARTUP ${self.economy_value.flow_window_seconds()} s / ETA AT CURRENT NET"
+  }
+  fun system_has_deficit(system: Int64): Bool {
+    let row: Int64 = 0
+    while row < self.system_resources(system) {
+      let status = self.balance_state(self.system_resource(system, row))
+      if status == "DEFICIT" or status == "EMPTY" { return true }
+      row = row + 1
+    }
+    return false
+  }
+  fun summary_rows(system: Int64): Int64 {
+    if system == 0 { return 2 }
+    if system == 4 { return 1 }
+    if system >= 5 {
+      if self.system_resources(system) == 0 { return 0 }
+      if self.economy_value.machine(system - 5) == 1 { return 2 }
+      if self.economy_value.machine(system - 5) == 4 { return 3 }
+    }
+    return self.system_resources(system)
+  }
+  fun summary_resource(system: Int64, row: Int64): Int64 {
+    if system == 0 {
+      if row == 0 { return 13 }
+      let worst = self.worst_resource(0)
+      if worst == 13 { return 10 }
+      return worst
+    }
+    if system == 4 { return self.worst_resource(4) }
+    if system >= 5 and self.economy_value.machine(system - 5) == 1 {
+      if row == 0 { return 2 }
+      let worst = self.worst_resource(system)
+      if worst == 2 { return 0 }
+      return worst
+    }
+    if system >= 5 and self.economy_value.machine(system - 5) == 4 {
+      if row == 0 { return 10 }
+      if row == 2 { return 2 }
+      // Show the shortest-lived mineral input, not the produced kit buffer.
+      let result: Int64 = 0
+      let shortest = self.depletion_seconds(0)
+      let input: Int64 = 2
+      while input < 5 {
+        let resource = self.system_resource(system, input)
+        let seconds = self.depletion_seconds(resource)
+        if seconds >= 0 and (shortest < 0 or seconds < shortest) {
+          result = resource
+          shortest = seconds
+        }
+        input = input + 1
+      }
+      if result == 2 { return 4 }
+      return result
+    }
+    return self.system_resource(system, row)
+  }
+
+  fun panel_width(): Float64 {
+    if self.layout_width >= 1100.0 { return 520.0 }
+    if self.layout_width >= 900.0 { return 420.0 }
+    return 312.0
+  }
+  fun panel_left(): Float64 => self.layout_width - self.panel_width() + 12.0
+  fun content_width(): Float64 => self.panel_width() - 60.0
+  fun columns(): Int64 {
+    if self.content_width() >= 440.0 { return 2 }
+    return 1
+  }
+  fun summary_width(): Float64 {
+    if self.columns() == 2 { return (self.content_width() - 12.0) / 2.0 }
+    return self.content_width()
+  }
+  fun summary_height(system: Int64): Float64 {
+    if system >= 5 and self.system_resources(system) == 0 { return 54.0 }
+    let result = 62.0
+    let row: Int64 = 0
+    while row < self.summary_rows(system) {
+      result = result + 34.0
+      row = row + 1
+    }
+    return result
+  }
+  fun row_height(system: Int64): Float64 {
+    let result = self.summary_height(system)
+    if self.columns() == 2 and system != 0 {
+      let other = self.summary_height(system + 1)
+      if other > result { result = other }
+    }
+    return result + 12.0
+  }
+  fun machine_top(): Float64 {
+    let top = 206.0 + self.summary_height(0) + 26.0
+    let slot: Int64 = 0
+    while slot < 4 {
+      top = top + self.row_height(1 + slot)
+      slot = slot + self.columns()
+    }
+    return top + 26.0
+  }
+  fun card_top(control: Int64): Float64 {
+    if control == 4 { return 206.0 }
+    let top = 206.0 + self.summary_height(0) + 26.0
+    let first: Int64 = 10
+    let target = control - 10
+    if control >= 20 {
+      top = self.machine_top()
+      first = 20
+      target = control - 20
+    }
+    let slot: Int64 = 0
+    while slot + self.columns() <= target {
+      let system = 1 + slot
+      if first == 20 { system = 5 + slot }
+      top = top + self.row_height(system)
+      slot = slot + self.columns()
+    }
+    return top
+  }
+  fun card_left(control: Int64): Float64 {
+    let left = self.panel_left()
+    if self.columns() == 2 and control != 4 and control % 2 == 1 {
+      left = left + self.summary_width() + 12.0
+    }
+    return left
+  }
+  fun slots_height(): Float64 {
+    let top = self.machine_top()
+    let slot: Int64 = 0
+    while slot < 4 {
+      top = top + self.row_height(5 + slot)
+      slot = slot + self.columns()
+    }
+    return top - 174.0
+  }
+
+  fun system_status(system: Int64): String {
+    let economy = self.economy_value
+    if system < 0 or system >= 9 { return "UNKNOWN" }
+    if system >= 5 {
+      let slot = system - 5
+      if economy.machine(slot) == 0 { return "EMPTY - BUILD" }
+      if economy.building(slot) {
+        if economy.powered(slot) == false and economy.power_shortage() { return "BUILD PAUSED / POWER" }
+        return "BUILDING ${economy.seconds_left(slot)} s"
+      }
+    }
+    if economy.durability(system) <= 0 { return "BROKEN / REPAIR" }
+    if system == 0 { return self.status() }
+    if system == 1 {
+      if economy.solar_watts() == 0 { return "NO SUNLIGHT" }
+      return "GENERATING"
+    }
+    if system == 2 {
+      if economy.battery_flow_watts() > 0 { return "CHARGING" }
+      if economy.battery_flow_watts() < 0 { return "DISCHARGING" }
+      if economy.battery_energy() == economy.battery_capacity() { return "FULL / HOLDING" }
+      if economy.battery_energy() == 0 { return "EMPTY" }
+      return "HOLDING"
+    }
+    if system == 3 {
+      if economy.life_powered() == false { return "NO POWER / SERVICE" }
+      if economy.water_supply() < economy.life_cost(5) { return "NEEDS WATER OR ICE" }
+      if economy.stock(7) < economy.life_cost(7) { return "NEEDS OXYGEN" }
+      if economy.stock(9) < economy.life_cost(9) { return "NEEDS FOOD" }
+      if economy.life_support_ready() == false { return "RECOVERING SUPPLIES" }
+      return "RUNNING"
+    }
+    if system == 4 {
+      if economy.storage_used() >= economy.capacity() { return "FULL / OUTPUT BLOCKED" }
+      return "NOMINAL"
+    }
+    let slot = system - 5
+    let kind = economy.machine(slot)
+    if economy.services_ready() == false { return "SERVICE FAULT" }
+    if economy.wants_work(slot) == false {
+      if kind == 3 and economy.water_supply() < 39000 { return "H2O RESERVE / IDLE" }
+      if kind == 4 and economy.stock(10) < 20 { return "NEEDS MINERALS" }
+      if economy.storage_used() >= economy.capacity() { return "STORAGE FULL / IDLE" }
+      return "TARGET MET / IDLE"
+    }
+    if economy.powered(slot) == false { return "NO POWER" }
+    return "RUNNING"
+  }
+  fun balance_resource(system: Int64): Int64 {
+    let kind = self.economy_value.machine(system - 5)
+    if kind == 1 { return 2 }
+    if kind == 2 { return 6 }
+    if kind == 3 { return 7 }
+    return 10
+  }
+  fun system_balance(system: Int64): String {
+    if system == 0 or system == 1 { return self.format_value.balance_label(self.economy_value.net_watts()) }
+    if system == 2 {
+      if self.economy_value.battery_energy() == 0 and self.economy_value.net_watts() < 0 { return "DEFICIT" }
+      return self.format_value.balance_label(self.economy_value.battery_flow_watts())
+    }
+    if system == 3 { return "FOOD DEFICIT" }
+    if self.economy_value.flow_window_seconds() == 0 { return "AWAITING SAMPLE" }
+    if system == 4 {
+      let net: Int64 = 0
+      let resource: Int64 = 0
+      while resource < 11 {
+        let rate = self.economy_value.net_rate(resource)
+        if resource == 10 { rate = rate * 8 }
+        net = net + rate
+        resource = resource + 1
+      }
+      if net > 0 { return "FILLING" }
+      if net < 0 { return "DRAWING STOCK" }
+      return "STEADY"
+    }
+    let resource = self.balance_resource(system)
+    let net = self.economy_value.net_rate(resource)
+    if system >= 5 and self.economy_value.machine(system - 5) == 2 {
+      net = net + self.economy_value.net_rate(5)
+    }
+    return self.format_value.balance_label(net)
+  }
+  fun card_context(system: Int64): String {
+    let economy = self.economy_value
+    if system == 0 { return "${self.installed()} OF 4 MACHINES / ${self.system_balance(0)}" }
+    if system == 1 { return "${self.system_balance(1)} / GRID ${self.format_value.signed_amount(economy.net_watts(), "kW")}" }
+    if system == 2 { return "${self.format_value.scaled_amount(economy.battery_energy() / 3600, "kWh")} / ${self.system_balance(2)}" }
+    if system == 3 { return "FOOD DEFICIT / O2 ${self.format_value.balance_label(economy.net_rate(7))}" }
+    if system == 4 { return "${economy.storage_used() / 1000} OF 10000 kg / ${self.system_balance(4)}" }
+    let resource = self.balance_resource(system)
+    let label = self.format_value.resource_name(resource)
+    let net = economy.net_rate(resource)
+    if economy.machine(system - 5) == 2 {
+      label = "H2O"
+      net = net + economy.net_rate(5)
+    }
+    if resource == 7 { label = "O2" }
+    if resource == 2 { label = "Cu" }
+    // Keep explicit minute units inside the 108-pixel card text area. The sign
+    // denotes the base-wide operating net, not the machine's gross output.
+    if resource == 10 { return self.format_value.signed_amount(net, "kits/min") }
+    return "${label} ${self.format_value.signed_amount(net, "kg/min")}"
+  }
+  fun system_warning(system: Int64): Bool {
+    let status = self.system_status(system)
+    if status == "BROKEN / REPAIR" or status == "NO POWER" or status == "BUILD PAUSED / POWER" { return true }
+    if status == "NEEDS WATER OR ICE" or status == "NEEDS OXYGEN" or status == "NEEDS FOOD" { return true }
+    if status == "NO POWER / SERVICE" or status == "SERVICE FAULT" or status == "NEEDS MINERALS" { return true }
+    if status == "NEEDS REPAIR" or status == "LOW POWER" or status == "LIFE SUPPLY LOW" { return true }
+    if status == "FULL / OUTPUT BLOCKED" or status == "STORAGE FULL / IDLE" or status == "H2O RESERVE / IDLE" { return true }
+    if system == 3 { return true }
+    return self.system_balance(system) == "DEFICIT"
+  }
+  fun mandatory_card_line(system: Int64): String {
+    let e = self.economy_value
+    let status = self.system_status(system)
+    if system == 1 { return "${status} / ${self.system_balance(1)} ${self.format_value.signed_amount(e.net_watts(), "kW")}" }
+    if system == 2 { return "${status} / ${self.format_value.scaled_amount(e.battery_energy() / 3600, "kWh")}" }
+    if system == 3 {
+      if status != "RUNNING" { return "${status} / FOOD DEFICIT" }
+      return "RUNNING / ${self.card_context(3)}"
+    }
+    if status == "NOMINAL" { status = self.system_balance(4) }
+    if status == "FULL / OUTPUT BLOCKED" { status = "FULL / BLOCKED" }
+    return "${status} / ${e.storage_used() / 1000} / 10000 kg"
+  }
+  fun stock_line(resource: Int64): String {
+    return "${self.format_value.resource_name(resource)}: ${self.format_value.resource_amount(resource, self.economy_value.stock(resource))} STORED"
+  }
+  fun flow_line(system: Int64, resource: Int64): String {
+    let unit_label = "kg/min"
+    if resource == 10 { unit_label = "kits/min" }
+    return "IN ${self.format_value.scaled_amount(self.economy_value.input_rate(system, resource), "")} / OUT ${self.format_value.scaled_amount(self.economy_value.output_rate(system, resource), "")} ${unit_label}"
+  }
+  fun net_line(resource: Int64): String {
+    let unit_label = "kg/min"
+    if resource == 10 { unit_label = "kits/min" }
+    return "BASE NET ${self.format_value.signed_amount(self.economy_value.net_rate(resource), unit_label)}"
+  }
+  fun context_rows(system: Int64): Int64 {
+    if system == 0 { return 9 }
+    if system == 1 { return 6 }
+    if system == 2 { return 6 }
+    if system == 3 { return 14 }
+    if system == 4 { return 24 }
+    if self.economy_value.building(system - 5) { return 2 }
+    let kind = self.economy_value.machine(system - 5)
+    if kind == 1 { return 22 }
+    if kind == 2 { return 7 }
+    if kind == 3 { return 13 }
+    if kind == 4 { return 14 }
+    return 2
+  }
+  fun context_line(system: Int64, row: Int64): String {
+    let e = self.economy_value
+    if system == 0 {
+      if row == 0 { return "4 REQUIRED / ${self.installed()} OF 4 MACHINES" }
+      if row == 1 { return "PLAIN FRAME / NO BONUSES / 2 kW" }
+      if row == 2 { return "GRID ${self.format_value.signed_amount(e.net_watts(), "kW")} / ${self.system_balance(0)}" }
+      if row == 3 { return "SHARED H2O ${self.format_value.resource_amount(5, e.water_supply())}" }
+      if row == 4 { return self.stock_line(7) }
+      if row == 5 { return self.stock_line(9) }
+      if row == 6 { return "AUTO REPAIRS ${e.automatic_repair_count()} / KITS ${e.stock(10)}" }
+      if row == 7 { return "WEAR 1 POINT/min PER SYSTEM" }
+      return "H2O NET ${self.format_value.signed_amount(e.net_rate(5) + e.net_rate(6), "kg/min")}"
+    }
+    if system == 1 {
+      if row == 0 { return "OUTPUT ${self.format_value.scaled_amount(e.generated_watts(), "kW")} / RATED 120 kW" }
+      if row == 1 { return "SUNLIGHT ${e.sunlight() / 10}% / FIXTURE" }
+      if row == 2 { return "LOAD ${self.format_value.scaled_amount(e.demanded_watts(), "kW")} / SERVED ${self.format_value.scaled_amount(e.served_watts(), "kW")}" }
+      if row == 3 { return "GRID NET ${self.format_value.signed_amount(e.net_watts(), "kW")}" }
+      if row == 4 { return "SURPLUS CHARGES / FULL: CURTAIL" }
+      return "NO MATERIAL INPUT / POWER OUTPUT"
+    }
+    if system == 2 {
+      if row == 0 { return "ENERGY ${self.format_value.scaled_amount(e.battery_energy() / 3600, "kWh")}" }
+      if row == 1 { return "CAPACITY 200 kWh / LIMIT 120 kW" }
+      if row == 2 { return "STORED FLOW ${self.format_value.signed_amount(e.battery_flow_watts(), "kW")}" }
+      if row == 3 { return "90% CHARGE / DISCHARGE EFFICIENCY" }
+      if row == 4 { return "GRID NET ${self.format_value.signed_amount(e.net_watts(), "kW")}" }
+      return "CONDITIONING 1 kW / RESERVE POWER"
+    }
+    if system == 3 {
+      if row == 0 { return "POWER 18 kW / ICE THAW +2 kW" }
+      if row == 1 { return "H2O ${self.format_value.resource_amount(5, e.water_supply())} / WATER FIRST" }
+      if row == 2 { return "RATED H2O USE 3.6 kg/min" }
+      if row == 3 { return "OBS USE ${self.format_value.scaled_amount(e.input_rate(3, 5) + e.input_rate(3, 6), "kg/min")}" }
+      if row == 4 { return "H2O BASE NET ${self.format_value.signed_amount(e.net_rate(5) + e.net_rate(6), "kg/min")}" }
+      if row == 5 { return self.stock_line(7) }
+      if row == 6 { return "RATED O2 USE 91.2 kg/min" }
+      if row == 7 { return self.flow_line(3, 7) }
+      if row == 8 { return self.net_line(7) }
+      if row == 9 { return self.stock_line(9) }
+      if row == 10 { return "RATED FOOD USE 0.3 kg/min" }
+      if row == 11 { return self.flow_line(3, 9) }
+      if row == 12 { return "FOOD RESERVE ${e.stock(9) / 300} min AT RATED USE" }
+      return "FOOD DEFICIT / NO LOCAL PRODUCER"
+    }
+    if system == 4 {
+      if row == 0 { return "USED ${self.format_value.scaled_amount(e.storage_used(), "kg")} OF 10000 kg" }
+      if row == 1 { return "FREE ${self.format_value.scaled_amount(e.capacity() - e.storage_used(), "kg")} / 2 kW" }
+      let resource = (row - 2) / 2
+      if row % 2 == 0 { return self.stock_line(resource) }
+      return self.net_line(resource)
+    }
+    let slot = system - 5
+    let kind = e.machine(slot)
+    if row == 0 { return "REQUESTED POWER ${self.format_value.scaled_amount(e.machine_watts(slot), "kW")}" }
+    if e.building(slot) { return "STOCK PAID / OUTPUT AFTER BUILD" }
+    if kind == 1 {
+      if row == 1 { return "RATED SOIL INPUT 100 kg/min" }
+      if row == 2 { return "LOCAL SOIL / NO INVENTORY INPUT" }
+      if row < 21 {
+        let resource = (row - 3) / 2
+        if row % 2 == 1 { return self.stock_line(resource) }
+        return "OUT ${self.format_value.scaled_amount(e.output_rate(system, resource), "")} / RATED ${self.format_value.scaled_amount(e.sifter_yield(resource), "kg/min")}"
+      }
+      return "RATED COPPER 0.040 kg/min / TRACE"
+    }
+    if kind == 2 {
+      if row == 1 { return "RATED ICE OUTPUT 114 kg/min" }
+      if row == 2 { return self.stock_line(6) }
+      if row == 3 { return self.flow_line(system, 6) }
+      if row == 4 { return "SHARED H2O ${self.format_value.resource_amount(5, e.water_supply())}" }
+      if row == 5 { return "H2O NET ${self.format_value.signed_amount(e.net_rate(5) + e.net_rate(6), "kg/min")}" }
+      return "ICE ONLY / TARGET 1500 kg"
+    }
+    if kind == 3 {
+      if row == 1 { return "RATED H2O INPUT 108 kg/min" }
+      if row == 2 { return "WATER ${self.format_value.resource_amount(5, e.stock(5))} / ICE ${self.format_value.resource_amount(6, e.stock(6))}" }
+      if row == 3 { return "OBS H2O IN ${self.format_value.scaled_amount(e.input_rate(system, 5) + e.input_rate(system, 6), "kg/min")}" }
+      if row == 4 { return "LIFE SUPPORT RESERVE 30 kg H2O" }
+      if row == 5 { return "RATED OUTPUT O2 96 / H2 12 kg/min" }
+      if row == 6 { return self.stock_line(7) }
+      if row == 7 { return self.flow_line(system, 7) }
+      if row == 8 { return self.net_line(7) }
+      if row == 9 { return self.stock_line(8) }
+      if row == 10 { return self.flow_line(system, 8) }
+      if row == 11 { return "VENTED H2 ${self.format_value.scaled_amount(e.hydrogen_vent_rate(), "kg/min")}" }
+      return "O2 TARGET 500 kg / H2 TARGET 50 kg"
+    }
+    if kind == 4 {
+      if row == 1 { return "RATED OUTPUT 3 kits/min / TARGET 20" }
+      if row == 2 { return self.stock_line(10) }
+      if row == 3 { return self.flow_line(system, 10) }
+      if row == 4 { return self.net_line(10) }
+      if row == 5 { return "KIT RECIPE / OBSERVED USE BELOW" }
+      let resource = (row - 6) / 2
+      if resource == 3 { resource = 4 }
+      if row % 2 == 0 { return "${self.format_value.resource_name(resource)} ${self.format_value.resource_amount(resource, e.stock(resource))} / KIT ${self.format_value.resource_amount(resource, e.kit_cost(resource))}" }
+      return self.flow_line(system, resource)
+    }
+    return "NO OUTPUT"
+  }
+  fun enabled(control: Int64): Bool {
+    if control == 110 {
+      return self.economy_value.can_build(self.build_slot_value, self.choice_value)
+    }
+    if control == 121 { return self.economy_value.can_repair(self.inspected_system()) }
+    return true
+  }
+
+  fun activate!(control: Int64): Void {
+    if self.enabled(control) == false { return }
+    if self.modal() {
+      if control >= 100 {
+        if control <= 103 {
+          self.choice_value = control - 99
+          self.focus_value = 110
+        }
+      }
+      if control == 110 {
+        let slot = self.build_slot_value
+        if self.install!(slot, self.choice_value) {
+          self.build_slot_value = -1
+          self.focus_value = 20 + slot
+          self.scroll_value = 0.0
+          self.ensure_focus_visible!()
+        }
+      }
+      if control == 111 { self.cancel!() }
+      return
+    }
+    if control >= 1 {
+      if control <= 3 {
+        self.tab_value = control - 1
+        self.inspected_value = 0
+        self.scroll_value = 0.0
+        self.focus_value = control
+      }
+    }
+    if control == 30 { self.return_value = true }
+    if self.tab_value != 0 { return }
+    if control == 121 {
+      if self.inspected_value != 0 { self.economy_value.repair!(self.inspected_system()) }
+      return
+    }
+    if control == 120 {
+      self.focus_value = self.inspected_value
+      self.inspected_value = 0
+      self.scroll_value = 0.0
+      self.ensure_focus_visible!()
+      return
+    }
+    if control == 4 { self.inspected_value = 4 }
+    if control >= 10 {
+      if control < 10 + self.chassis_value.mandatory_slots() {
+        self.inspected_value = control
+      }
+    }
+    if control >= 20 {
+      if control < 20 + self.chassis_value.machine_slots() {
+        let slot = control - 20
+        if self.machine(slot) == 0 {
+          self.build_slot_value = slot
+          self.choice_value = 1
+          self.focus_value = 100
+          self.scroll_value = 0.0
+        } else {
+          self.inspected_value = control
+        }
+      }
+    }
+    if self.inspected_value != 0 {
+      self.focus_value = 120
+      self.scroll_value = 0.0
+    }
+  }
+  fun cancel!(): Void {
+    if self.modal() {
+      self.focus_value = 20 + self.build_slot_value
+      self.build_slot_value = -1
+      self.scroll_value = 0.0
+      self.ensure_focus_visible!()
+    } else {
+      if self.inspected_value != 0 {
+        self.focus_value = self.inspected_value
+        self.inspected_value = 0
+        self.scroll_value = 0.0
+        self.ensure_focus_visible!()
+      }
+    }
+    self.pressed_value = 0
+  }
+  fun take_return!(): Bool {
+    let result = self.return_value
+    self.return_value = false
+    return result
+  }
+  fun reset_interaction!(): Void {
+    self.cancel!()
+    self.pressed_value = 0
+    self.hovered_value = 0
+    self.return_value = false
+  }
+  fun focus_next!(reverse: Bool): Void {
+    if self.modal() {
+      if reverse {
+        if self.focus_value == 100 { self.focus_value = 111 }
+        else {
+          if self.focus_value == 110 { self.focus_value = 103 }
+          else { self.focus_value = self.focus_value - 1 }
+        }
+      } else {
+        if self.focus_value == 103 { self.focus_value = 110 }
+        else {
+          if self.focus_value == 111 { self.focus_value = 100 }
+          else { self.focus_value = self.focus_value + 1 }
+        }
+      }
+      if self.focus_value == 110 and self.enabled(110) == false {
+        if reverse { self.focus_value = 103 }
+        else { self.focus_value = 111 }
+      }
+      self.ensure_focus_visible!()
+      return
+    }
+    if self.tab_value != 0 {
+      if reverse {
+        if self.focus_value == 1 { self.focus_value = 30 }
+        else {
+          if self.focus_value == 30 { self.focus_value = 3 }
+          else { self.focus_value = self.focus_value - 1 }
+        }
+      } else {
+        if self.focus_value == 3 { self.focus_value = 30 }
+        else {
+          if self.focus_value == 30 { self.focus_value = 1 }
+          else { self.focus_value = self.focus_value + 1 }
+        }
+      }
+      return
+    }
+    if self.inspected_value != 0 {
+      if reverse {
+        if self.focus_value == 1 { self.focus_value = 30 }
+        else {
+          if self.focus_value == 30 { self.focus_value = 120 }
+          else {
+            if self.focus_value == 120 {
+              if self.enabled(121) { self.focus_value = 121 }
+              else { self.focus_value = 3 }
+            }
+            else {
+              if self.focus_value == 121 { self.focus_value = 3 }
+              else { self.focus_value = self.focus_value - 1 }
+            }
+          }
+        }
+      } else {
+        if self.focus_value == 3 {
+          if self.enabled(121) { self.focus_value = 121 }
+          else { self.focus_value = 120 }
+        }
+        else {
+          if self.focus_value == 121 { self.focus_value = 120 }
+          else {
+            if self.focus_value == 120 { self.focus_value = 30 }
+            else {
+              if self.focus_value == 30 { self.focus_value = 1 }
+              else { self.focus_value = self.focus_value + 1 }
+            }
+          }
+        }
+      }
+      return
+    }
+    if reverse {
+      if self.focus_value == 1 { self.focus_value = 30 }
+      else {
+        if self.focus_value == 30 { self.focus_value = 23 }
+        else {
+          if self.focus_value == 20 { self.focus_value = 13 }
+          else {
+            if self.focus_value == 10 { self.focus_value = 4 }
+            else { self.focus_value = self.focus_value - 1 }
+          }
+        }
+      }
+    } else {
+      if self.focus_value == 4 { self.focus_value = 10 }
+      else {
+        if self.focus_value == 13 { self.focus_value = 20 }
+        else {
+          if self.focus_value == 23 { self.focus_value = 30 }
+          else {
+            if self.focus_value == 30 { self.focus_value = 1 }
+            else { self.focus_value = self.focus_value + 1 }
+          }
+        }
+      }
+    }
+    self.ensure_focus_visible!()
+  }
+  fun ensure_focus_visible!(): Void {
+    // Keep every keyboard-selected card fully visible in short windows.
+    let top = 174.0
+    let card_height = 20.0
+    if self.modal() {
+      if self.focus_value >= 100 and self.focus_value <= 103 {
+        card_height = 20.0
+        let index: Int64 = 100
+        while index < self.focus_value {
+          top = top + 24.0
+          index = index + 1
+        }
+      } else { return }
+    }
+    if self.modal() == false {
+      let system: Int64 = -1
+      if self.focus_value == 4 { system = 0 }
+      if self.focus_value >= 10 and self.focus_value <= 13 { system = self.focus_value - 9 }
+      if self.focus_value >= 20 and self.focus_value <= 23 { system = self.focus_value - 15 }
+      if system < 0 { return }
+      top = self.card_top(self.focus_value)
+      card_height = self.summary_height(system)
+      // Oversized cards scroll by resource row; keyboard entry reveals the title.
+      if card_height > self.body_height() { card_height = self.body_height() }
+    }
+    if top < 174.0 + self.scroll_value { self.scroll_value = top - 174.0 }
+    if top + card_height > 174.0 + self.body_height() + self.scroll_value {
+      self.scroll_value = top + card_height - 174.0 - self.body_height()
+    }
+    if self.scroll_value < 0.0 { self.scroll_value = 0.0 }
+    if self.scroll_value > self.max_scroll() { self.scroll_value = self.max_scroll() }
+  }
+  fun keyboard_activate!(): Void { self.activate!(self.focus_value) }
+
+  fun body_height(): Float64 {
+    if self.modal() { return self.layout_height - 292.0 }
+    if self.inspected_value != 0 { return self.layout_height - 360.0 }
+    return self.layout_height - 276.0
+  }
+  fun max_scroll(): Float64 {
+    let content_height = self.slots_height()
+    if self.tab_value == 1 { content_height = 592.0 }
+    if self.tab_value == 2 { content_height = 240.0 }
+    if self.inspected_value != 0 {
+      content_height = 164.0 + self.inspector_balance_height()
+      let row: Int64 = 0
+      while row < self.context_rows(self.inspected_system()) {
+        content_height = content_height + 18.0
+        row = row + 1
+      }
+    }
+    if self.modal() { content_height = 252.0 }
+    let result = content_height - self.body_height()
+    if result < 0.0 { return 0.0 }
+    return result
+  }
+  fun inspector_balance_height(): Float64 {
+    let rows = self.system_resources(self.inspected_system())
+    if rows == 0 { return 0.0 }
+    let result = 26.0
+    let row: Int64 = 0
+    while row < rows {
+      result = result + 34.0
+      row = row + 1
+    }
+    return result
+  }
+  fun scroll_by!(wheel: Float64): Void {
+    if wheel == 0.0 { return }
+    self.scroll_value = self.scroll_value - wheel * 24.0
+    if self.scroll_value < 0.0 { self.scroll_value = 0.0 }
+    if self.scroll_value > self.max_scroll() { self.scroll_value = self.max_scroll() }
+    self.pressed_value = 0
+  }
+  fun visible(y: Float64, card_height: Float64): Bool {
+    if y < 174.0 { return false }
+    return y + card_height <= 174.0 + self.body_height()
+  }
+  fun hit(x: Float64, y: Float64, left: Float64, top: Float64,
+           card_width: Float64, card_height: Float64): Bool {
+    if x < left { return false }
+    if y < top { return false }
+    if x >= left + card_width { return false }
+    return y < top + card_height
+  }
+  fun control_at(x: Float64, y: Float64): Int64 {
+    let left = self.panel_left()
+    let full_width = self.content_width()
+    let half_width = (full_width - 12.0) / 2.0
+    if self.modal() {
+      let top = 174.0 - self.scroll_value
+      let option: Int64 = 0
+      while option < 4 {
+        if self.visible(top, 20.0) and self.hit(x, y, left, top, full_width, 20.0) { return 100 + option }
+        top = top + 24.0
+        option = option + 1
+      }
+      if self.enabled(110) and self.hit(x, y, left, self.layout_height - 106.0, half_width, 28.0) { return 110 }
+      if self.hit(x, y, left + half_width + 12.0, self.layout_height - 106.0, half_width, 28.0) { return 111 }
+      return 0
+    }
+    let tab_width = (full_width - 8.0) / 3.0
+    let tab: Int64 = 0
+    let tab_x = left
+    while tab < 3 {
+      if self.hit(x, y, tab_x, 144.0, tab_width, 24.0) { return 1 + tab }
+      tab_x = tab_x + tab_width + 4.0
+      tab = tab + 1
+    }
+    if self.hit(x, y, left, self.layout_height - 98.0, full_width, 30.0) { return 30 }
+    if self.tab_value != 0 { return 0 }
+    if self.inspected_value != 0 {
+      if self.enabled(121) and self.hit(x, y, left, self.layout_height - 178.0, full_width, 28.0) { return 121 }
+      if self.hit(x, y, left, self.layout_height - 138.0, full_width, 28.0) { return 120 }
+      return 0
+    }
+    if y < 174.0 or y >= 174.0 + self.body_height() { return 0 }
+    if self.hit(x, y, left, self.card_top(4) - self.scroll_value, full_width, self.summary_height(0)) { return 4 }
+    let slot: Int64 = 0
+    while slot < 4 {
+      if self.hit(x, y, self.card_left(10 + slot), self.card_top(10 + slot) - self.scroll_value,
+                  self.summary_width(), self.summary_height(1 + slot)) { return 10 + slot }
+      if self.hit(x, y, self.card_left(20 + slot), self.card_top(20 + slot) - self.scroll_value,
+                  self.summary_width(), self.summary_height(5 + slot)) { return 20 + slot }
+      slot = slot + 1
+    }
+    return 0
+  }
+  fun update_layout!(new_width: Float64, new_height: Float64): Void {
+    if self.layout_width != new_width {
+      self.pressed_value = 0
+      self.layout_width = new_width
+    }
+    if self.layout_height != new_height {
+      self.pressed_value = 0
+      self.layout_height = new_height
+    }
+    if self.scroll_value > self.max_scroll() { self.scroll_value = self.max_scroll() }
+  }
+  fun pointer!(x: Float64, y: Float64, down: Bool, up: Bool): Void {
+    self.hovered_value = self.control_at(x, y)
+    if down { self.pressed_value = self.hovered_value }
+    if up {
+      let captured = self.pressed_value
+      self.pressed_value = 0
+      if captured != 0 {
+        if captured == self.hovered_value {
+          self.focus_value = captured
+          self.activate!(captured)
+        }
+      }
+    }
+  }
+}
+
+fun draw_card(state: BaseUIState, control: Int64, x: Float64, y: Float64,
+               card_width: Float64, card_height: Float64): Void {
+  if state.enabled(control) == false {
+    fill(x, y, card_width, card_height, 36, 55, 82)
+    return
+  }
+  fill(x, y, card_width, card_height, 23, 59, 94)
+  if state.hovered() == control { fill(x, y, card_width, card_height, 38, 78, 116) }
+  if state.focused() == control { fill(x, y, card_width, card_height, 55, 125, 181) }
+  if state.pressed() == control { fill(x, y, card_width, card_height, 55, 125, 181) }
+}
+
+fun body_text(state: BaseUIState, x: Float64, y: Float64,
+                label: String, size: Float64,
+                red: Int64, green: Int64, blue: Int64): Void {
+  let top = y - state.scroll()
+  if state.visible(top, size) { text(x, top, label, size, red, green, blue) }
+}
+
+fun status_text(state: BaseUIState, system: Int64, x: Float64, y: Float64,
+                label: String, size: Float64): Void {
+  if state.system_warning(system) { text(x, y, label, size, 255, 212, 91) }
+  else { text(x, y, label, size, 142, 203, 255) }
+}
+
+fun balance_text(state: BaseUIState, resource: Int64, x: Float64, y: Float64,
+                 label: String, size: Float64): Void {
+  let status = state.balance_state(resource)
+  if status == "DEFICIT" or status == "EMPTY" { body_text(state, x, y, label, size, 255, 132, 132) }
+  else {
+    if status == "SURPLUS" { body_text(state, x, y, label, size, 86, 222, 157) }
+    else { body_text(state, x, y, label, size, 142, 164, 188) }
+  }
+}
+
+fun draw_balance_row(state: BaseUIState, resource: Int64, x: Float64, y: Float64): Void {
+  balance_text(state, resource, x, y, state.balance_line(resource), 8.0)
+  balance_text(state, resource, x, y + 15.0, state.reserve_line(resource), 7.0)
+}
+
+fun draw_summary_card(state: BaseUIState, control: Int64, system: Int64): Void {
+  let left = state.card_left(control)
+  let card_width = state.summary_width()
+  if system == 0 { card_width = state.content_width() }
+  let absolute_top = state.card_top(control)
+  let top = absolute_top - state.scroll()
+  let bottom = top + state.summary_height(system)
+  if top < 174.0 { top = 174.0 }
+  if bottom > 174.0 + state.body_height() { bottom = 174.0 + state.body_height() }
+  if bottom <= top { return }
+  draw_card(state, control, left, top, card_width, bottom - top)
+  let name = state.chassis().name()
+  if system == 1 { name = "SOLAR POWER" }
+  if system == 2 { name = "BATTERY" }
+  if system == 3 { name = "LIFE SUPPORT" }
+  if system == 4 { name = "STORAGE" }
+  if system >= 5 {
+    name = machine_name(state.machine(system - 5))
+    if state.machine(system - 5) == 0 { name = machine_slot_name(system - 5) }
+    if state.machine(system - 5) == 3 { name = "ELECTROLYSIS" }
+    if state.machine(system - 5) == 4 { name = "KIT FABRICATOR" }
+  }
+  body_text(state, left + 8.0, absolute_top + 8.0, name, 9.0, 245, 249, 255)
+  if system < 5 or state.machine(system - 5) != 0 {
+    body_text(state, left + card_width - 46.0, absolute_top + 9.0,
+              "HP ${state.economy().durability(system)}", 7.0, 71, 174, 255)
+  }
+  if state.system_warning(system) {
+    body_text(state, left + 8.0, absolute_top + 25.0, state.system_status(system), 8.0, 255, 212, 91)
+  } else {
+    body_text(state, left + 8.0, absolute_top + 25.0, state.system_status(system), 8.0, 245, 249, 255)
+  }
+  if system >= 5 and state.machine(system - 5) == 0 {
+    body_text(state, left + 8.0, absolute_top + 43.0, "CHOOSE A MACHINE TO BUILD", 8.0, 71, 174, 255)
+    return
+  }
+  if state.system_has_deficit(system) {
+    body_text(state, left + 8.0, absolute_top + 43.0, state.balance_badge(system), 7.0, 255, 132, 132)
+  } else {
+    if state.system_has_surplus(system) {
+      body_text(state, left + 8.0, absolute_top + 43.0, state.balance_badge(system), 7.0, 86, 222, 157)
+    } else {
+      body_text(state, left + 8.0, absolute_top + 43.0, state.balance_badge(system), 7.0, 142, 164, 188)
+    }
+  }
+  let row: Int64 = 0
+  let y = absolute_top + 60.0
+  while row < state.summary_rows(system) {
+    draw_balance_row(state, state.summary_resource(system, row), left + 8.0, y)
+    y = y + 34.0
+    row = row + 1
+  }
+}
+
+fun draw_slots(state: BaseUIState, left: Float64): Void {
+  body_text(state, left, 176.0, "GREEN SURPLUS / RED DEFICIT / GRAY HOLD", 7.0, 142, 203, 255)
+  body_text(state, left, 190.0, state.sampling_caption(), 7.0, 142, 164, 188)
+  draw_summary_card(state, 4, 0)
+  body_text(state, left, state.card_top(10) - 16.0, "MANDATORY SYSTEMS - TYPE LOCKED", 8.0, 142, 203, 255)
+  body_text(state, left, state.machine_top() - 16.0, "MACHINE SLOTS - SPECIALIZE YOUR BASE", 8.0, 142, 203, 255)
+  let slot: Int64 = 0
+  while slot < 4 {
+    draw_summary_card(state, 10 + slot, 1 + slot)
+    draw_summary_card(state, 20 + slot, 5 + slot)
+    slot = slot + 1
+  }
+}
+
+fun draw_inspector(state: BaseUIState, left: Float64): Void {
+  let control = state.inspected()
+  let system = state.inspected_system()
+  let name = state.chassis().name()
+  if system > 0 and system < 5 { name = system_name(system) }
+  if system >= 5 { name = machine_name(state.machine(system - 5)) }
+  body_text(state, left, 182.0, name, 10.0, 245, 249, 255)
+  if state.visible(204.0 - state.scroll(), 9.0) {
+    status_text(state, system, left, 204.0 - state.scroll(), state.system_status(system), 9.0)
+  }
+  body_text(state, left, 222.0, state.card_context(system), 8.0, 142, 203, 255)
+  let sampling = "STARTUP ${state.economy().flow_window_seconds()} s / RATED: CAPACITY"
+  if state.economy().flow_window_seconds() == 60 { sampling = "LAST COMPLETE 60 s / RATED: CAPACITY" }
+  body_text(state, left, 240.0, sampling, 7.0, 142, 164, 188)
+  let row: Int64 = 0
+  let top = 260.0
+  if state.system_resources(system) > 0 {
+    body_text(state, left, top, "RESOURCE BALANCE / BASE-WIDE NET", 8.0, 142, 203, 255)
+    top = top + 26.0
+    while row < state.system_resources(system) {
+      draw_balance_row(state, state.system_resource(system, row), left, top)
+      top = top + 34.0
+      row = row + 1
+    }
+  }
+  row = 0
+  while row < state.context_rows(system) {
+    body_text(state, left, top, state.context_line(system, row), 8.0, 245, 249, 255)
+    top = top + 18.0
+    row = row + 1
+  }
+  body_text(state, left, top + 4.0,
+            "DURABILITY ${state.economy().durability(system)} OF 100", 9.0, 142, 203, 255)
+  body_text(state, left, top + 22.0, "AUTO REPAIR AT 75 / PLUS 25", 8.0, 142, 164, 188)
+  body_text(state, left, top + 40.0, state.flow_line(system, 10), 8.0, 142, 164, 188)
+  draw_card(state, 121, left, height() - 178.0, state.content_width(), 28.0)
+  if state.enabled(121) {
+    text(left + 12.0, height() - 169.0, "REPAIR - USE 1 KIT", 9.0, 71, 174, 255)
+  } else {
+    let label = "NO KIT AVAILABLE"
+    if state.economy().durability(state.inspected_system()) > 75 { label = "AUTO REPAIR STANDBY" }
+    if control >= 20 and control <= 23 {
+      if state.economy().building(control - 20) { label = "FINISH BUILD BEFORE REPAIR" }
+    }
+    text(left + 12.0, height() - 169.0, label, 9.0, 142, 164, 188)
+  }
+  text(left, height() - 146.0,
+       "KITS ${state.economy().stock(10)} / RESTORES 25 POINTS", 7.0, 142, 164, 188)
+  draw_card(state, 120, left, height() - 138.0, state.content_width(), 28.0)
+  text(left + 12.0, height() - 129.0, "BACK TO SLOTS", 9.0, 245, 249, 255)
+}
+
+fun draw_build_chooser(state: BaseUIState, left: Float64): Void {
+  text(left, 148.0, machine_slot_name(state.build_slot()), 10.0, 142, 203, 255)
+  let top = 174.0 - state.scroll()
+  let kind: Int64 = 1
+  while kind <= 4 {
+    if state.visible(top, 20.0) {
+      draw_card(state, 99 + kind, left, top, state.content_width(), 20.0)
+      text(left + 8.0, top + 6.0, machine_name(kind), 8.0, 245, 249, 255)
+      if state.choice() == kind { text(left + state.content_width() - 28.0, top + 6.0, "X", 8.0, 71, 174, 255) }
+    }
+    top = top + 24.0
+    kind = kind + 1
+  }
+  body_text(state, left, 278.0, "RECIPE COST / AVAILABLE STOCK", 8.0, 142, 203, 255)
+  body_text(state, left, 292.0,
+            "BUILD TIME ${Int.round(state.economy().build_seconds(state.choice()))} s",
+            8.0, 142, 203, 255)
+  let recipe_y = 308.0
+  let resource: Int64 = 0
+  while resource < state.economy().resource_count() {
+    let cost = state.economy().cost(state.choice(), resource)
+    if cost > 0 {
+      body_text(state, left, recipe_y, resource_name(resource), 7.0, 245, 249, 255)
+      let label = "${resource_amount(resource, cost)} / ${resource_amount(resource, state.economy().stock(resource))}"
+      if state.economy().stock(resource) < cost {
+        body_text(state, left + 152.0, recipe_y, label, 7.0, 255, 212, 91)
+      } else {
+        body_text(state, left + 152.0, recipe_y, label, 7.0, 71, 174, 255)
+      }
+      recipe_y = recipe_y + 14.0
+    }
+    resource = resource + 1
+  }
+  let status = "RESOURCES DEDUCTED WHEN STARTED"
+  if state.enabled(110) == false { status = "NOT ENOUGH RESOURCES TO BUILD" }
+  body_text(state, left, 412.0, status, 8.0, 142, 164, 188)
+  draw_card(state, 110, left, height() - 106.0, (state.content_width() - 12.0) / 2.0, 28.0)
+  draw_card(state, 111, left + (state.content_width() + 12.0) / 2.0, height() - 106.0, (state.content_width() - 12.0) / 2.0, 28.0)
+  if state.enabled(110) {
+    text(left + 10.0, height() - 97.0, "START BUILD", 9.0, 71, 174, 255)
+  } else {
+    text(left + 10.0, height() - 97.0, "NEED STOCK", 9.0, 142, 164, 188)
+  }
+  text(left + (state.content_width() + 12.0) / 2.0 + 12.0, height() - 97.0, "CANCEL", 9.0, 245, 249, 255)
+}
+
+fun draw_resources(state: BaseUIState, left: Float64): Void {
+  body_text(state, left, 180.0, "POWER AND SUPPLIES", 10.0, 142, 203, 255)
+  body_text(state, left, 200.0,
+            "SOLAR ${scaled_amount(state.economy().generated_watts(), "kW")} / LOAD ${scaled_amount(state.economy().demanded_watts(), "kW")}",
+            8.0, 245, 249, 255)
+  body_text(state, left, 220.0,
+            "NET ${scaled_amount(state.economy().net_watts(), "kW")} / SERVED ${scaled_amount(state.economy().served_watts(), "kW")}",
+            8.0, 71, 174, 255)
+  body_text(state, left, 240.0,
+            "BATTERY ${scaled_amount(state.economy().battery_energy() / 3600, "kWh")} OF 200 kWh",
+            8.0, 245, 249, 255)
+  body_text(state, left, 260.0,
+            "SHARED H2O ${resource_amount(5, state.economy().water_supply())}", 8.0, 142, 203, 255)
+  body_text(state, left, 280.0, "STATUS ${base_status(state)}", 8.0, 71, 174, 255)
+  body_text(state, left, 300.0,
+            "STORAGE ${(state.economy().storage_used() + 999) / 1000} OF ${state.economy().capacity() / 1000} kg",
+            9.0, 142, 203, 255)
+  let resource: Int64 = 0
+  let top = 324.0
+  while resource < state.economy().resource_count() {
+    draw_balance_row(state, resource, left, top)
+    resource = resource + 1
+    top = top + 34.0
+  }
+  body_text(state, left, 714.0, "FOOD: NO LOCAL PRODUCTION", 8.0, 255, 132, 132)
+  body_text(state, left, 734.0, "AUTO REPAIRS ${state.economy().automatic_repair_count()}", 8.0, 142, 164, 188)
+  body_text(state, left, 754.0, state.sampling_caption(), 7.0, 142, 164, 188)
+}
+
+fun draw_details(state: BaseUIState, left: Float64): Void {
+  body_text(state, left, 180.0, "BASE DETAILS / READ-ONLY", 10.0, 142, 203, 255)
+  body_text(state, left, 208.0, "NAME           SHACKLETON", 9.0, 245, 249, 255)
+  let status = "STATUS         ${base_status(state)}"
+  body_text(state, left, 229.0, status, 9.0, 71, 174, 255)
+  body_text(state, left, 250.0, "BODY           MOON", 9.0, 245, 249, 255)
+    body_text(state, left, 278.0, "FIXTURE LAT    30.000 N", 9.0, 245, 249, 255)
+    body_text(state, left, 299.0, "FIXTURE LON     0.000 E", 9.0, 245, 249, 255)
+    body_text(state, left, 320.0, "MARKER ALT     10 m", 9.0, 245, 249, 255)
+    body_text(state, left, 349.0, "CHASSIS        PLAIN", 9.0, 245, 249, 255)
+    body_text(state, left, 370.0, "BONUSES        NONE", 9.0, 245, 249, 255)
+    body_text(state, left, 394.0, "DEMO COORDINATES, NOT REAL SITE", 8.0, 142, 164, 188)
+}
+
+fun draw_base_ui(state: BaseUIState): Void {
+  let panel_x = width() - state.panel_width()
+  let panel_height = height() - 144.0
+  let left = panel_x + 12.0
+  fill(panel_x - 2.0, 88.0, state.panel_width() - 32.0, panel_height + 4.0, 142, 203, 255)
+  fill(panel_x, 90.0, state.panel_width() - 36.0, panel_height, 16, 43, 70)
+  text(left, 104.0, "SHACKLETON BASE", 14.0, 245, 249, 255)
+  let status = "${base_status(state)} / DEMO SESSION"
+  text(left, 126.0, status, 8.0, 71, 174, 255)
+  if state.modal() {
+    draw_build_chooser(state, left)
+  } else {
+    let tab_width = (state.content_width() - 8.0) / 3.0
+    draw_card(state, 1, left, 144.0, tab_width, 24.0)
+    draw_card(state, 2, left + tab_width + 4.0, 144.0, tab_width, 24.0)
+    draw_card(state, 3, left + 2.0 * (tab_width + 4.0), 144.0, tab_width, 24.0)
+    let tab_x = left
+    if state.tab() == 1 { tab_x = tab_x + tab_width + 4.0 }
+    if state.tab() == 2 { tab_x = tab_x + 2.0 * (tab_width + 4.0) }
+    fill(tab_x, 166.0, tab_width, 2.0, 71, 174, 255)
+    text(left + 12.0, 152.0, "SLOTS", 8.0, 245, 249, 255)
+    text(left + tab_width + 12.0, 152.0, "RESOURCES", 8.0, 245, 249, 255)
+    text(left + 2.0 * (tab_width + 4.0) + 12.0, 152.0, "DETAILS", 8.0, 245, 249, 255)
+    if state.tab() == 0 {
+      if state.inspected() == 0 { draw_slots(state, left) }
+      else { draw_inspector(state, left) }
+    }
+    if state.tab() == 1 { draw_resources(state, left) }
+    if state.tab() == 2 { draw_details(state, left) }
+    draw_card(state, 30, left, height() - 98.0, state.content_width(), 30.0)
+    text(left + 40.0, height() - 88.0, "RETURN TO ORBIT [R]", 9.0, 245, 249, 255)
+  }
+  if state.max_scroll() > 0.0 {
+    text(left, height() - 62.0, "WHEEL OVER PANEL: SCROLL", 7.0, 142, 164, 188)
+  } else {
+    text(left, height() - 62.0, "TAB: FOCUS / ENTER: SELECT", 7.0, 142, 164, 188)
+  }
+}
+
+export BaseUIState
+export draw_base_ui

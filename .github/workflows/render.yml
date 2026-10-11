@@ -147,6 +147,8 @@ jobs:
             render/build/scene-sagan-demo-test/scene-marker-base.bmp
             render/build/lunar-transition-test/*.bmp
             render/build/lunar-transition-test/trace.txt
+            render/build/scene-base-ui-test/*.bmp
+            render/build/scene-base-ui-test/*report.txt
             render/build/surface-sagan-demo-test/surface.bmp
             render/build/surface-sagan-demo-test/surface-turned.bmp
             render/build/surface-sagan-demo-test/surface-demo-report.txt
@@ -277,6 +279,8 @@ jobs:
             build/scene-sagan-demo-test/scene-demo-report.txt
             build/lunar-transition-test/*.bmp
             build/lunar-transition-test/trace.txt
+            build/scene-base-ui-test/*.bmp
+            build/scene-base-ui-test/*report.txt
             build/surface-sagan-demo-test/surface.bmp
             build/surface-sagan-demo-test/surface-turned.bmp
             build/surface-sagan-demo-test/surface-demo-report.txt

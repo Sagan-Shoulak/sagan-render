@@ -14,6 +14,7 @@ import mesh_box_frame from render.ui
 import present from render.ui
 import key_pressed from render.ui
 import pointer_pressed from render.ui
+import pointer_released from render.ui
 import pointer_x from render.ui
 import pointer_y from render.ui
 import orbit_delta_x from render.ui
@@ -31,6 +32,8 @@ import pick_circle from render.scene
 import pick_rectangle from render.scene
 import SurfaceLocationMarker from render.scene
 import surface_location_visible from render.scene
+import BaseUIState from base_ui
+import draw_base_ui from base_ui
 
 const DISTANT_ORIGIN: Float64<meter> = 1e12 kilometer
 const CAMERA_DEPTH: Float64<meter> = 3.3e8 kilometer
@@ -946,138 +949,6 @@ fun selected_camera_z(identifier: Int64,
   return sample(first).z() + SUN_VIEW_DISTANCE
 }
 
-fun draw_base_management_overlay(panel_tab: Int64,
-                                 return_hovered: Bool,
-                                 selected_structure: Int64): Void {
-  let panel_width = 276.0
-  let panel_x = width() - panel_width - 36.0
-  let panel_y = 90.0
-  let panel_height = height() - 144.0
-  fill(panel_x - 2.0, panel_y - 2.0,
-       panel_width + 4.0, panel_height + 4.0, 142, 203, 255)
-  fill(panel_x, panel_y, panel_width, panel_height, 16, 43, 70)
-  text(panel_x + 14.0, panel_y + 14.0, "BASE MANAGEMENT", 14.0,
-       245, 249, 255)
-  text(panel_x + 14.0, panel_y + 34.0, "DEMO SNAPSHOT - SHACKLETON", 8.0,
-       142, 164, 188)
-
-  let overview_red: Int64 = 38
-  let overview_green: Int64 = 78
-  let overview_blue: Int64 = 116
-  let resources_red: Int64 = 38
-  let resources_green: Int64 = 78
-  let resources_blue: Int64 = 116
-  let systems_red: Int64 = 38
-  let systems_green: Int64 = 78
-  let systems_blue: Int64 = 116
-  if panel_tab == 0 {
-    overview_red = 55
-    overview_green = 125
-    overview_blue = 181
-  }
-  if panel_tab == 1 {
-    resources_red = 55
-    resources_green = 125
-    resources_blue = 181
-  }
-  if panel_tab == 2 {
-    systems_red = 55
-    systems_green = 125
-    systems_blue = 181
-  }
-  fill(panel_x + 12.0, panel_y + 54.0, 78.0, 24.0,
-       overview_red, overview_green, overview_blue)
-  fill(panel_x + 94.0, panel_y + 54.0, 78.0, 24.0,
-       resources_red, resources_green, resources_blue)
-  fill(panel_x + 176.0, panel_y + 54.0, 88.0, 24.0,
-       systems_red, systems_green, systems_blue)
-  text(panel_x + 20.0, panel_y + 62.0, "OVERVIEW", 8.0, 245, 249, 255)
-  text(panel_x + 102.0, panel_y + 62.0, "RESOURCES", 8.0, 245, 249, 255)
-  text(panel_x + 190.0, panel_y + 62.0, "SYSTEMS", 8.0, 245, 249, 255)
-
-  if selected_structure == 401 {
-    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  LAUNCHPAD 01", 8.0,
-         255, 212, 91)
-  }
-  if selected_structure == 402 {
-    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  HABITAT A", 8.0,
-         255, 212, 91)
-  }
-  if selected_structure == 403 {
-    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  REFINERY 01", 8.0,
-         255, 212, 91)
-  }
-  if selected_structure == 404 {
-    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  SOLAR ARRAY", 8.0,
-         255, 212, 91)
-  }
-  if selected_structure == 405 {
-    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  COMMS TOWER", 8.0,
-         255, 212, 91)
-  }
-  if selected_structure == 401 {
-    text(panel_x + 14.0, panel_y + 98.0, "STATUS READY - QUEUE EMPTY", 8.0,
-         245, 249, 255)
-  }
-  if selected_structure == 402 {
-    text(panel_x + 14.0, panel_y + 98.0, "CREW 12 / 16 - LOAD 38 kW", 8.0,
-         245, 249, 255)
-  }
-  if selected_structure == 403 {
-    text(panel_x + 14.0, panel_y + 98.0, "ACTIVE - LOAD 64 kW", 8.0,
-         245, 249, 255)
-  }
-  if selected_structure == 404 {
-    text(panel_x + 14.0, panel_y + 98.0, "OUTPUT 120 kW - 98%", 8.0,
-         245, 249, 255)
-  }
-  if selected_structure == 405 {
-    text(panel_x + 14.0, panel_y + 98.0, "LINK NOMINAL - LOAD 8 kW", 8.0,
-         245, 249, 255)
-  }
-
-  if panel_tab == 0 {
-    text(panel_x + 14.0, panel_y + 122.0, "POWER", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 140.0, "GENERATION       240 kW", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 158.0, "CONSUMPTION      168 kW", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 176.0, "AVAILABLE         72 kW", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 202.0, "CAPACITY", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 220.0, "MACHINE SLOTS       7 / 12", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 238.0, "STORAGE USED          68%", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 264.0, "LAUNCHPAD", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 282.0, "PAD 01   READY", 9.0, 71, 174, 255)
-  }
-  if panel_tab == 1 {
-    text(panel_x + 14.0, panel_y + 122.0, "NET PRODUCTION", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 142.0, "WATER             +18.4 kg/h", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 162.0, "OXYGEN             +6.2 kg/h", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 182.0, "REGOLITH           +42.0 kg/h", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 210.0, "RESOURCE LOAD", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 230.0, "EXTRACTION       2 ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 250.0, "REFINEMENT       1 ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 270.0, "STORAGE HEADROOM      32%", 9.0, 245, 249, 255)
-  }
-  if panel_tab == 2 {
-    text(panel_x + 14.0, panel_y + 122.0, "INSTALLED SYSTEMS", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 142.0, "SOLAR ARRAY        NOMINAL", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 162.0, "LIFE SUPPORT       NOMINAL", 9.0, 71, 174, 255)
-    text(panel_x + 14.0, panel_y + 182.0, "REFINERY           ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 202.0, "EXTRACTOR          ACTIVE", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 230.0, "MAINTENANCE", 10.0, 142, 203, 255)
-    text(panel_x + 14.0, panel_y + 250.0, "BASE CONDITION         96%", 9.0, 245, 249, 255)
-    text(panel_x + 14.0, panel_y + 270.0, "OPEN MACHINE SLOTS   5", 9.0, 245, 249, 255)
-  }
-
-  if return_hovered {
-    fill(panel_x + 12.0, panel_y + panel_height - 44.0,
-         panel_width - 24.0, 30.0, 55, 125, 181)
-  } else {
-    fill(panel_x + 12.0, panel_y + panel_height - 44.0,
-         panel_width - 24.0, 30.0, 38, 78, 116)
-  }
-  text(panel_x + 66.0, panel_y + panel_height - 34.0,
-       "RETURN TO ORBIT  [R]", 10.0, 245, 249, 255)
-}
 
 fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             camera_z: Float64<meter>, camera_yaw: Float64,
@@ -1089,13 +960,13 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             marker_hovered: Bool, marker_fade_stage: Int64,
             surface_detail_active: Bool, local_geometry_active: Bool,
             transitioning: Bool,
-            base_panel_tab: Int64, return_hovered: Bool,
+            base_ui: BaseUIState,
             selected_structure: Int64, sidebar_fraction: Float64): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
   let viewport_y = 76.0
-  let viewport_width = window_width - 48.0 - 312.0 * sidebar_fraction
+  let viewport_width = window_width - 48.0 - base_ui.panel_width() * sidebar_fraction
   let viewport_height = window_height - 116.0
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
@@ -1219,8 +1090,7 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
          "RIGHT-DRAG: LOCAL ORBIT | WHEEL: ZOOM | SURFACE NORMAL IS UP",
          10.0, 142, 203, 255)
     if transitioning == false {
-      draw_base_management_overlay(
-        base_panel_tab, return_hovered, selected_structure)
+      draw_base_ui(base_ui)
     }
   } else {
     text(24.0, window_height - 28.0,
@@ -1230,7 +1100,7 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   present()
 }
 
-if open("Sagan Sun-Earth-Moon scene", 960, 540) {
+if open("Sagan Sun-Earth-Moon scene", 1280, 900) {
   let selection = SelectionState()
   selection.select!(1)
   let base_marker = SurfaceLocationMarker(
@@ -1269,9 +1139,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let local_geometry_active = false
   let returning_to_orbit = false
   let focus_source_marker = false
-  let base_panel_tab: Int64 = 0
+  let base_ui = BaseUIState()
   let selected_structure: Int64 = 401
-  let return_hovered = false
   let saved_orbit_distance = MOON_VIEW_DISTANCE
   let saved_orbit_yaw = camera_yaw
   let saved_orbit_pitch = camera_pitch
@@ -1282,6 +1151,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   while running {
     if poll() == false { running = false }
     if running {
+      base_ui.update_layout!(width(), height())
+      base_ui.update!(elapsed_seconds())
       // Accelerated, circular, demo-owned snapshot generation. This is not an
       // n-body integrator and is intentionally replaceable by physics output.
       let earth_phase = elapsed_seconds() * 0.08
@@ -1318,6 +1189,21 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         base_marker, marker_value, 405,
         0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
         18.0 meter, "COMMS TOWER")
+      let pointer_down = pointer_pressed()
+      let pointer_up = pointer_released()
+      let escape_pressed = key_pressed("escape")
+      let drag_x = orbit_delta_x()
+      let drag_y = orbit_delta_y()
+      let wheel = scroll_y()
+      let over_base_panel = false
+      if local_view {
+        base_ui.update_layout!(width(), height())
+        if pointer_x() >= width() - base_ui.panel_width() { over_base_panel = true }
+        if over_base_panel { base_ui.scroll_by!(wheel) }
+      }
+      if escape_pressed {
+        if local_view == false { running = false }
+      }
       if key_pressed("left") {
         let previous = selection.identifier() - 1
         if previous < 1 { previous = 3 }
@@ -1333,9 +1219,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if key_pressed("d") { camera_yaw = wrapped_angle(camera_yaw + 0.12) }
         if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
         if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
-        camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
-        camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
-        camera_distance = zoom_distance(camera_distance, scroll_y())
+        camera_yaw = wrapped_angle(camera_yaw - drag_x * 0.006)
+        camera_pitch = clamp_pitch(camera_pitch + drag_y * 0.006)
+        camera_distance = zoom_distance(camera_distance, wheel)
         if key_pressed("q") {
           camera_distance = zoom_distance(camera_distance, -1.0)
         }
@@ -1344,30 +1230,34 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         }
       } else {
         if focusing == false {
-          if key_pressed("a") {
-            local_orbit_yaw = wrapped_angle(local_orbit_yaw - 0.12)
-          }
-          if key_pressed("d") {
-            local_orbit_yaw = wrapped_angle(local_orbit_yaw + 0.12)
-          }
-          if key_pressed("w") {
+          if base_ui.modal() == false {
+            if key_pressed("a") {
+              local_orbit_yaw = wrapped_angle(local_orbit_yaw - 0.12)
+            }
+            if key_pressed("d") {
+              local_orbit_yaw = wrapped_angle(local_orbit_yaw + 0.12)
+            }
+            if key_pressed("w") {
+              local_orbit_pitch = clamp_local_orbit_pitch(
+                local_orbit_pitch + 0.10)
+            }
+            if key_pressed("s") {
+              local_orbit_pitch = clamp_local_orbit_pitch(
+                local_orbit_pitch - 0.10)
+            }
+            local_orbit_yaw = wrapped_angle(
+              local_orbit_yaw - drag_x * 0.006)
             local_orbit_pitch = clamp_local_orbit_pitch(
-              local_orbit_pitch + 0.10)
-          }
-          if key_pressed("s") {
-            local_orbit_pitch = clamp_local_orbit_pitch(
-              local_orbit_pitch - 0.10)
-          }
-          local_orbit_yaw = wrapped_angle(
-            local_orbit_yaw - orbit_delta_x() * 0.006)
-          local_orbit_pitch = clamp_local_orbit_pitch(
-            local_orbit_pitch + orbit_delta_y() * 0.006)
-          camera_distance = zoom_local_distance(camera_distance, scroll_y())
-          if key_pressed("q") {
-            camera_distance = zoom_local_distance(camera_distance, -1.0)
-          }
-          if key_pressed("e") {
-            camera_distance = zoom_local_distance(camera_distance, 1.0)
+              local_orbit_pitch + drag_y * 0.006)
+            if over_base_panel == false {
+              camera_distance = zoom_local_distance(camera_distance, wheel)
+            }
+            if key_pressed("q") {
+              camera_distance = zoom_local_distance(camera_distance, -1.0)
+            }
+            if key_pressed("e") {
+              camera_distance = zoom_local_distance(camera_distance, 1.0)
+            }
           }
         }
       }
@@ -1377,7 +1267,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       let look_forward_z = 0.0 - demo_sine(camera_pitch)
       let viewport_x = 24.0
       let viewport_y = 76.0
-      let viewport_width = width() - 48.0 - 312.0 * sidebar_fraction
+      let viewport_width = width() - 48.0 - base_ui.panel_width() * sidebar_fraction
       let viewport_height = height() - 116.0
       // Keep picking and painting on the same fresh presentation camera. The
       // accelerated demo Moon can move thousands of kilometres between frames;
@@ -1403,24 +1293,24 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       let return_requested = false
       let marker_hovered = false
       let marker_fade_stage: Int64 = 3
-      return_hovered = false
-      let panel_x = width() - 312.0
-      let panel_y = 90.0
-      let panel_height = height() - 144.0
+      let panel_x = width() - base_ui.panel_width()
       if local_view {
-        return_hovered = pick_rectangle(
-          pointer_x(), pointer_y(), panel_x + 12.0,
-          panel_y + panel_height - 44.0, 252.0, 30.0)
-        if key_pressed("r") { return_requested = true }
-        if key_pressed("escape") { return_requested = true }
-        if key_pressed("tab") {
-          selected_structure = selected_structure + 1
-          if selected_structure > 405 { selected_structure = 401 }
+        base_ui.pointer!(pointer_x(), pointer_y(), pointer_down, pointer_up)
+        if key_pressed("tab") { base_ui.focus_next!(false) }
+        if key_pressed("shift-tab") { base_ui.focus_next!(true) }
+        if key_pressed("enter") { base_ui.keyboard_activate!() }
+        if key_pressed("space") { base_ui.keyboard_activate!() }
+        if escape_pressed {
+          if base_ui.modal() { base_ui.cancel!() }
+          else {
+            if base_ui.inspected() != 0 { base_ui.cancel!() }
+            else { return_requested = true }
+          }
         }
-        if key_pressed("shift-tab") {
-          selected_structure = selected_structure - 1
-          if selected_structure < 401 { selected_structure = 405 }
+        if key_pressed("r") {
+          if base_ui.modal() == false { return_requested = true }
         }
+        if base_ui.take_return!() { return_requested = true }
       }
       if marker_faces_camera(
            marker_value, third, camera_x, camera_y, camera_z) {
@@ -1444,88 +1334,80 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
             176.0, 104.0)
         }
       }
-      if pointer_pressed() {
+      if pointer_down {
         let click_x = pointer_x()
         let click_y = pointer_y()
         if local_view {
           if click_x < panel_x {
-            let nearest_hit = 1e12 kilometer
-            if projected_structure_hit(
-                 local_launchpad, click_x, click_y,
-                 camera_x, camera_y, camera_z,
-                 camera_yaw, camera_pitch, camera_roll,
-                 viewport_x, viewport_y, viewport_width, viewport_height) {
-              let candidate_depth = projected_depth(
-                local_launchpad, camera_x, camera_y, camera_z,
-                camera_yaw, camera_pitch)
-              if candidate_depth < nearest_hit {
-                nearest_hit = candidate_depth
-                selected_structure = 401
+            if base_ui.modal() == false {
+              let nearest_hit = 1e12 kilometer
+              if projected_structure_hit(
+                   local_launchpad, click_x, click_y,
+                   camera_x, camera_y, camera_z,
+                   camera_yaw, camera_pitch, camera_roll,
+                   viewport_x, viewport_y, viewport_width, viewport_height) {
+                let candidate_depth = projected_depth(
+                  local_launchpad, camera_x, camera_y, camera_z,
+                  camera_yaw, camera_pitch)
+                if candidate_depth < nearest_hit {
+                  nearest_hit = candidate_depth
+                  selected_structure = 401
+                }
               }
-            }
-            if projected_structure_hit(
-                 local_habitat, click_x, click_y,
-                 camera_x, camera_y, camera_z,
-                 camera_yaw, camera_pitch, camera_roll,
-                 viewport_x, viewport_y, viewport_width, viewport_height) {
-              let candidate_depth = projected_depth(
-                local_habitat, camera_x, camera_y, camera_z,
-                camera_yaw, camera_pitch)
-              if candidate_depth < nearest_hit {
-                nearest_hit = candidate_depth
-                selected_structure = 402
+              if projected_structure_hit(
+                   local_habitat, click_x, click_y,
+                   camera_x, camera_y, camera_z,
+                   camera_yaw, camera_pitch, camera_roll,
+                   viewport_x, viewport_y, viewport_width, viewport_height) {
+                let candidate_depth = projected_depth(
+                  local_habitat, camera_x, camera_y, camera_z,
+                  camera_yaw, camera_pitch)
+                if candidate_depth < nearest_hit {
+                  nearest_hit = candidate_depth
+                  selected_structure = 402
+                }
               }
-            }
-            if projected_structure_hit(
-                 local_refinery, click_x, click_y,
-                 camera_x, camera_y, camera_z,
-                 camera_yaw, camera_pitch, camera_roll,
-                 viewport_x, viewport_y, viewport_width, viewport_height) {
-              let candidate_depth = projected_depth(
-                local_refinery, camera_x, camera_y, camera_z,
-                camera_yaw, camera_pitch)
-              if candidate_depth < nearest_hit {
-                nearest_hit = candidate_depth
-                selected_structure = 403
+              if projected_structure_hit(
+                   local_refinery, click_x, click_y,
+                   camera_x, camera_y, camera_z,
+                   camera_yaw, camera_pitch, camera_roll,
+                   viewport_x, viewport_y, viewport_width, viewport_height) {
+                let candidate_depth = projected_depth(
+                  local_refinery, camera_x, camera_y, camera_z,
+                  camera_yaw, camera_pitch)
+                if candidate_depth < nearest_hit {
+                  nearest_hit = candidate_depth
+                  selected_structure = 403
+                }
               }
-            }
-            if projected_structure_hit(
-                 local_solar, click_x, click_y,
-                 camera_x, camera_y, camera_z,
-                 camera_yaw, camera_pitch, camera_roll,
-                 viewport_x, viewport_y, viewport_width, viewport_height) {
-              let candidate_depth = projected_depth(
-                local_solar, camera_x, camera_y, camera_z,
-                camera_yaw, camera_pitch)
-              if candidate_depth < nearest_hit {
-                nearest_hit = candidate_depth
-                selected_structure = 404
+              if projected_structure_hit(
+                   local_solar, click_x, click_y,
+                   camera_x, camera_y, camera_z,
+                   camera_yaw, camera_pitch, camera_roll,
+                   viewport_x, viewport_y, viewport_width, viewport_height) {
+                let candidate_depth = projected_depth(
+                  local_solar, camera_x, camera_y, camera_z,
+                  camera_yaw, camera_pitch)
+                if candidate_depth < nearest_hit {
+                  nearest_hit = candidate_depth
+                  selected_structure = 404
+                }
               }
-            }
-            if projected_structure_hit(
-                 local_tower, click_x, click_y,
-                 camera_x, camera_y, camera_z,
-                 camera_yaw, camera_pitch, camera_roll,
-                 viewport_x, viewport_y, viewport_width, viewport_height) {
-              let candidate_depth = projected_depth(
-                local_tower, camera_x, camera_y, camera_z,
-                camera_yaw, camera_pitch)
-              if candidate_depth < nearest_hit {
-                nearest_hit = candidate_depth
-                selected_structure = 405
+              if projected_structure_hit(
+                   local_tower, click_x, click_y,
+                   camera_x, camera_y, camera_z,
+                   camera_yaw, camera_pitch, camera_roll,
+                   viewport_x, viewport_y, viewport_width, viewport_height) {
+                let candidate_depth = projected_depth(
+                  local_tower, camera_x, camera_y, camera_z,
+                  camera_yaw, camera_pitch)
+                if candidate_depth < nearest_hit {
+                  nearest_hit = candidate_depth
+                  selected_structure = 405
+                }
               }
             }
           }
-          if pick_rectangle(click_x, click_y,
-                            panel_x + 12.0, panel_y + 54.0,
-                            78.0, 24.0) { base_panel_tab = 0 }
-          if pick_rectangle(click_x, click_y,
-                            panel_x + 94.0, panel_y + 54.0,
-                            78.0, 24.0) { base_panel_tab = 1 }
-          if pick_rectangle(click_x, click_y,
-                            panel_x + 176.0, panel_y + 54.0,
-                            88.0, 24.0) { base_panel_tab = 2 }
-          if return_hovered { return_requested = true }
         } else {
         if pick_circle(click_x, click_y,
                        projected_x(first, camera_x, camera_y, camera_z,
@@ -1583,6 +1465,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         focused_marker = true
       } else {
       if return_requested {
+        base_ui.reset_interaction!()
         focus_start_x = orbit_target_x
         focus_start_y = orbit_target_y
         focus_start_z = orbit_target_z
@@ -1811,7 +1694,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
               selection, first, second, third, base_marker, marker_value,
               focused_marker, marker_hovered, marker_fade_stage,
               surface_detail_active, local_geometry_active, focusing,
-              base_panel_tab, return_hovered, selected_structure, sidebar_fraction)
+              base_ui, selected_structure, sidebar_fraction)
     }
   }
   close()

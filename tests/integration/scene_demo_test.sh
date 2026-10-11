@@ -55,11 +55,12 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-marker-handoff.bmp \
   build/scene-sagan-demo-test/scene-marker-detail-handoff.bmp \
   build/scene-sagan-demo-test/scene-marker-base.bmp \
-  build/scene-sagan-demo-test/scene-base-structure-selected.bmp \
+  build/scene-sagan-demo-test/scene-base-controls-focused.bmp \
   build/scene-sagan-demo-test/scene-returned-orbit.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
+export SAGAN_RENDER_TEST_INPUT_FILE=tests/fixtures/scene_test_size.txt
 export SAGAN_RENDER_ELAPSED_SECONDS=0
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
@@ -152,7 +153,7 @@ build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 export SAGAN_RENDER_TEST_DELAYED_KEYS=tab
 export SAGAN_RENDER_TEST_DELAYED_KEYS_AFTER_MS=10000
 export SAGAN_RENDER_UI_CAPTURE_AFTER_MS=10500
-export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-base-structure-selected.bmp
+export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-base-controls-focused.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=10900
 build/scene-sagan-demo-test/scene-sagan-demo-test.exe | tee -a "$report"
 
@@ -192,7 +193,7 @@ require_capture build/scene-sagan-demo-test/scene-marker-hovered.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-handoff.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-detail-handoff.bmp
 require_capture build/scene-sagan-demo-test/scene-marker-base.bmp
-require_capture build/scene-sagan-demo-test/scene-base-structure-selected.bmp
+require_capture build/scene-sagan-demo-test/scene-base-controls-focused.bmp
 require_capture build/scene-sagan-demo-test/scene-returned-orbit.bmp
 require_capture build/scene-sagan-demo-test/scene-camera-turned.bmp
 require_capture build/scene-sagan-demo-test/scene-zoomed.bmp
@@ -259,8 +260,8 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker.bmp)" == \
   exit 1
 fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker-base.bmp)" == \
-      "$(fingerprint build/scene-sagan-demo-test/scene-base-structure-selected.bmp)" ]]; then
-  echo "Selecting a local structure did not update the base presentation" >&2
+      "$(fingerprint build/scene-sagan-demo-test/scene-base-controls-focused.bmp)" ]]; then
+  echo "Keyboard focus did not update the base UI presentation" >&2
   exit 1
 fi
 if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker-base.bmp)" == \
@@ -268,5 +269,6 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker-base.bmp)" == \
   echo "Return to Orbit did not leave the local base presentation" >&2
   exit 1
 fi
-echo "Sagan scene demo passed on D3D12: indexed bodies and lunar marker rendered; hover, continuous local-base handoff, stable local selection, base UI, return to orbit, orbit, and zoom changed frame data."
+echo "Sagan scene demo passed on D3D12: indexed bodies and lunar marker rendered; hover, continuous local-base handoff, base UI focus, slot interaction, return to orbit, orbit, and zoom changed frame data."
 bash tests/integration/lunar_transition_test.sh build/scene-sagan-demo-test/scene-sagan-demo-test.exe
+bash tests/integration/scene_base_ui_test.sh build/scene-sagan-demo-test/scene-sagan-demo-test.exe build/scene-sagan-demo-test/program.cpp

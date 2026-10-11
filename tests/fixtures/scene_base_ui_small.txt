@@ -1,0 +1,14 @@
+0 resize 960 540
+4000 click 550 220
+9500 resize 800 400
+9550 key tab
+9600 key enter
+9650 wheel 0 -5
+9700 click 683 155
+9750 wheel 0 -5
+9800 click 512 155
+9850 wheel 0 -5
+9900 wheel 0 -24.75
+9900 click 512 184
+9950 click 512 208
+10000 click 512 308

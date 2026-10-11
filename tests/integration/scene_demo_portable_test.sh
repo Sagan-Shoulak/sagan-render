@@ -37,6 +37,7 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
+export SAGAN_RENDER_TEST_INPUT_FILE=tests/fixtures/scene_test_size.txt
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
 "$executable" | tee -a "$report"
@@ -70,3 +71,4 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
 fi
 echo "Sagan scene demo passed on $expected: smooth indexed bodies rendered; selection, right-drag orbit, and wheel zoom changed frame data."
 bash tests/integration/lunar_transition_test.sh "$executable"
+bash tests/integration/scene_base_ui_test.sh "$executable" build/scene-sagan-demo-test/program.cpp

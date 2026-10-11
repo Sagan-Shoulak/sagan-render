@@ -315,13 +315,39 @@ horizon and the camera keeps at least five metres of tangent-plane ground
 clearance. Once local detail is active, the compositor
 suppresses orbital guides and planetary labels while retaining physical scene
 geometry and reserves a right sidebar for local-view UI. The renderer-neutral
-demo presents GDD-informed overview, resource, and system tabs covering power
-generation and consumption, net resource production, storage, machine slots,
-maintenance, and launchpad status. These values are labeled as a deterministic
-demo snapshot; production, storage, and outpost rules remain game-owned. Five
-local structures carry stable fixture presentation IDs. Pointer picking or
-Tab/Shift-Tab selection updates the selected-object cue and structure-specific
-summary without giving the renderer ownership of structure behavior. Pointer
+demo presents Slots, Resources, and Details tabs. Its inspectable plain chassis
+defines four filled type-restricted mandatory slots (solar power, battery, life
+support, storage) and four initially empty machine slots. Only Slots customizes
+the base: choose a machine and start a cost-reserving timed build, or cancel
+without changing stock or the slot. The example-owned economy fixture supplies
+four recipes, gram-accurate bulk stock, mass-based storage, gameplay-first lunar
+material recovery and a sifted-mineral repair-kit loop. Construction uses only
+bulk materials; the drill mines only ice. Water and ice feed consumers through
+shared automatic-thaw plumbing without occupying another slot. Life support
+consumes H2O, oxygen and finite imported food. Chassis, mandatory systems and
+completed machines automatically consume exact 25-point repair kits at health
+75 or below. Generation, prioritized power loads and bounded battery energy are
+simulated rather than display-only numbers; the all-machine fixture keeps a
+small positive balance. Expanded system cards distinguish operating state from
+resource-level balance, with colored surplus/deficit labels, mixed-flow counts
+and current reserves. Draining stock shows conditional time-to-empty; balanced
+stock shows no drain. Shared water/ice is assessed as H2O, and battery estimates
+use efficiency-adjusted stored-side discharge. Chassis, mandatory systems and
+machines have specific inspectors for supplies, input/output rates, power and
+maintenance; startup/completed 60-second operating windows are labeled separately
+from rated throughput. The larger default sidebar uses responsive card columns
+and reserves its width through the existing eased lunar transition.
+Resources and Details display read-only live inventory and power,
+metadata, coordinates and chassis information. These session-only rules remain
+application demo state, not renderer APIs or authoritative Space Game policy;
+persistence is not implemented. See [the economy fixture](docs/scene-base-economy.md).
+Short windows scroll
+sidebar content independently from camera zoom; modal focus and pointer capture
+use the same Sagan state and visible bounds. See
+[the base UI slice](docs/scene-base-ui.md).
+Five local structures carry stable fixture presentation IDs. Pointer picking
+updates the selected-object cue without giving the renderer ownership of
+structure behavior; Tab/Shift-Tab now traverse the base UI controls. Pointer
 hit regions scale from each structure's projected bounding radius and
 overlapping candidates resolve to the nearest camera depth. A
 pointer-accessible button plus R and Escape return through the same live-target
