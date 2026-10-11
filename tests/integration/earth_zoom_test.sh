@@ -30,8 +30,8 @@ export SAGAN_RENDER_TEST_TRACE_SCENE=1
 rm -f build/earth-zoom-test/frame-4400.bmp build/earth-zoom-test/frame-4450.bmp build/earth-zoom-test/frame-4500.bmp
 "$demo_executable" > build/earth-zoom-test/report.txt
 for frame in 4400 4450 4500; do test -s "build/earth-zoom-test/frame-$frame.bmp"; done
-rg -q 'SAGAN_UI_PIXELS white=.*earth=' build/earth-zoom-test/report.txt
-rg -q 'SAGAN_SCENE_DEMO .*logical=960x540.*cleanup=1' build/earth-zoom-test/report.txt
-test "$(rg -c '^SAGAN_SCENE_DRAW id=2 .* near=1000000 ' build/earth-zoom-test/report.txt)" -eq 3
+grep -q 'SAGAN_UI_PIXELS white=.*earth=' build/earth-zoom-test/report.txt
+grep -q 'SAGAN_SCENE_DEMO .*logical=960x540.*cleanup=1' build/earth-zoom-test/report.txt
+test "$(grep -c '^SAGAN_SCENE_DRAW id=2 .* near=1000000 ' build/earth-zoom-test/report.txt)" -eq 3
 "build/earth-zoom-test/anchor-test$suffix" build/earth-zoom-test
 echo "Earth zoom regression passed: before/during/after rear lunar-origin crossing rendered and closed cleanly."
