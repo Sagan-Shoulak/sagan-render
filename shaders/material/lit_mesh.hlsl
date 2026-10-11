@@ -28,8 +28,9 @@ cbuffer MaterialUniform : register(b0, space3) {
 
 cbuffer LightingUniform : register(b1, space3) {
   float4 ambient_linear;
-  float4 direction_to_light_and_intensity;
-  float4 light_color_linear;
+  float4 direction_to_light_and_intensity[4];
+  float4 light_color_linear[4];
+  float4 light_count_and_padding;
 };
 
 cbuffer SurfaceLodUniform : register(b2, space3) {
@@ -48,9 +49,18 @@ VertexOutput VSMain(VertexInput input) {
 }
 
 float4 PSMain(VertexOutput input) : SV_Target0 {
-  float cosine = max(0.0, dot(normalize(input.normal),
-                              direction_to_light_and_intensity.xyz));
-  float diffuse = cosine * direction_to_light_and_intensity.w;
+  float3 unit_normal = normalize(input.normal);
+  float3 illumination = ambient_linear.rgb;
+  uint light_count = min((uint)max(light_count_and_padding.x, 0.0), 4u);
+  [unroll]
+  for (uint light_index = 0; light_index < 4; ++light_index) {
+    if (light_index < light_count) {
+      float4 direction = direction_to_light_and_intensity[light_index];
+      float cosine = max(0.0, dot(unit_normal, direction.xyz));
+      illumination += light_color_linear[light_index].rgb *
+        cosine * direction.w;
+    }
+  }
   float3 global_albedo = surface_texture.Sample(surface_sampler, input.uv).rgb;
   float angular_width = max(local_center_and_angular_width.w, 0.000001);
   float3 from_center = input.local_position - local_center_and_angular_width.xyz;
@@ -63,8 +73,7 @@ float4 PSMain(VertexOutput input) : SV_Target0 {
   float3 local_albedo = detail_texture.Sample(detail_sampler, local_uv).rgb;
   float3 albedo = lerp(global_albedo, local_albedo, detail_weight) *
     base_color_linear.rgb;
-  float3 lit = albedo *
-    (ambient_linear.rgb + light_color_linear.rgb * diffuse);
+  float3 lit = albedo * illumination;
   return float4(lit + emissive_linear_and_roughness.rgb,
                 base_color_linear.a);
 }

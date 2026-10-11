@@ -440,11 +440,13 @@ lighting uniforms. It does not receive mass, velocity, orbital elements, or
 other simulation state.
 
 The material separates linear base color, linear emissive color, and roughness.
-The initial shader uses ambient plus one clamped Lambert diffuse term; roughness
-is reserved in the stable layout but is not interpreted until the chosen
-specular model is reviewed. Light direction, color, and intensity are frame
-inputs rather than properties of a physics body. This keeps a future Sun light
-or application-authored lights outside the renderer's scene/snapshot contract.
+The initial shader uses ambient plus as many as four clamped Lambert diffuse
+terms; roughness is reserved in the stable layout but is not interpreted until
+the chosen specular model is reviewed. Light count, direction, color, and
+intensity are frame inputs rather than properties of a physics body. The live
+scene submits a warm key light and a cooler fill light. This keeps a future Sun
+light or other application-authored lights outside the renderer's
+scene/snapshot contract.
 
 CPU and HLSL layouts use 16-byte groups compatible with SDL GPU's std140
 uniform-data requirement. The vertex uniform occupies `b0, space1`; fragment
@@ -454,14 +456,12 @@ counts needed by `SDL_GPUShaderCreateInfo`. `material_contract_test.sh` checks
 the byte layout, sRGB-to-linear conversion, reference Lambert calculation, and
 SDL binding convention on every supported platform.
 
-This slice defines and tests the source interface only. Ahead-of-time
-SDL_shadercross compilation, reflected artifact validation, GPU pipeline use,
-native sampled textures, multiple lights, post-processing, and replacement of
-the sphere impostor remain open under #16. The issue #13 demo can assign one
-material uniform per sphere cell from small NASA-derived albedo grids without
-changing this shader resource ABI; that bootstrap is not filtered texture
-sampling. The repository must not claim that handwritten
-source plus a manifest is equivalent to compiled DXIL, SPIR-V, or MSL.
+The material contract is now compiled ahead of time, reflected, and consumed
+by the indexed depth-tested scene pipeline. The scene binds filtered global and
+local textures through the same sampled-material ABI and accumulates two of the
+four available directional-light slots. The runtime post-processing pass
+remains open under #16; generated source plus a manifest is not treated as
+equivalent to reviewed DXIL, SPIR-V, and MSL.
 
 The first shader-toolchain dependency boundary is now pinned in
 `third_party/sdl-shadercross.lock`. `fetch-shadercross-source.sh` checks out
@@ -501,18 +501,43 @@ pins, verifies the DXC archive digest before extraction, initializes only the
 SPIRV-Cross gitlink, builds each dependency into ignored isolated directories,
 and smoke-tests the resulting CLI. Linux CI performs the real build; the
 cross-platform plan test separately prevents configuration drift on every
-runner. This still does not replace the bootstrap runtime shaders: project
-artifact generation and reflection checks are the next boundary.
+runner. Project-owned artifact generation and reflection checks now replace
+the bootstrap material-shader path. The original foundation fixtures remain
+only for the isolated first-triangle probe.
 
 The material artifact generator compiles `VSMain` and `PSMain` from that one
 HLSL source into DXIL, SPIR-V, MSL, and reflection JSON. The focused test checks
 container magic, textual MSL stages, vertex inputs, uniform-buffer counts, and
 source/tool provenance. CI runs the generation twice and rejects any byte
-difference, then retains one set as inspectable evidence. Runtime pipelines do
-not consume these files yet; generation proof and backend integration remain
-separate review boundaries.
+difference, then retains one set as inspectable evidence. Runtime pipelines
+consume these files only after their source, reflection, and provenance
+inventory pass independently.
 
-The exact reviewed outputs are versioned in `shaders/generated/material/`.
+### Post-processing contract
+
+`shaders/post_process/tonemap.hlsl` begins the post-processing boundary with a
+bufferless full-screen triangle. Its fragment stage samples a completed linear
+scene-color target, applies exponential exposure mapping, converts to display
+gamma through an explicit inverse-gamma uniform, and writes opaque display
+color. The pass disables depth testing, depth writes, and blending because it
+replaces every output pixel; it does not inherit scene-material state.
+
+Scene rendering and display conversion are deliberately separate passes. This
+lets later bloom, color grading, or diagnostic effects consume the same linear
+scene result without adding backend objects or effect-specific fields to the
+public Sagan scene API. The pinned Linux generator produces DXIL, SPIR-V, MSL,
+and reflection JSON twice in CI, and the focused tests require deterministic
+artifacts plus the same sampled-texture and uniform binding counts on every
+backend. A native two-pass probe first clears an offscreen linear scene-color
+target, ends that render pass, then samples the retained target through the
+full-screen shader into a separate display-color target. It reads back and
+checks the resulting tone-mapped pixel on D3D12, Vulkan, and Metal. The probe
+releases the pipeline, transfer buffer, sampler, and both textures before
+destroying the device, making cross-pass resource lifetime explicit and
+testable.
+
+The exact reviewed outputs are versioned in `shaders/generated/material/` and
+`shaders/generated/post_process/`.
 Their inventory binds them to the source, manifest, SDL, SDL_shadercross,
 SPIRV-Cross, and DXC revisions. Every supported platform validates the package
 without installing a compiler; Linux also regenerates it and requires a
@@ -527,6 +552,16 @@ blue pixels surviving in their overlap prove that a `LESS` depth test, rather
 than painter's order, controls visibility. D3D12 consumes DXIL, Vulkan consumes
 SPIR-V, and Metal consumes MSL from the same reviewed package. Each platform
 saves and inspects the same 256x256 offscreen capture.
+
+The lighting demo makes the multi-light contract directly inspectable. It
+presents three copies of the same neutral indexed sphere: ambient only, a warm
+directional key light, and that key plus a cool directional fill light. The
+window title names the panels in that order. Escape closes an interactive run;
+the focused test instead captures a deterministic 960x540 frame, verifies the
+neutral, warm, and cool responses occupy their intended panels, and closes the
+same executable automatically. Run it on Windows with
+`bash scripts/lighting_demo.sh`, or on Linux and macOS with
+`bash scripts/lighting_demo_portable.sh`.
 
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index

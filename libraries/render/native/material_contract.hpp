@@ -26,8 +26,9 @@ struct alignas(16) MaterialUniform {
 
 struct alignas(16) LightingUniform {
   Float4 ambient_linear;
-  Float4 direction_to_light_and_intensity;
-  Float4 light_color_linear;
+  std::array<Float4, 4> direction_to_light_and_intensity;
+  std::array<Float4, 4> light_color_linear;
+  Float4 light_count_and_padding;
 };
 
 constexpr float srgb_channel_to_linear(float value) {
@@ -50,21 +51,31 @@ inline Float4 lambert_reference(
   Float4 unit_normal,
   const MaterialUniform &material,
   const LightingUniform &lighting) {
-  const float cosine = std::max(
-    0.0F,
-    unit_normal.x * lighting.direction_to_light_and_intensity.x +
-    unit_normal.y * lighting.direction_to_light_and_intensity.y +
-    unit_normal.z * lighting.direction_to_light_and_intensity.z);
-  const float diffuse = cosine * lighting.direction_to_light_and_intensity.w;
+  Float4 illumination = lighting.ambient_linear;
+  const auto light_count = std::min<std::size_t>(
+    4, static_cast<std::size_t>(std::max(0.0F, lighting.light_count_and_padding.x)));
+  for (std::size_t index = 0; index < light_count; ++index) {
+    const auto &direction = lighting.direction_to_light_and_intensity[index];
+    const auto &color = lighting.light_color_linear[index];
+    const float cosine = std::max(
+      0.0F,
+      unit_normal.x * direction.x +
+      unit_normal.y * direction.y +
+      unit_normal.z * direction.z);
+    const float diffuse = cosine * direction.w;
+    illumination.x += color.x * diffuse;
+    illumination.y += color.y * diffuse;
+    illumination.z += color.z * diffuse;
+  }
   return {
     material.base_color_linear.x *
-        (lighting.ambient_linear.x + lighting.light_color_linear.x * diffuse) +
+        illumination.x +
       material.emissive_linear_and_roughness.x,
     material.base_color_linear.y *
-        (lighting.ambient_linear.y + lighting.light_color_linear.y * diffuse) +
+        illumination.y +
       material.emissive_linear_and_roughness.y,
     material.base_color_linear.z *
-        (lighting.ambient_linear.z + lighting.light_color_linear.z * diffuse) +
+        illumination.z +
       material.emissive_linear_and_roughness.z,
     material.base_color_linear.w,
   };
@@ -74,9 +85,10 @@ static_assert(sizeof(Float4) == 16);
 static_assert(alignof(Float4) == 16);
 static_assert(sizeof(CameraUniform) == 128);
 static_assert(sizeof(MaterialUniform) == 32);
-static_assert(sizeof(LightingUniform) == 48);
+static_assert(sizeof(LightingUniform) == 160);
 static_assert(offsetof(MaterialUniform, emissive_linear_and_roughness) == 16);
 static_assert(offsetof(LightingUniform, direction_to_light_and_intensity) == 16);
-static_assert(offsetof(LightingUniform, light_color_linear) == 32);
+static_assert(offsetof(LightingUniform, light_color_linear) == 80);
+static_assert(offsetof(LightingUniform, light_count_and_padding) == 144);
 
 } // namespace sagan::render

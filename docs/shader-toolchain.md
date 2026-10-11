@@ -83,17 +83,21 @@ deleting or repairing it. After building the static CLI, it executes
 CI runs this complete build and smoke test on Ubuntu. The report explicitly
 states that runtime artifacts were not replaced.
 
-`scripts/generate-material-shaders-linux.sh` then compiles both stages of
-`shaders/material/lit_mesh.hlsl` to DXIL, SPIR-V, MSL, and reflection JSON. It
-records source, manifest, tool, and artifact hashes beside those outputs. CI
-generates the complete set twice, validates each binary or textual format and
-the declared resource counts, and requires the two directories to be
-byte-identical. The reviewed output directory is retained as CI evidence.
+`scripts/generate-material-shaders-linux.sh` compiles both stages of
+`shaders/material/lit_mesh.hlsl`, while
+`scripts/generate-post-process-shaders-linux.sh` compiles the bufferless
+full-screen stages in `shaders/post_process/tonemap.hlsl`. Each generator emits
+DXIL, SPIR-V, MSL, and reflection JSON and records source, manifest, tool, and
+artifact hashes beside those outputs. CI generates both complete sets twice,
+validates each binary or textual format and the declared resource counts, and
+requires each pair of directories to be byte-identical. The reviewed output
+directories are retained as CI evidence.
 
-The reviewed outputs are committed under `shaders/generated/material/` with
-their provenance and SHA-256 inventory. Every platform validates the package
-without needing a shader compiler, while Linux additionally requires a fresh
-generation to match the committed directory byte for byte.
+Reviewed material outputs are committed under `shaders/generated/material/`
+and post-process outputs under `shaders/generated/post_process/`, each with its
+provenance and SHA-256 inventory. Every platform validates both committed
+packages without needing a shader compiler, while Linux additionally requires
+fresh generation to match each committed directory byte for byte.
 
 These files still do not replace the bootstrap runtime fixtures. The next
 boundary is to load this package in an indexed, depth-tested GPU pipeline using

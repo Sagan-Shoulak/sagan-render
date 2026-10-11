@@ -446,23 +446,26 @@ namespace sagan_render::scene_gpu
       return texture;
     }
 
-    auto create_surface_textures() -> void
+    auto create_surface_textures(const bool load_planetary_textures) -> void
     {
       const image white{1, 1, {255, 255, 255, 255}};
       white_texture = upload_texture(white);
-      earth_texture = upload_texture(load_image(
-        "assets/planetary/earth_blue_marble_1024x512.ppm"));
-      image moon = load_image("assets/planetary/moon_lro_2048x1024.ppm");
-      for (std::size_t pixel = 0; pixel < moon.rgba.size(); pixel += 4)
+      if (load_planetary_textures)
       {
-        const auto luminance = static_cast<std::uint8_t>(
-          (54U * moon.rgba[pixel] + 183U * moon.rgba[pixel + 1] +
-           19U * moon.rgba[pixel + 2]) / 256U);
-        moon.rgba[pixel] = luminance;
-        moon.rgba[pixel + 1] = luminance;
-        moon.rgba[pixel + 2] = luminance;
+        earth_texture = upload_texture(load_image(
+          "assets/planetary/earth_blue_marble_1024x512.ppm"));
+        image moon = load_image("assets/planetary/moon_lro_2048x1024.ppm");
+        for (std::size_t pixel = 0; pixel < moon.rgba.size(); pixel += 4)
+        {
+          const auto luminance = static_cast<std::uint8_t>(
+            (54U * moon.rgba[pixel] + 183U * moon.rgba[pixel + 1] +
+             19U * moon.rgba[pixel + 2]) / 256U);
+          moon.rgba[pixel] = luminance;
+          moon.rgba[pixel + 1] = luminance;
+          moon.rgba[pixel + 2] = luminance;
+        }
+        moon_local_texture = upload_texture(moon);
       }
-      moon_local_texture = upload_texture(moon);
       SDL_GPUSamplerCreateInfo sampler_info{};
       sampler_info.min_filter = SDL_GPU_FILTER_LINEAR;
       sampler_info.mag_filter = SDL_GPU_FILTER_LINEAR;
@@ -587,14 +590,16 @@ namespace sagan_render::scene_gpu
     }
 
   public:
-    explicit indexed_sphere_pass(SDL_GPUDevice *value) : device{value}
+    explicit indexed_sphere_pass(
+      SDL_GPUDevice *value, const bool load_planetary_textures = true)
+      : device{value}
     {
       build_sphere_mesh();
       build_box_mesh();
       build_surface_patch_mesh();
       create_pipeline();
       upload_mesh();
-      create_surface_textures();
+      create_surface_textures(load_planetary_textures);
     }
 
     ~indexed_sphere_pass()
