@@ -40,6 +40,7 @@ bash tests/integration/window_contract_test.sh
 bash tests/integration/ui_contract_test.sh
 bash tests/integration/scene_contract_test.sh
 bash tests/integration/scene_demo_test.sh
+bash tests/integration/surface_demo_test.sh
 bash tests/integration/ui_gpu_demo_test.sh
 bash tests/integration/window_bridge_test.sh
 bash tests/integration/shape_text_test.sh
@@ -95,6 +96,7 @@ bash scripts/ui_gpu_demo.sh
 bash scripts/loading_demo.sh
 bash scripts/toolbar_demo.sh
 bash scripts/scene_demo.sh
+bash scripts/surface_demo.sh
 ```
 
 These open native windows. The tests set `SAGAN_RENDER_AUTOCLOSE_MS` to avoid
@@ -172,6 +174,16 @@ pointer clicks pick projected samples. The demo draws presentation-only Earth
 and Moon orbit guides from unit-typed sampled paths; no Sun orbit or secondary
 inset camera is drawn. Focus and wheel zoom expose the lunar scale in the main
 viewport.
+At lunar framing, a body-fixed `SHACKLETON BASE` marker appears only on the
+camera-facing hemisphere. Clicking its pin starts a marker-centered approach;
+when the approach completes, the same process displays the local base geometry
+without recreating the window or GPU compositor. The fixture derives an
+orthonormal east/north/up basis from its body-fixed marker and supplies it to
+the renderer for camera and cuboid placement. The handoff does not yet expose
+the return-to-orbit UI. Its five-second descent continuously interpolates
+target, reciprocal camera distance, yaw, pitch, and roll; dims the orbital pin;
+and activates local detail before the camera settles, with deterministic
+midpoint, live-detail, and final captures guarding against blank frames.
 Focused CI captures initial, selected,
 right-dragged, and wheel-zoomed frames and requires the relevant frames to
 differ on D3D12, Vulkan, and Metal. The example contains no orbital dynamics;
@@ -179,10 +191,35 @@ its only motion is application-owned camera input.
 
 The scene names the three fixture samples Sun, Earth, and Moon, uses their
 approximate mean radii and separations, and draws a shared 1,024-triangle
-smooth-normal UV sphere through the GPU compositor. It proves the indexed mesh,
-depth, material, and camera seams, not production model loading, textures, or
-multi-light fidelity. The Moon callout offset is presentation-only at system
-scale; its stored position remains the measured fixture coordinate.
+smooth-normal UV sphere through the GPU compositor. Earth and Moon use the
+provenance-tracked 32x16 NASA-derived albedo grids in `assets/planetary`; each
+grid cell reuses the existing material-uniform shader ABI, so the committed
+DXIL, SPIR-V, and MSL artifacts remain unchanged. This is deliberately a
+bootstrap for stable body-fixed texture identity, not production filtered
+texture sampling. The Moon callout offset is presentation-only at system scale;
+its stored position remains the measured fixture coordinate.
+
+## Local surface demo
+
+The separate local view runs on Windows with `bash scripts/surface_demo.sh`, or
+on Linux/macOS with `bash scripts/surface_demo_portable.sh`. Right-button drag
+orbits its target and the wheel changes altitude. It starts in a close oblique
+top-down view of a one-kilometre lunar tangent patch containing a landing pad,
+lander, habitat modules, a solar array, a communications tower, and boulders.
+
+The demo reuses the scene camera-relative origin subtraction, indexed mesh
+pipeline, material shader, lighting, depth target, and platform backend used by
+the orbital scene. Its structures are renderer-neutral primitive compositions,
+not Space Game content. The flat patch is an inspectable local bootstrap, not a
+claim that orbit-to-surface terrain, texture identity, or physics reference-
+frame transition is complete. Focused CI captures the initial view and an
+injected orbit input and requires different D3D12 frames plus clean shutdown.
+The combined scene does not replace the Moon with this flat patch. It keeps the
+same Moon mesh active and queues tangent-frame pads, structures, and vehicles
+into the same viewport, camera, depth range, and render pass. The buildings are
+therefore anchored directly above the Moon throughout descent. The coarse
+global LRO grid cannot resolve the metre-scale Shackleton region; that requires
+native sampled textures plus a global/regional/local tile-selection contract.
 
 ## Interactive UI GPU demo
 

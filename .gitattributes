@@ -3,6 +3,7 @@
 *.lock text eol=lf
 *.dxil binary
 *.spv binary
+*.ppm binary
 shaders/generated/**/*.msl text eol=lf
 shaders/generated/**/*.json text eol=lf
 shaders/generated/**/*.sha256 text eol=lf

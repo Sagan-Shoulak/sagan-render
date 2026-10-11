@@ -6,9 +6,12 @@ import sample from render.scene
 import relative_axis from render.scene
 import perspective_axis from render.scene
 import depth_visible from render.scene
+import SurfaceLocationMarker from render.scene
+import surface_location_visible from render.scene
 import SelectionState from render.scene
 import smooth_focus_axis from render.scene
 import pick_circle from render.scene
+import pick_rectangle from render.scene
 
 class PresentationBody has SpatialRenderable {
   let identifier_value: Int64
@@ -48,5 +51,26 @@ fun main(): Int {
   if focus != origin + 500.0 kilometer { return 7 }
   selection.clear!()
   if selection.has_selection() { return 8 }
+  let marker = SurfaceLocationMarker(
+    40, 3, 400, 0.25, 0.5, 12.0 meter, "SHACKLETON BASE")
+  if marker.identifier() != 40 { return 9 }
+  if marker.parent_identifier() != 3 { return 10 }
+  if marker.destination_identifier() != 400 { return 11 }
+  if marker.latitude_radians() != 0.25 { return 12 }
+  if marker.longitude_radians() != 0.5 { return 13 }
+  if marker.altitude() != 12.0 meter { return 14 }
+  if marker.label() != "SHACKLETON BASE" { return 15 }
+  if surface_location_visible(
+       origin, origin, origin + 10.0 meter,
+       origin, origin, origin,
+       origin, origin, origin + 100.0 meter) == false { return 16 }
+  if surface_location_visible(
+       origin, origin, origin - 10.0 meter,
+       origin, origin, origin,
+       origin, origin, origin + 100.0 meter) { return 17 }
+  if pick_rectangle(72.0, 25.0, 40.0, 10.0, 140.0, 36.0) == false {
+    return 18
+  }
+  if pick_rectangle(20.0, 25.0, 40.0, 10.0, 140.0, 36.0) { return 19 }
   return 0
 }

@@ -55,6 +55,53 @@ fun mesh_sphere(viewport_x: Float64, viewport_y: Float64,
     up_x, up_y, up_z, field_of_view, near_distance, far_distance,
     body_x, body_y, body_z, radius, appearance, selected)
 
+/// Queue one indexed, depth-tested cuboid. Half extents remain unit typed and
+/// yaw rotates around the local positive-Z surface normal.
+fun mesh_box(viewport_x: Float64, viewport_y: Float64,
+             viewport_width: Float64, viewport_height: Float64,
+             camera_x: Float64<meter>, camera_y: Float64<meter>,
+             camera_z: Float64<meter>, forward_x: Float64,
+             forward_y: Float64, forward_z: Float64,
+             up_x: Float64, up_y: Float64, up_z: Float64,
+             field_of_view: Float64, near_distance: Float64<meter>,
+             far_distance: Float64<meter>, center_x: Float64<meter>,
+             center_y: Float64<meter>, center_z: Float64<meter>,
+             half_x: Float64<meter>, half_y: Float64<meter>,
+             half_z: Float64<meter>, yaw_radians: Float64,
+             appearance: Int64): Void =>
+  __render_ui_mesh_box(
+    viewport_x, viewport_y, viewport_width, viewport_height,
+    camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+    up_x, up_y, up_z, field_of_view, near_distance, far_distance,
+    center_x, center_y, center_z, half_x, half_y, half_z,
+    yaw_radians, appearance)
+
+/// Queue a cuboid in an application-supplied orthonormal world frame. This is
+/// the local-surface counterpart to yaw-only boxes in the global XY plane.
+fun mesh_box_frame(viewport_x: Float64, viewport_y: Float64,
+                   viewport_width: Float64, viewport_height: Float64,
+                   camera_x: Float64<meter>, camera_y: Float64<meter>,
+                   camera_z: Float64<meter>, forward_x: Float64,
+                   forward_y: Float64, forward_z: Float64,
+                   up_x: Float64, up_y: Float64, up_z: Float64,
+                   field_of_view: Float64, near_distance: Float64<meter>,
+                   far_distance: Float64<meter>, center_x: Float64<meter>,
+                   center_y: Float64<meter>, center_z: Float64<meter>,
+                   half_x: Float64<meter>, half_y: Float64<meter>,
+                   half_z: Float64<meter>, axis_x_x: Float64,
+                   axis_x_y: Float64, axis_x_z: Float64,
+                   axis_y_x: Float64, axis_y_y: Float64,
+                   axis_y_z: Float64, axis_z_x: Float64,
+                   axis_z_y: Float64, axis_z_z: Float64,
+                   appearance: Int64): Void =>
+  __render_ui_mesh_box_frame(
+    viewport_x, viewport_y, viewport_width, viewport_height,
+    camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+    up_x, up_y, up_z, field_of_view, near_distance, far_distance,
+    center_x, center_y, center_z, half_x, half_y, half_z,
+    axis_x_x, axis_x_y, axis_x_z, axis_y_x, axis_y_y, axis_y_z,
+    axis_z_x, axis_z_y, axis_z_z, appearance)
+
 /// Submit the logical draw list to the private GPU backend.
 fun present(): Void => __render_ui_present()
 
@@ -89,6 +136,8 @@ export fill
 export line
 export text
 export mesh_sphere
+export mesh_box
+export mesh_box_frame
 export present
 export key_pressed
 export pointer_pressed

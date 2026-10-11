@@ -10,6 +10,7 @@ import fill from render.ui
 import line from render.ui
 import text from render.ui
 import mesh_sphere from render.ui
+import mesh_box_frame from render.ui
 import present from render.ui
 import key_pressed from render.ui
 import pointer_pressed from render.ui
@@ -27,6 +28,9 @@ import perspective_axis from render.scene
 import depth_visible from render.scene
 import SelectionState from render.scene
 import pick_circle from render.scene
+import pick_rectangle from render.scene
+import SurfaceLocationMarker from render.scene
+import surface_location_visible from render.scene
 
 const DISTANT_ORIGIN: Float64<meter> = 1e12 kilometer
 const CAMERA_DEPTH: Float64<meter> = 3.3e8 kilometer
@@ -35,9 +39,14 @@ const MOON_DISTANCE: Float64<meter> = 3.844e5 kilometer
 // Family framing includes a margin beyond the outermost demonstrated child
 // orbit at the 60-degree vertical field of view.
 const SUN_VIEW_DISTANCE: Float64<meter> = 3.3e8 kilometer
-const EARTH_VIEW_DISTANCE: Float64<meter> = 9e5 kilometer
+const EARTH_VIEW_DISTANCE: Float64<meter> = 8e4 kilometer
 const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
+const SURFACE_HANDOFF_DURATION_SECONDS: Float64 = 5.0
+const LOCAL_VIEW_DISTANCE: Float64<meter> = 380.0 meter
+const LOCAL_CAMERA_YAW: Float64 = 0.2088277681093603
+const LOCAL_CAMERA_PITCH: Float64 = 0.7361241952402625
+const LOCAL_CAMERA_ROLL: Float64 = 0.0 - 2.405799749683939
 const ANCESTOR_FOCUS_DURATION_SECONDS: Float64 = 4.0
 const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 6.0
 
@@ -63,7 +72,10 @@ fun demo_sine(value: Float64): Float64 {
   }
   let squared = angle * angle
   return angle * (1.0 - squared / 6.0 + squared * squared / 120.0 -
-                  squared * squared * squared / 5040.0)
+                  squared * squared * squared / 5040.0 +
+                  squared * squared * squared * squared / 362880.0 -
+                  squared * squared * squared * squared * squared /
+                    39916800.0)
 }
 
 fun demo_cosine(value: Float64): Float64 {
@@ -79,7 +91,10 @@ fun demo_cosine(value: Float64): Float64 {
   }
   let squared = angle * angle
   return sign * (1.0 - squared / 2.0 + squared * squared / 24.0 -
-                 squared * squared * squared / 720.0)
+                 squared * squared * squared / 720.0 +
+                 squared * squared * squared * squared / 40320.0 -
+                 squared * squared * squared * squared * squared /
+                   3628800.0)
 }
 
 fun clamp_pitch(value: Float64): Float64 {
@@ -103,6 +118,67 @@ fun zoom_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
   return clamp_distance(value * factor)
 }
 
+fun zoom_local_distance(value: Float64<meter>, wheel: Float64): Float64<meter> {
+  let factor = 1.0 - wheel * 0.12
+  if factor < 0.25 { factor = 0.25 }
+  if factor > 4.0 { factor = 4.0 }
+  let result = value * factor
+  if result < 45.0 meter { return 45.0 meter }
+  if result > 2000.0 meter { return 2000.0 meter }
+  return result
+}
+
+fun clamp_local_orbit_pitch(value: Float64): Float64 {
+  if value < 0.08 { return 0.08 }
+  if value > 1.48 { return 1.48 }
+  return value
+}
+
+fun demo_square_root(value: Float64): Float64 {
+  if value <= 0.0 { return 0.0 }
+  let result = value
+  if result < 1.0 { result = 1.0 }
+  let iteration: Int64 = 0
+  while iteration < 8 {
+    result = (result + value / result) * 0.5
+    iteration = iteration + 1
+  }
+  return result
+}
+
+fun demo_atan(value: Float64): Float64 {
+  let absolute = value
+  if absolute < 0.0 { absolute = 0.0 - absolute }
+  let result: Float64
+  if absolute <= 1.0 {
+    result = absolute * (0.7853981633974483 +
+             0.273 * (1.0 - absolute))
+  } else {
+    result = 1.5707963267948966 - (1.0 / absolute) *
+             (0.7853981633974483 + 0.273 * (1.0 - 1.0 / absolute))
+  }
+  if value < 0.0 { return 0.0 - result }
+  return result
+}
+
+fun demo_atan2(y: Float64, x: Float64): Float64 {
+  if x > 0.0 { return demo_atan(y / x) }
+  if x < 0.0 {
+    if y >= 0.0 { return demo_atan(y / x) + 3.141592653589793 }
+    return demo_atan(y / x) - 3.141592653589793
+  }
+  if y > 0.0 { return 1.5707963267948966 }
+  if y < 0.0 { return 0.0 - 1.5707963267948966 }
+  return 0.0
+}
+
+fun demo_asin(value: Float64): Float64 {
+  let clamped = value
+  if clamped < 0.0 - 1.0 { clamped = 0.0 - 1.0 }
+  if clamped > 1.0 { clamped = 1.0 }
+  return demo_atan2(clamped, demo_square_root(1.0 - clamped * clamped))
+}
+
 fun focus_progress(elapsed_seconds: Float64,
                    duration_seconds: Float64): Float64 {
   let progress = elapsed_seconds / duration_seconds
@@ -113,6 +189,11 @@ fun focus_progress(elapsed_seconds: Float64,
 
 fun focus_axis_at(start: Float64<meter>, target: Float64<meter>,
                   progress: Float64): Float64<meter> {
+  return start + (target - start) * progress
+}
+
+fun focus_scalar_at(start: Float64, target: Float64,
+                    progress: Float64): Float64 {
   return start + (target - start) * progress
 }
 
@@ -150,6 +231,255 @@ class PresentationObject has SpatialRenderable {
   fun render_label(): String => self.label_value
 }
 
+fun marker_x(marker: SurfaceLocationMarker,
+             moon: SpatialRenderable): Float64<meter> {
+  let moon_sample = sample(moon)
+  let surface_radius = moon_sample.radius() + marker.altitude()
+  return moon_sample.x() + surface_radius *
+    demo_cosine(marker.latitude_radians()) *
+    demo_cosine(marker.longitude_radians())
+}
+
+fun marker_y(marker: SurfaceLocationMarker,
+             moon: SpatialRenderable): Float64<meter> {
+  let moon_sample = sample(moon)
+  let surface_radius = moon_sample.radius() + marker.altitude()
+  return moon_sample.y() + surface_radius *
+    demo_cosine(marker.latitude_radians()) *
+    demo_sine(marker.longitude_radians())
+}
+
+fun marker_z(marker: SurfaceLocationMarker,
+             moon: SpatialRenderable): Float64<meter> {
+  let moon_sample = sample(moon)
+  return moon_sample.z() +
+    (moon_sample.radius() + marker.altitude()) *
+    demo_sine(marker.latitude_radians())
+}
+
+fun marker_presentation(marker: SurfaceLocationMarker,
+                        moon: SpatialRenderable): SpatialRenderable =>
+  PresentationObject(marker.identifier(), marker_x(marker, moon),
+                     marker_y(marker, moon), marker_z(marker, moon),
+                     1.0 meter, marker.label())
+
+fun local_target_x(marker: SurfaceLocationMarker,
+                   marker_value: SpatialRenderable): Float64<meter> {
+  let up_x = demo_cosine(marker.latitude_radians()) *
+             demo_cosine(marker.longitude_radians())
+  return sample(marker_value).x() - up_x * marker.altitude() +
+         up_x * 4.0 meter
+}
+
+fun local_target_y(marker: SurfaceLocationMarker,
+                   marker_value: SpatialRenderable): Float64<meter> {
+  let up_y = demo_cosine(marker.latitude_radians()) *
+             demo_sine(marker.longitude_radians())
+  return sample(marker_value).y() - up_y * marker.altitude() +
+         up_y * 4.0 meter
+}
+
+fun local_target_z(marker: SurfaceLocationMarker,
+                   marker_value: SpatialRenderable): Float64<meter> {
+  let up_z = demo_sine(marker.latitude_radians())
+  return sample(marker_value).z() - up_z * marker.altitude() +
+         up_z * 4.0 meter
+}
+
+fun local_structure(marker: SurfaceLocationMarker,
+                    marker_value: SpatialRenderable,
+                    identifier: Int64, east_metres: Float64<meter>,
+                    north_metres: Float64<meter>, up_metres: Float64<meter>,
+                    radius: Float64<meter>, label: String): SpatialRenderable {
+  let latitude_cosine = demo_cosine(marker.latitude_radians())
+  let latitude_sine = demo_sine(marker.latitude_radians())
+  let longitude_cosine = demo_cosine(marker.longitude_radians())
+  let longitude_sine = demo_sine(marker.longitude_radians())
+  let east_x = 0.0 - longitude_sine
+  let east_y = longitude_cosine
+  let north_x = 0.0 - latitude_sine * longitude_cosine
+  let north_y = 0.0 - latitude_sine * longitude_sine
+  let north_z = latitude_cosine
+  let up_x = latitude_cosine * longitude_cosine
+  let up_y = latitude_cosine * longitude_sine
+  let up_z = latitude_sine
+  let surface_offset = up_metres - marker.altitude()
+  return PresentationObject(
+    identifier,
+    sample(marker_value).x() + east_x * east_metres +
+      north_x * north_metres + up_x * surface_offset,
+    sample(marker_value).y() + east_y * east_metres +
+      north_y * north_metres + up_y * surface_offset,
+    sample(marker_value).z() + north_z * north_metres +
+      up_z * surface_offset,
+    radius, label)
+}
+
+fun marker_faces_camera(marker_value: SpatialRenderable,
+                        moon: SpatialRenderable,
+                        camera_x: Float64<meter>,
+                        camera_y: Float64<meter>,
+                        camera_z: Float64<meter>): Bool {
+  let location = sample(marker_value)
+  let body = sample(moon)
+  return surface_location_visible(
+    location.x(), location.y(), location.z(),
+    body.x(), body.y(), body.z(), camera_x, camera_y, camera_z)
+}
+
+fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
+                   viewport_width: Float64, viewport_height: Float64,
+                   camera_x: Float64<meter>, camera_y: Float64<meter>,
+                   camera_z: Float64<meter>, forward_x: Float64,
+                   forward_y: Float64, forward_z: Float64,
+                   up_x: Float64, up_y: Float64, up_z: Float64,
+                   origin_x: Float64<meter>, origin_y: Float64<meter>,
+                   origin_z: Float64<meter>, x: Float64<meter>,
+                   y: Float64<meter>, z: Float64<meter>,
+                   east_x: Float64, east_y: Float64, east_z: Float64,
+                   north_x: Float64, north_y: Float64, north_z: Float64,
+                   surface_up_x: Float64, surface_up_y: Float64,
+                   surface_up_z: Float64,
+                   half_x: Float64<meter>, half_y: Float64<meter>,
+                   half_z: Float64<meter>, yaw: Float64,
+                   appearance: Int64): Void {
+  // Extend a hidden foundation below the nominal surface while preserving the
+  // visible roof height. Small surface/anchor rounding can then never erase a
+  // whole low structure, and the building still reads as seated rather than
+  // hovering above the terrain.
+  let foundation_depth = 0.5 meter
+  let seated_z = z - foundation_depth * 0.5
+  let seated_half_z = half_z + foundation_depth * 0.5
+  let yaw_cosine = demo_cosine(yaw)
+  let yaw_sine = demo_sine(yaw)
+  let axis_x_x = east_x * yaw_cosine + north_x * yaw_sine
+  let axis_x_y = east_y * yaw_cosine + north_y * yaw_sine
+  let axis_x_z = east_z * yaw_cosine + north_z * yaw_sine
+  let axis_y_x = north_x * yaw_cosine - east_x * yaw_sine
+  let axis_y_y = north_y * yaw_cosine - east_y * yaw_sine
+  let axis_y_z = north_z * yaw_cosine - east_z * yaw_sine
+  let relative_origin_x = origin_x - camera_x
+  let relative_origin_y = origin_y - camera_y
+  let relative_origin_z = origin_z - camera_z
+  mesh_box_frame(viewport_x, viewport_y, viewport_width, viewport_height,
+                 0.0 meter, 0.0 meter, 0.0 meter,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 0.8726646259971648, 1.0 meter, 4000000.0 meter,
+                 relative_origin_x + east_x * x + north_x * y + surface_up_x * seated_z,
+                 relative_origin_y + east_y * x + north_y * y + surface_up_y * seated_z,
+                 relative_origin_z + east_z * x + north_z * y + surface_up_z * seated_z,
+                 half_x, half_y, seated_half_z,
+                 axis_x_x, axis_x_y, axis_x_z,
+                 axis_y_x, axis_y_y, axis_y_z,
+                 surface_up_x, surface_up_y, surface_up_z, appearance)
+}
+
+fun draw_local_base_scene(marker: SurfaceLocationMarker,
+                          marker_value: SpatialRenderable,
+                          camera_x: Float64<meter>, camera_y: Float64<meter>,
+                          camera_z: Float64<meter>, camera_yaw: Float64,
+                          camera_pitch: Float64, camera_roll: Float64,
+                          viewport_x: Float64, viewport_y: Float64,
+                          viewport_width: Float64,
+                          viewport_height: Float64): Void {
+  let marker_sample = sample(marker_value)
+  let latitude_cosine = demo_cosine(marker.latitude_radians())
+  let latitude_sine = demo_sine(marker.latitude_radians())
+  let longitude_cosine = demo_cosine(marker.longitude_radians())
+  let longitude_sine = demo_sine(marker.longitude_radians())
+  let surface_up_x = latitude_cosine * longitude_cosine
+  let surface_up_y = latitude_cosine * longitude_sine
+  let surface_up_z = latitude_sine
+  let surface_origin_x = marker_sample.x() -
+    surface_up_x * marker.altitude()
+  let surface_origin_y = marker_sample.y() -
+    surface_up_y * marker.altitude()
+  let surface_origin_z = marker_sample.z() -
+    surface_up_z * marker.altitude()
+  let east_x = 0.0 - longitude_sine
+  let east_y = longitude_cosine
+  let east_z = 0.0
+  let north_x = 0.0 - latitude_sine * longitude_cosine
+  let north_y = 0.0 - latitude_sine * longitude_sine
+  let north_z = latitude_cosine
+  let pitch_cosine = demo_cosine(camera_pitch)
+  let pitch_sine = demo_sine(camera_pitch)
+  let yaw_cosine = demo_cosine(camera_yaw)
+  let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
+  let forward_x = 0.0 - yaw_cosine * pitch_cosine
+  let forward_y = 0.0 - yaw_sine * pitch_cosine
+  let forward_z = 0.0 - pitch_sine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let right_x = 0.0 - yaw_sine
+  let right_y = yaw_cosine
+  let up_x = base_up_x * roll_cosine + right_x * roll_sine
+  let up_y = base_up_y * roll_cosine + right_y * roll_sine
+  let up_z = base_up_z * roll_cosine
+  draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 camera_x, camera_y, camera_z,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 surface_origin_x, surface_origin_y, surface_origin_z,
+                 35.0 meter, 20.0 meter, 1.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 24.0 meter, 24.0 meter, 1.0 meter, 0.0, 11)
+  draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 camera_x, camera_y, camera_z,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 surface_origin_x, surface_origin_y, surface_origin_z,
+                 35.0 meter, 20.0 meter, 8.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 8.0 meter, 6.0 meter, 6.0 meter, 0.35, 12)
+  draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 camera_x, camera_y, camera_z,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 surface_origin_x, surface_origin_y, surface_origin_z,
+                 0.0 meter - 30.0 meter, 20.0 meter, 5.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 18.0 meter, 8.0 meter, 5.0 meter, 0.0 - 0.18, 12)
+  draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 camera_x, camera_y, camera_z,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 surface_origin_x, surface_origin_y, surface_origin_z,
+                 0.0 meter - 28.0 meter, 0.0 meter - 15.0 meter,
+                 4.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 14.0 meter, 7.0 meter, 4.0 meter, 0.25, 12)
+  draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 camera_x, camera_y, camera_z,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 surface_origin_x, surface_origin_y, surface_origin_z,
+                 10.0 meter, 0.0 meter - 35.0 meter,
+                 0.7 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 28.0 meter, 8.0 meter, 0.7 meter,
+                 0.0 - 0.12, 14)
+  draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 camera_x, camera_y, camera_z,
+                 forward_x, forward_y, forward_z, up_x, up_y, up_z,
+                 surface_origin_x, surface_origin_y, surface_origin_z,
+                 0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
+                 east_x, east_y, east_z, north_x, north_y, north_z,
+                 surface_up_x, surface_up_y, surface_up_z,
+                 1.5 meter, 1.5 meter, 16.0 meter, 0.0, 13)
+  mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
+              0.0 meter, 0.0 meter, 0.0 meter,
+              forward_x, forward_y, forward_z, up_x, up_y, up_z,
+              0.8726646259971648, 1.0 meter, 4000000.0 meter,
+              surface_origin_x - camera_x + east_x * (0.0 meter - 5.0 meter) + north_x * 15.0 meter + surface_up_x * 6.0 meter,
+              surface_origin_y - camera_y + east_y * (0.0 meter - 5.0 meter) + north_y * 15.0 meter + surface_up_y * 6.0 meter,
+              surface_origin_z - camera_z + east_z * (0.0 meter - 5.0 meter) + north_z * 15.0 meter + surface_up_z * 6.0 meter,
+              6.0 meter, 3, false)
+}
+
 fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
   if camera_z - sample(moon).z() > 10000000.0 kilometer { return 48.0 }
   return 0.0
@@ -158,26 +488,40 @@ fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float
 fun draw_object(value: SpatialRenderable,
                 camera_x: Float64<meter>, camera_y: Float64<meter>,
                 camera_z: Float64<meter>, camera_yaw: Float64,
-                camera_pitch: Float64, viewport_x: Float64,
+                camera_pitch: Float64, camera_roll: Float64,
+                viewport_x: Float64,
                 viewport_y: Float64, viewport_width: Float64,
-                viewport_height: Float64, selected: Bool): Void {
+                viewport_height: Float64,
+                near_distance: Float64<meter>,
+                far_distance: Float64<meter>, selected: Bool,
+                show_label: Bool): Void {
   let item: RenderSample = sample(value)
   let pitch_cosine = demo_cosine(camera_pitch)
   let pitch_sine = demo_sine(camera_pitch)
   let yaw_cosine = demo_cosine(camera_yaw)
   let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
   let forward_x = 0.0 - yaw_cosine * pitch_cosine
   let forward_y = 0.0 - yaw_sine * pitch_cosine
   let forward_z = 0.0 - pitch_sine
-  // Yaw rotates around world +Z. These analytical right/up vectors remain
-  // orthogonal at the exact top pole, so horizontal drag never becomes roll.
-  let camera_up_x = 0.0 - yaw_cosine * pitch_sine
-  let camera_up_y = 0.0 - yaw_sine * pitch_sine
-  let camera_up_z = pitch_cosine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let base_right_x = 0.0 - yaw_sine
+  let base_right_y = yaw_cosine
+  let camera_up_x = base_up_x * roll_cosine + base_right_x * roll_sine
+  let camera_up_y = base_up_y * roll_cosine + base_right_y * roll_sine
+  let camera_up_z = base_up_z * roll_cosine
+  let camera_right_x = base_right_x * roll_cosine - base_up_x * roll_sine
+  let camera_right_y = base_right_y * roll_cosine - base_up_y * roll_sine
+  let camera_right_z = 0.0 - base_up_z * roll_sine
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_right = relative_x * (0.0 - yaw_sine) + relative_y * yaw_cosine
+  let camera_right = relative_x * camera_right_x +
+                     relative_y * camera_right_y +
+                     relative_z * camera_right_z
   let camera_up = relative_x * camera_up_x + relative_y * camera_up_y +
                   relative_z * camera_up_z
   let forward_depth = relative_x * forward_x + relative_y * forward_y +
@@ -200,17 +544,20 @@ fun draw_object(value: SpatialRenderable,
                 camera_x, camera_y, camera_z,
                 forward_x, forward_y, forward_z,
                 camera_up_x, camera_up_y, camera_up_z, 1.0471975511965976,
-                1000.0 kilometer, 500000000.0 kilometer,
+                near_distance, far_distance,
                 item.x(), item.y(), item.z(), item.radius(),
                 item.identifier(), selected)
-    text(logical_x + label_offset_x + projected_radius + 7.0, logical_y - 5.0,
-         item.label(), 10.0, 245, 249, 255)
+    if show_label {
+      text(logical_x + label_offset_x + projected_radius + 7.0,
+           logical_y - 5.0, item.label(), 10.0, 245, 249, 255)
+    }
   }
 }
 
 fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
                 camera_y: Float64<meter>, camera_z: Float64<meter>,
                 camera_yaw: Float64, camera_pitch: Float64,
+                camera_roll: Float64,
                 viewport_x: Float64, viewport_width: Float64,
                 viewport_height: Float64): Float64 {
   let item: RenderSample = sample(value)
@@ -218,10 +565,21 @@ fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
   let pitch_sine = demo_sine(camera_pitch)
   let yaw_cosine = demo_cosine(camera_yaw)
   let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_right = relative_x * (0.0 - yaw_sine) + relative_y * yaw_cosine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let camera_right_x = (0.0 - yaw_sine) * roll_cosine -
+                       base_up_x * roll_sine
+  let camera_right_y = yaw_cosine * roll_cosine - base_up_y * roll_sine
+  let camera_right_z = 0.0 - base_up_z * roll_sine
+  let camera_right = relative_x * camera_right_x +
+                     relative_y * camera_right_y +
+                     relative_z * camera_right_z
   let forward_depth = relative_x * (0.0 - yaw_cosine * pitch_cosine) +
                       relative_y * (0.0 - yaw_sine * pitch_cosine) -
                       relative_z * pitch_sine
@@ -233,24 +591,56 @@ fun projected_x(value: SpatialRenderable, camera_x: Float64<meter>,
 fun projected_y(value: SpatialRenderable, camera_x: Float64<meter>,
                 camera_y: Float64<meter>, camera_z: Float64<meter>,
                 camera_yaw: Float64, camera_pitch: Float64,
+                camera_roll: Float64,
                 viewport_y: Float64, viewport_height: Float64): Float64 {
   let item: RenderSample = sample(value)
   let pitch_cosine = demo_cosine(camera_pitch)
   let pitch_sine = demo_sine(camera_pitch)
   let yaw_cosine = demo_cosine(camera_yaw)
   let yaw_sine = demo_sine(camera_yaw)
+  let roll_cosine = demo_cosine(camera_roll)
+  let roll_sine = demo_sine(camera_roll)
   let relative_x = relative_axis(item.x(), camera_x)
   let relative_y = relative_axis(item.y(), camera_y)
   let relative_z = relative_axis(item.z(), camera_z)
-  let camera_up = relative_x * (0.0 - yaw_cosine * pitch_sine) +
-                  relative_y * (0.0 - yaw_sine * pitch_sine) +
-                  relative_z * pitch_cosine
+  let base_up_x = 0.0 - yaw_cosine * pitch_sine
+  let base_up_y = 0.0 - yaw_sine * pitch_sine
+  let base_up_z = pitch_cosine
+  let camera_up_x = base_up_x * roll_cosine +
+                    (0.0 - yaw_sine) * roll_sine
+  let camera_up_y = base_up_y * roll_cosine + yaw_cosine * roll_sine
+  let camera_up_z = base_up_z * roll_cosine
+  let camera_up = relative_x * camera_up_x + relative_y * camera_up_y +
+                  relative_z * camera_up_z
   let forward_depth = relative_x * (0.0 - yaw_cosine * pitch_cosine) +
                       relative_y * (0.0 - yaw_sine * pitch_cosine) -
                       relative_z * pitch_sine
   return viewport_y + perspective_axis(
     0.0 meter - camera_up, forward_depth,
     0.577350269, viewport_height)
+}
+
+fun draw_local_selection(value: SpatialRenderable,
+                         camera_x: Float64<meter>,
+                         camera_y: Float64<meter>,
+                         camera_z: Float64<meter>, camera_yaw: Float64,
+                         camera_pitch: Float64, camera_roll: Float64,
+                         viewport_x: Float64, viewport_y: Float64,
+                         viewport_width: Float64,
+                         viewport_height: Float64): Void {
+  let label_x = projected_x(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_x, viewport_width, viewport_height)
+  let label_y = projected_y(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_y, viewport_height)
+  line(label_x - 12.0, label_y - 14.0, label_x + 12.0, label_y - 14.0,
+       2.0, viewport_x, viewport_y, viewport_width, viewport_height,
+       255, 212, 91)
+  text(label_x + 16.0, label_y - 19.0, sample(value).label(),
+       8.0, 255, 212, 91)
 }
 
 fun projected_depth(value: SpatialRenderable,
@@ -267,6 +657,116 @@ fun projected_depth(value: SpatialRenderable,
          relative_z * demo_sine(camera_pitch)
 }
 
+fun projected_structure_hit(value: SpatialRenderable,
+                            click_x: Float64, click_y: Float64,
+                            camera_x: Float64<meter>,
+                            camera_y: Float64<meter>,
+                            camera_z: Float64<meter>, camera_yaw: Float64,
+                            camera_pitch: Float64, camera_roll: Float64,
+                            viewport_x: Float64, viewport_y: Float64,
+                            viewport_width: Float64,
+                            viewport_height: Float64): Bool {
+  let depth = projected_depth(
+    value, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+  if depth <= 0.0 meter { return false }
+  let half_extent =
+    (sample(value).radius() / depth) / 0.577350269 * viewport_height / 2.0
+  if half_extent < 14.0 { half_extent = 14.0 }
+  if half_extent > 52.0 { half_extent = 52.0 }
+  let center_x = projected_x(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_x, viewport_width, viewport_height)
+  let center_y = projected_y(
+    value, camera_x, camera_y, camera_z,
+    camera_yaw, camera_pitch, camera_roll,
+    viewport_y, viewport_height)
+  return pick_rectangle(
+    click_x, click_y, center_x - half_extent, center_y - half_extent,
+    half_extent * 2.0, half_extent * 2.0)
+}
+
+fun draw_surface_marker(marker: SurfaceLocationMarker,
+                        marker_value: SpatialRenderable,
+                        moon: SpatialRenderable,
+                        camera_x: Float64<meter>,
+                        camera_y: Float64<meter>,
+                        camera_z: Float64<meter>, camera_yaw: Float64,
+                        camera_pitch: Float64, camera_roll: Float64,
+                        viewport_x: Float64,
+                        viewport_y: Float64, viewport_width: Float64,
+                        viewport_height: Float64, hovered: Bool,
+                        fade_stage: Int64): Void {
+  let moon_depth = projected_depth(
+    moon, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+  let moon_radius =
+    (sample(moon).radius() / moon_depth) / 0.577350269 * viewport_height / 2.0
+  if moon_radius > 15.0 {
+    if marker_faces_camera(
+         marker_value, moon, camera_x, camera_y, camera_z) {
+      let surface_x = projected_x(
+        marker_value, camera_x, camera_y, camera_z,
+        camera_yaw, camera_pitch, camera_roll,
+        viewport_x, viewport_width, viewport_height)
+      let surface_y = projected_y(
+        marker_value, camera_x, camera_y, camera_z,
+        camera_yaw, camera_pitch, camera_roll, viewport_y, viewport_height)
+      let icon_x = surface_x
+      let icon_y = surface_y - 68.0
+      let marker_red: Int64 = 255
+      let marker_green: Int64 = 212
+      let marker_blue: Int64 = 91
+      if fade_stage == 2 {
+        marker_red = 151
+        marker_green = 91
+        marker_blue = 24
+      }
+      if fade_stage == 1 {
+        marker_red = 82
+        marker_green = 91
+        marker_blue = 105
+      }
+      if fade_stage == 0 {
+        marker_red = 2
+        marker_green = 6
+        marker_blue = 11
+      }
+      if hovered {
+        if fade_stage == 3 {
+        let row = 0.0 - 7.0
+        while row <= 7.0 {
+          let distance = row
+          if distance < 0.0 { distance = 0.0 - distance }
+          let half_width = 8.0 - distance
+          line(icon_x - half_width, icon_y + row,
+               icon_x + half_width, icon_y + row, 1.5,
+               viewport_x, viewport_y, viewport_width, viewport_height,
+               marker_red, marker_green, marker_blue)
+          row = row + 1.0
+        }
+        }
+      }
+      line(surface_x, surface_y, icon_x, icon_y + 8.0, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           marker_red, marker_green, marker_blue)
+      line(icon_x, icon_y - 8.0, icon_x + 8.0, icon_y, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           marker_red, marker_green, marker_blue)
+      line(icon_x + 8.0, icon_y, icon_x, icon_y + 8.0, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           marker_red, marker_green, marker_blue)
+      line(icon_x, icon_y + 8.0, icon_x - 8.0, icon_y, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           marker_red, marker_green, marker_blue)
+      line(icon_x - 8.0, icon_y, icon_x, icon_y - 8.0, 2.0,
+           viewport_x, viewport_y, viewport_width, viewport_height,
+           marker_red, marker_green, marker_blue)
+      text(icon_x + 13.0, icon_y - 5.0, marker.label(), 10.0,
+           marker_red, marker_green, marker_blue)
+    }
+  }
+}
+
 /// Demo-owned presentation of a circular path in physical XY space. The
 /// perspective camera projects the circle to an ellipse. A future physics
 /// package may supply sampled conic paths through the same generic line API.
@@ -274,7 +774,8 @@ fun draw_orbit(center_x: Float64<meter>, center_y: Float64<meter>,
                center_z: Float64<meter>, orbit_radius: Float64<meter>,
                camera_x: Float64<meter>, camera_y: Float64<meter>,
                camera_z: Float64<meter>, camera_yaw: Float64,
-               camera_pitch: Float64, viewport_x: Float64,
+               camera_pitch: Float64, camera_roll: Float64,
+               viewport_x: Float64,
                viewport_y: Float64, viewport_width: Float64,
                viewport_height: Float64, red: Int64, green: Int64,
                blue: Int64): Void {
@@ -294,15 +795,17 @@ fun draw_orbit(center_x: Float64<meter>, center_y: Float64<meter>,
     if previous_depth > 1000.0 kilometer {
       if current_depth > 1000.0 kilometer {
         line(projected_x(previous, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_x,
+                         camera_yaw, camera_pitch, camera_roll, viewport_x,
                          viewport_width, viewport_height),
              projected_y(previous, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_y, viewport_height),
+                         camera_yaw, camera_pitch, camera_roll,
+                         viewport_y, viewport_height),
              projected_x(current, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_x,
+                         camera_yaw, camera_pitch, camera_roll, viewport_x,
                          viewport_width, viewport_height),
              projected_y(current, camera_x, camera_y, camera_z,
-                         camera_yaw, camera_pitch, viewport_y, viewport_height),
+                         camera_yaw, camera_pitch, camera_roll,
+                         viewport_y, viewport_height),
              1.25, viewport_x, viewport_y, viewport_width, viewport_height,
              red, green, blue)
       }
@@ -352,55 +855,299 @@ fun selected_camera_z(identifier: Int64,
   return sample(first).z() + SUN_VIEW_DISTANCE
 }
 
+fun draw_base_management_overlay(panel_tab: Int64,
+                                 return_hovered: Bool,
+                                 selected_structure: Int64): Void {
+  let panel_width = 276.0
+  let panel_x = width() - panel_width - 36.0
+  let panel_y = 90.0
+  let panel_height = height() - 144.0
+  fill(panel_x - 2.0, panel_y - 2.0,
+       panel_width + 4.0, panel_height + 4.0, 142, 203, 255)
+  fill(panel_x, panel_y, panel_width, panel_height, 16, 43, 70)
+  text(panel_x + 14.0, panel_y + 14.0, "BASE MANAGEMENT", 14.0,
+       245, 249, 255)
+  text(panel_x + 14.0, panel_y + 34.0, "DEMO SNAPSHOT - SHACKLETON", 8.0,
+       142, 164, 188)
+
+  let overview_red: Int64 = 38
+  let overview_green: Int64 = 78
+  let overview_blue: Int64 = 116
+  let resources_red: Int64 = 38
+  let resources_green: Int64 = 78
+  let resources_blue: Int64 = 116
+  let systems_red: Int64 = 38
+  let systems_green: Int64 = 78
+  let systems_blue: Int64 = 116
+  if panel_tab == 0 {
+    overview_red = 55
+    overview_green = 125
+    overview_blue = 181
+  }
+  if panel_tab == 1 {
+    resources_red = 55
+    resources_green = 125
+    resources_blue = 181
+  }
+  if panel_tab == 2 {
+    systems_red = 55
+    systems_green = 125
+    systems_blue = 181
+  }
+  fill(panel_x + 12.0, panel_y + 54.0, 78.0, 24.0,
+       overview_red, overview_green, overview_blue)
+  fill(panel_x + 94.0, panel_y + 54.0, 78.0, 24.0,
+       resources_red, resources_green, resources_blue)
+  fill(panel_x + 176.0, panel_y + 54.0, 88.0, 24.0,
+       systems_red, systems_green, systems_blue)
+  text(panel_x + 20.0, panel_y + 62.0, "OVERVIEW", 8.0, 245, 249, 255)
+  text(panel_x + 102.0, panel_y + 62.0, "RESOURCES", 8.0, 245, 249, 255)
+  text(panel_x + 190.0, panel_y + 62.0, "SYSTEMS", 8.0, 245, 249, 255)
+
+  if selected_structure == 401 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  LAUNCHPAD 01", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 402 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  HABITAT A", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 403 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  REFINERY 01", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 404 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  SOLAR ARRAY", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 405 {
+    text(panel_x + 14.0, panel_y + 84.0, "SELECTED  COMMS TOWER", 8.0,
+         255, 212, 91)
+  }
+  if selected_structure == 401 {
+    text(panel_x + 14.0, panel_y + 98.0, "STATUS READY - QUEUE EMPTY", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 402 {
+    text(panel_x + 14.0, panel_y + 98.0, "CREW 12 / 16 - LOAD 38 kW", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 403 {
+    text(panel_x + 14.0, panel_y + 98.0, "ACTIVE - LOAD 64 kW", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 404 {
+    text(panel_x + 14.0, panel_y + 98.0, "OUTPUT 120 kW - 98%", 8.0,
+         245, 249, 255)
+  }
+  if selected_structure == 405 {
+    text(panel_x + 14.0, panel_y + 98.0, "LINK NOMINAL - LOAD 8 kW", 8.0,
+         245, 249, 255)
+  }
+
+  if panel_tab == 0 {
+    text(panel_x + 14.0, panel_y + 122.0, "POWER", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 140.0, "GENERATION       240 kW", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 158.0, "CONSUMPTION      168 kW", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 176.0, "AVAILABLE         72 kW", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 202.0, "CAPACITY", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 220.0, "MACHINE SLOTS       7 / 12", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 238.0, "STORAGE USED          68%", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 264.0, "LAUNCHPAD", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 282.0, "PAD 01   READY", 9.0, 71, 174, 255)
+  }
+  if panel_tab == 1 {
+    text(panel_x + 14.0, panel_y + 122.0, "NET PRODUCTION", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 142.0, "WATER             +18.4 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 162.0, "OXYGEN             +6.2 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 182.0, "REGOLITH           +42.0 kg/h", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 210.0, "RESOURCE LOAD", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 230.0, "EXTRACTION       2 ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 250.0, "REFINEMENT       1 ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 270.0, "STORAGE HEADROOM      32%", 9.0, 245, 249, 255)
+  }
+  if panel_tab == 2 {
+    text(panel_x + 14.0, panel_y + 122.0, "INSTALLED SYSTEMS", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 142.0, "SOLAR ARRAY        NOMINAL", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 162.0, "LIFE SUPPORT       NOMINAL", 9.0, 71, 174, 255)
+    text(panel_x + 14.0, panel_y + 182.0, "REFINERY           ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 202.0, "EXTRACTOR          ACTIVE", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 230.0, "MAINTENANCE", 10.0, 142, 203, 255)
+    text(panel_x + 14.0, panel_y + 250.0, "BASE CONDITION         96%", 9.0, 245, 249, 255)
+    text(panel_x + 14.0, panel_y + 270.0, "OPEN MACHINE SLOTS   5", 9.0, 245, 249, 255)
+  }
+
+  if return_hovered {
+    fill(panel_x + 12.0, panel_y + panel_height - 44.0,
+         panel_width - 24.0, 30.0, 55, 125, 181)
+  } else {
+    fill(panel_x + 12.0, panel_y + panel_height - 44.0,
+         panel_width - 24.0, 30.0, 38, 78, 116)
+  }
+  text(panel_x + 66.0, panel_y + panel_height - 34.0,
+       "RETURN TO ORBIT  [R]", 10.0, 245, 249, 255)
+}
+
 fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             camera_z: Float64<meter>, camera_yaw: Float64,
-            camera_pitch: Float64, selection: SelectionState,
+            camera_pitch: Float64, camera_roll: Float64,
+            selection: SelectionState,
             first: SpatialRenderable, second: SpatialRenderable,
-            third: SpatialRenderable): Void {
+            third: SpatialRenderable, marker: SurfaceLocationMarker,
+            marker_value: SpatialRenderable, marker_active: Bool,
+            marker_hovered: Bool, marker_fade_stage: Int64,
+            surface_detail_active: Bool, local_geometry_active: Bool,
+            transitioning: Bool,
+            base_panel_tab: Int64, return_hovered: Bool,
+            selected_structure: Int64): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
   let viewport_y = 76.0
   let viewport_width = window_width - 48.0
+  if surface_detail_active {
+    if transitioning == false { viewport_width = window_width - 360.0 }
+  }
   let viewport_height = window_height - 116.0
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
   text(24.0, 22.0, "SUN - EARTH - MOON SNAPSHOT", 16.0, 245, 249, 255)
-  text(24.0, 48.0, "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CLICK: SELECT | ENTER: FOCUS", 10.0,
-       142, 203, 255)
-  fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
+  if surface_detail_active {
+    if transitioning {
+      text(24.0, 48.0, "DESCENDING - SAME MOON FRAME - LOCAL DETAIL ACTIVE",
+           10.0, 255, 212, 91)
+    } else {
+      text(24.0, 48.0, "SHACKLETON BASE - SAME MOON FRAME",
+           10.0, 142, 203, 255)
+    }
+  } else {
+  if marker_active {
+    text(24.0, 48.0, "APPROACHING SHACKLETON BASE", 10.0, 255, 212, 91)
+  } else {
+    text(24.0, 48.0, "RIGHT-DRAG: ORBIT | WHEEL: ZOOM | CLICK: SELECT | ENTER: FOCUS", 10.0,
+         142, 203, 255)
+  }
+  }
+  // Uncovered scene pixels are space, not UI chrome. A blue viewport fill
+  // became a camera-aligned rectangle whenever the lunar horizon exposed it.
+  fill(viewport_x, viewport_y, viewport_width, viewport_height, 0, 0, 0)
   let sun_sample = sample(first)
   let earth_sample = sample(second)
   let moon_sample = sample(third)
-  draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
-             camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
-             viewport_x, viewport_y, viewport_width, viewport_height,
-             47, 75, 104)
-  draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
-             camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
-             viewport_x, viewport_y, viewport_width, viewport_height,
-             70, 92, 118)
+  let scene_near: Float64<meter> = 1000.0 kilometer
+  let scene_far: Float64<meter> = 500000000.0 kilometer
+  if surface_detail_active {
+    scene_near = 1.0 meter
+    scene_far = 4000000.0 meter
+  }
+  if surface_detail_active == false {
+    draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
+               camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+               camera_roll,
+               viewport_x, viewport_y, viewport_width, viewport_height,
+               47, 75, 104)
+    draw_orbit(earth_sample.x(), earth_sample.y(), earth_sample.z(), MOON_DISTANCE,
+               camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+               camera_roll,
+               viewport_x, viewport_y, viewport_width, viewport_height,
+               70, 92, 118)
+  }
   draw_object(first, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
-              selection.is_selected(1))
+              scene_near, scene_far,
+              selection.is_selected(1), surface_detail_active == false)
   draw_object(second, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
-              selection.is_selected(2))
+              scene_near, scene_far,
+              selection.is_selected(2), surface_detail_active == false)
   draw_object(third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
+              camera_roll,
               viewport_x, viewport_y, viewport_width, viewport_height,
-              selection.is_selected(3))
-  text(24.0, window_height - 28.0,
-       "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT", 10.0,
-       142, 164, 188)
+              scene_near, scene_far,
+              selection.is_selected(3), surface_detail_active == false)
+  if local_geometry_active {
+    draw_local_base_scene(marker, marker_value,
+                          camera_x, camera_y, camera_z,
+                          camera_yaw, camera_pitch, camera_roll,
+                          viewport_x, viewport_y,
+                          viewport_width, viewport_height)
+    if transitioning == false {
+      if selected_structure == 401 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 401,
+            35.0 meter, 20.0 meter, 8.0 meter, 14.0 meter, "LAUNCHPAD 01"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 402 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 402,
+            0.0 meter - 30.0 meter, 20.0 meter, 5.0 meter,
+            20.0 meter, "HABITAT A"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 403 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 403,
+            0.0 meter - 28.0 meter, 0.0 meter - 15.0 meter, 4.0 meter,
+            16.0 meter, "REFINERY 01"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 404 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 404,
+            10.0 meter, 0.0 meter - 35.0 meter, 0.7 meter,
+            30.0 meter, "SOLAR ARRAY"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+      if selected_structure == 405 {
+        draw_local_selection(
+          local_structure(marker, marker_value, 405,
+            0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
+            18.0 meter, "COMMS TOWER"),
+          camera_x, camera_y, camera_z, camera_yaw, camera_pitch, camera_roll,
+          viewport_x, viewport_y, viewport_width, viewport_height)
+      }
+    }
+  }
+  if surface_detail_active == false {
+    draw_surface_marker(marker, marker_value, third,
+                        camera_x, camera_y, camera_z,
+                        camera_yaw, camera_pitch, camera_roll,
+                        viewport_x, viewport_y, viewport_width, viewport_height,
+                        marker_hovered, marker_fade_stage)
+  }
+  if surface_detail_active {
+    text(24.0, window_height - 28.0,
+         "RIGHT-DRAG: LOCAL ORBIT | WHEEL: ZOOM | SURFACE NORMAL IS UP",
+         10.0, 142, 203, 255)
+    if transitioning == false {
+      draw_base_management_overlay(
+        base_panel_tab, return_hovered, selected_structure)
+    }
+  } else {
+    text(24.0, window_height - 28.0,
+         "UNIT-TYPED DISTANCES - CAMERA FRAMING CHANGES, BODIES DO NOT",
+         10.0, 142, 164, 188)
+  }
   present()
 }
 
 if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let selection = SelectionState()
   selection.select!(1)
+  let base_marker = SurfaceLocationMarker(
+    40, 3, 400, 0.5235987755982988, 0.0,
+    10.0 meter, "SHACKLETON BASE")
   let camera_yaw = 0.0
   // Begin 30 degrees above the orbital horizon rather than at the top pole.
   let camera_pitch = 0.5235987755982988
+  let camera_roll = 0.0
   let orbit_target_x = DISTANT_ORIGIN
   let orbit_target_y = DISTANT_ORIGIN
   let orbit_target_z = DISTANT_ORIGIN - CAMERA_DEPTH
@@ -412,6 +1159,9 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focus_start_y = orbit_target_y
   let focus_start_z = orbit_target_z
   let focus_start_distance = camera_distance
+  let focus_start_yaw = camera_yaw
+  let focus_start_pitch = camera_pitch
+  let focus_start_roll = camera_roll
   let focus_target_x = orbit_target_x
   let focus_target_y = orbit_target_y
   let focus_target_z = orbit_target_z
@@ -421,6 +1171,20 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focusing = false
   let focus_source_identifier: Int64 = 0
   let focused_identifier: Int64 = 1
+  let focused_marker = false
+  let local_view = false
+  let local_geometry_active = false
+  let returning_to_orbit = false
+  let focus_source_marker = false
+  let base_panel_tab: Int64 = 0
+  let selected_structure: Int64 = 401
+  let return_hovered = false
+  let saved_orbit_distance = MOON_VIEW_DISTANCE
+  let saved_orbit_yaw = camera_yaw
+  let saved_orbit_pitch = camera_pitch
+  let saved_orbit_roll = camera_roll
+  let local_orbit_yaw = 0.959
+  let local_orbit_pitch = 1.3
   let running = true
   while running {
     if poll() == false { running = false }
@@ -441,6 +1205,26 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         3, earth_x + MOON_DISTANCE * demo_cosine(moon_phase),
         earth_y + MOON_DISTANCE * demo_sine(moon_phase),
         DISTANT_ORIGIN - CAMERA_DEPTH, 1737.4 kilometer, "MOON")
+      let marker_value = marker_presentation(base_marker, third)
+      let local_launchpad = local_structure(
+        base_marker, marker_value, 401,
+        35.0 meter, 20.0 meter, 8.0 meter, 14.0 meter, "LAUNCHPAD 01")
+      let local_habitat = local_structure(
+        base_marker, marker_value, 402,
+        0.0 meter - 30.0 meter, 20.0 meter, 5.0 meter,
+        20.0 meter, "HABITAT A")
+      let local_refinery = local_structure(
+        base_marker, marker_value, 403,
+        0.0 meter - 28.0 meter, 0.0 meter - 15.0 meter, 4.0 meter,
+        16.0 meter, "REFINERY 01")
+      let local_solar = local_structure(
+        base_marker, marker_value, 404,
+        10.0 meter, 0.0 meter - 35.0 meter, 0.7 meter,
+        30.0 meter, "SOLAR ARRAY")
+      let local_tower = local_structure(
+        base_marker, marker_value, 405,
+        0.0 meter - 55.0 meter, 40.0 meter, 16.0 meter,
+        18.0 meter, "COMMS TOWER")
       if key_pressed("left") {
         let previous = selection.identifier() - 1
         if previous < 1 { previous = 3 }
@@ -451,55 +1235,285 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         if next > 3 { next = 1 }
         selection.select!(next)
       }
-      if key_pressed("a") { camera_yaw = wrapped_angle(camera_yaw - 0.12) }
-      if key_pressed("d") { camera_yaw = wrapped_angle(camera_yaw + 0.12) }
-      if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
-      if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
-      camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
-      camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
-      camera_distance = zoom_distance(camera_distance, scroll_y())
+      if focused_marker == false {
+        if key_pressed("a") { camera_yaw = wrapped_angle(camera_yaw - 0.12) }
+        if key_pressed("d") { camera_yaw = wrapped_angle(camera_yaw + 0.12) }
+        if key_pressed("w") { camera_pitch = clamp_pitch(camera_pitch + 0.10) }
+        if key_pressed("s") { camera_pitch = clamp_pitch(camera_pitch - 0.10) }
+        camera_yaw = wrapped_angle(camera_yaw - orbit_delta_x() * 0.006)
+        camera_pitch = clamp_pitch(camera_pitch + orbit_delta_y() * 0.006)
+        camera_distance = zoom_distance(camera_distance, scroll_y())
+        if key_pressed("q") {
+          camera_distance = zoom_distance(camera_distance, -1.0)
+        }
+        if key_pressed("e") {
+          camera_distance = zoom_distance(camera_distance, 1.0)
+        }
+      } else {
+        if focusing == false {
+          if key_pressed("a") {
+            local_orbit_yaw = wrapped_angle(local_orbit_yaw - 0.12)
+          }
+          if key_pressed("d") {
+            local_orbit_yaw = wrapped_angle(local_orbit_yaw + 0.12)
+          }
+          if key_pressed("w") {
+            local_orbit_pitch = clamp_local_orbit_pitch(
+              local_orbit_pitch + 0.10)
+          }
+          if key_pressed("s") {
+            local_orbit_pitch = clamp_local_orbit_pitch(
+              local_orbit_pitch - 0.10)
+          }
+          local_orbit_yaw = wrapped_angle(
+            local_orbit_yaw - orbit_delta_x() * 0.006)
+          local_orbit_pitch = clamp_local_orbit_pitch(
+            local_orbit_pitch + orbit_delta_y() * 0.006)
+          camera_distance = zoom_local_distance(camera_distance, scroll_y())
+          if key_pressed("q") {
+            camera_distance = zoom_local_distance(camera_distance, -1.0)
+          }
+          if key_pressed("e") {
+            camera_distance = zoom_local_distance(camera_distance, 1.0)
+          }
+        }
+      }
       let look_pitch_cosine = demo_cosine(camera_pitch)
       let look_forward_x = 0.0 - demo_cosine(camera_yaw) * look_pitch_cosine
       let look_forward_y = 0.0 - demo_sine(camera_yaw) * look_pitch_cosine
       let look_forward_z = 0.0 - demo_sine(camera_pitch)
-      if key_pressed("q") {
-        camera_distance = zoom_distance(camera_distance, -1.0)
-      }
-      if key_pressed("e") {
-        camera_distance = zoom_distance(camera_distance, 1.0)
-      }
       let viewport_x = 24.0
       let viewport_y = 76.0
       let viewport_width = width() - 48.0
+      if local_view {
+        if focusing == false { viewport_width = width() - 360.0 }
+      }
       let viewport_height = height() - 116.0
+      // Keep picking and painting on the same fresh presentation camera. The
+      // accelerated demo Moon can move thousands of kilometres between frames;
+      // using the previous camera here displaced the marker hit region even
+      // though the following camera made its painted pin look stationary.
+      if focusing == false {
+        if focused_marker {
+          orbit_target_x = sample(marker_value).x()
+          orbit_target_y = sample(marker_value).y()
+          orbit_target_z = sample(marker_value).z()
+        } else {
+        if focused_identifier > 0 {
+          orbit_target_x = selected_target_x(focused_identifier, first, second, third)
+          orbit_target_y = selected_target_y(focused_identifier, first, second, third)
+          orbit_target_z = selected_target_z(focused_identifier, first, second, third)
+        }
+        }
+        camera_x = orbit_target_x - look_forward_x * camera_distance
+        camera_y = orbit_target_y - look_forward_y * camera_distance
+        camera_z = orbit_target_z - look_forward_z * camera_distance
+      }
+      let marker_requested = false
+      let return_requested = false
+      let marker_hovered = false
+      let marker_fade_stage: Int64 = 3
+      return_hovered = false
+      let panel_x = width() - 312.0
+      let panel_y = 90.0
+      let panel_height = height() - 144.0
+      if local_view {
+        return_hovered = pick_rectangle(
+          pointer_x(), pointer_y(), panel_x + 12.0,
+          panel_y + panel_height - 44.0, 252.0, 30.0)
+        if key_pressed("r") { return_requested = true }
+        if key_pressed("escape") { return_requested = true }
+        if key_pressed("tab") {
+          selected_structure = selected_structure + 1
+          if selected_structure > 405 { selected_structure = 401 }
+        }
+        if key_pressed("shift-tab") {
+          selected_structure = selected_structure - 1
+          if selected_structure < 401 { selected_structure = 405 }
+        }
+      }
+      if marker_faces_camera(
+           marker_value, third, camera_x, camera_y, camera_z) {
+        let moon_depth = projected_depth(
+          third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch)
+        let moon_radius =
+          (sample(third).radius() / moon_depth) /
+          0.577350269 * viewport_height / 2.0
+        if moon_radius > 15.0 {
+          let marker_icon_x = projected_x(
+            marker_value, camera_x, camera_y, camera_z,
+            camera_yaw, camera_pitch, camera_roll,
+            viewport_x, viewport_width, viewport_height)
+          let marker_icon_y = projected_y(
+            marker_value, camera_x, camera_y, camera_z,
+            camera_yaw, camera_pitch, camera_roll,
+            viewport_y, viewport_height) - 68.0
+          marker_hovered = pick_rectangle(
+            pointer_x(), pointer_y(),
+            marker_icon_x - 16.0, marker_icon_y - 18.0,
+            176.0, 104.0)
+        }
+      }
       if pointer_pressed() {
         let click_x = pointer_x()
         let click_y = pointer_y()
+        if local_view {
+          if click_x < panel_x {
+            let nearest_hit = 1e12 kilometer
+            if projected_structure_hit(
+                 local_launchpad, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_launchpad, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 401
+              }
+            }
+            if projected_structure_hit(
+                 local_habitat, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_habitat, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 402
+              }
+            }
+            if projected_structure_hit(
+                 local_refinery, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_refinery, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 403
+              }
+            }
+            if projected_structure_hit(
+                 local_solar, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_solar, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 404
+              }
+            }
+            if projected_structure_hit(
+                 local_tower, click_x, click_y,
+                 camera_x, camera_y, camera_z,
+                 camera_yaw, camera_pitch, camera_roll,
+                 viewport_x, viewport_y, viewport_width, viewport_height) {
+              let candidate_depth = projected_depth(
+                local_tower, camera_x, camera_y, camera_z,
+                camera_yaw, camera_pitch)
+              if candidate_depth < nearest_hit {
+                nearest_hit = candidate_depth
+                selected_structure = 405
+              }
+            }
+          }
+          if pick_rectangle(click_x, click_y,
+                            panel_x + 12.0, panel_y + 54.0,
+                            78.0, 24.0) { base_panel_tab = 0 }
+          if pick_rectangle(click_x, click_y,
+                            panel_x + 94.0, panel_y + 54.0,
+                            78.0, 24.0) { base_panel_tab = 1 }
+          if pick_rectangle(click_x, click_y,
+                            panel_x + 176.0, panel_y + 54.0,
+                            88.0, 24.0) { base_panel_tab = 2 }
+          if return_hovered { return_requested = true }
+        } else {
         if pick_circle(click_x, click_y,
                        projected_x(first, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_x, viewport_width, viewport_height),
                        projected_y(first, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_y, viewport_height),
                        34.0) { selection.select!(1) }
         if pick_circle(click_x, click_y,
                        projected_x(second, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_x, viewport_width, viewport_height),
                        projected_y(second, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(2) }
         if pick_circle(click_x, click_y,
                        projected_x(third, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_x, viewport_width, viewport_height),
                        projected_y(third, camera_x, camera_y, camera_z,
-                                   camera_yaw, camera_pitch,
+                                   camera_yaw, camera_pitch, camera_roll,
                                    viewport_y, viewport_height),
                        24.0) { selection.select!(3) }
+        if marker_hovered {
+          marker_requested = true
+          selection.select!(3)
+        }
+        }
       }
+      if marker_requested {
+        local_geometry_active = true
+        saved_orbit_distance = camera_distance
+        saved_orbit_yaw = camera_yaw
+        saved_orbit_pitch = camera_pitch
+        saved_orbit_roll = camera_roll
+        focus_start_x = orbit_target_x
+        focus_start_y = orbit_target_y
+        focus_start_z = orbit_target_z
+        focus_start_distance = camera_distance
+        focus_start_yaw = camera_yaw
+        focus_start_pitch = camera_pitch
+        focus_start_roll = camera_roll
+        focus_target_x = local_target_x(base_marker, marker_value)
+        focus_target_y = local_target_y(base_marker, marker_value)
+        focus_target_z = local_target_z(base_marker, marker_value)
+        focus_target_distance = LOCAL_VIEW_DISTANCE
+        focus_duration = SURFACE_HANDOFF_DURATION_SECONDS
+        focus_started = elapsed_seconds()
+        focusing = true
+        focus_source_marker = false
+        focus_source_identifier = focused_identifier
+        focused_identifier = 0
+        focused_marker = true
+      } else {
+      if return_requested {
+        focus_start_x = orbit_target_x
+        focus_start_y = orbit_target_y
+        focus_start_z = orbit_target_z
+        focus_start_distance = camera_distance
+        focus_start_yaw = camera_yaw
+        focus_start_pitch = camera_pitch
+        focus_start_roll = camera_roll
+        focus_target_x = sample(third).x()
+        focus_target_y = sample(third).y()
+        focus_target_z = sample(third).z()
+        focus_target_distance = saved_orbit_distance
+        focus_duration = SURFACE_HANDOFF_DURATION_SECONDS
+        focus_started = elapsed_seconds()
+        focusing = true
+        returning_to_orbit = true
+        focus_source_marker = true
+        focus_source_identifier = 0
+        focused_identifier = 3
+        focused_marker = false
+        selection.select!(3)
+      } else {
       if key_pressed("enter") {
         if selection.identifier() != focused_identifier {
           focus_start_x = orbit_target_x
@@ -519,33 +1533,73 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           }
           focus_started = elapsed_seconds()
           focusing = true
+          focus_source_marker = false
           focus_source_identifier = focused_identifier
           focused_identifier = selection.identifier()
+          focused_marker = false
         }
+      }
+      }
       }
       if focusing {
         let focus_elapsed = elapsed_seconds() - focus_started
         // The destination is a live presentation snapshot. Refresh it during
         // the ease so a moving body cannot leave behind the position captured
         // when Enter was pressed and then snap at transition completion.
+        if focused_marker {
+          focus_target_x = local_target_x(base_marker, marker_value)
+          focus_target_y = local_target_y(base_marker, marker_value)
+          focus_target_z = local_target_z(base_marker, marker_value)
+        } else {
         if focused_identifier > 0 {
           focus_target_x = selected_target_x(focused_identifier, first, second, third)
           focus_target_y = selected_target_y(focused_identifier, first, second, third)
           focus_target_z = selected_target_z(focused_identifier, first, second, third)
         }
+        }
         let base_progress = focus_progress(focus_elapsed, focus_duration)
-        let pan_progress = base_progress
-        let zoom_progress = base_progress
+        let transition_progress = base_progress
+        if focused_marker {
+          // First orbit to the marker-facing local camera. Only after that
+          // orientation is established do target translation and zoom descend
+          // toward the surface, avoiding a chord through the Moon.
+          let orientation_duration = focus_duration * 0.38
+          let orientation_progress = focus_progress(
+            focus_elapsed, orientation_duration)
+          let descent_elapsed = focus_elapsed - focus_duration * 0.32
+          if descent_elapsed < 0.0 { descent_elapsed = 0.0 }
+          transition_progress = focus_progress(
+            descent_elapsed, focus_duration * 0.68)
+          camera_yaw = focus_scalar_at(
+            focus_start_yaw, LOCAL_CAMERA_YAW, orientation_progress)
+          camera_pitch = focus_scalar_at(
+            focus_start_pitch, LOCAL_CAMERA_PITCH, orientation_progress)
+          camera_roll = focus_scalar_at(
+            focus_start_roll, LOCAL_CAMERA_ROLL, orientation_progress)
+          if base_progress > 0.35 { marker_fade_stage = 2 }
+          if base_progress > 0.58 { marker_fade_stage = 1 }
+          if base_progress > 0.94 { marker_fade_stage = 0 }
+        }
+        if returning_to_orbit {
+          camera_yaw = focus_scalar_at(
+            focus_start_yaw, saved_orbit_yaw, base_progress)
+          camera_pitch = focus_scalar_at(
+            focus_start_pitch, saved_orbit_pitch, base_progress)
+          camera_roll = focus_scalar_at(
+            focus_start_roll, saved_orbit_roll, base_progress)
+        }
+        let pan_progress = transition_progress
+        let zoom_progress = transition_progress
         if focus_target_distance < focus_start_distance {
           // A family change may span hundreds of times in apparent scale.
           // Squaring the already-eased progress softens that initial scale
           // acceleration without introducing another phase boundary.
-          zoom_progress = base_progress * base_progress
+          zoom_progress = transition_progress * transition_progress
         }
         if focus_target_distance > focus_start_distance {
           // Ancestor focus derives pan from zoom below; there is no separate
           // pan phase or handoff that could read as two back-to-back focuses.
-          zoom_progress = base_progress
+          zoom_progress = transition_progress
         }
         camera_distance = focus_distance_at(
           focus_start_distance, focus_target_distance, zoom_progress)
@@ -555,7 +1609,8 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           // cannot grow beyond its starting offset while both motions retain
           // zero endpoint velocity.
           pan_progress = 1.0 -
-            (camera_distance / focus_start_distance) * (1.0 - base_progress)
+            (camera_distance / focus_start_distance) *
+              (1.0 - transition_progress)
         }
         if focus_target_distance > focus_start_distance {
           // Keep the descendant's projected motion on one smooth curve. At
@@ -563,7 +1618,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           // reveals context, pan grows continuously to the final framing. The
           // squared remaining fraction advances the middle sooner while giving
           // the final approach a visibly longer ease-out tail.
-          let remaining_pan = 1.0 - base_progress
+          let remaining_pan = 1.0 - transition_progress
           let pan_curve = 1.0 - remaining_pan * remaining_pan
           pan_progress = pan_curve *
             camera_distance / focus_target_distance
@@ -571,6 +1626,11 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         let live_start_x = focus_start_x
         let live_start_y = focus_start_y
         let live_start_z = focus_start_z
+        if focus_source_marker {
+          live_start_x = local_target_x(base_marker, marker_value)
+          live_start_y = local_target_y(base_marker, marker_value)
+          live_start_z = local_target_z(base_marker, marker_value)
+        }
         if focus_source_identifier > 0 {
           live_start_x = selected_target_x(
             focus_source_identifier, first, second, third)
@@ -582,20 +1642,140 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
         orbit_target_x = focus_axis_at(live_start_x, focus_target_x, pan_progress)
         orbit_target_y = focus_axis_at(live_start_y, focus_target_y, pan_progress)
         orbit_target_z = focus_axis_at(live_start_z, focus_target_z, pan_progress)
-        if focus_elapsed >= focus_duration { focusing = false }
+        if focus_elapsed >= focus_duration {
+          focusing = false
+          if focused_marker { local_view = true }
+          if returning_to_orbit {
+            local_view = false
+            local_geometry_active = false
+            returning_to_orbit = false
+            focus_source_marker = false
+          }
+        }
       }
       if focusing == false {
+        if focused_marker {
+          orbit_target_x = local_target_x(base_marker, marker_value)
+          orbit_target_y = local_target_y(base_marker, marker_value)
+          orbit_target_z = local_target_z(base_marker, marker_value)
+        } else {
         if focused_identifier > 0 {
           orbit_target_x = selected_target_x(focused_identifier, first, second, third)
           orbit_target_y = selected_target_y(focused_identifier, first, second, third)
           orbit_target_z = selected_target_z(focused_identifier, first, second, third)
         }
+        }
       }
-      camera_x = orbit_target_x - look_forward_x * camera_distance
-      camera_y = orbit_target_y - look_forward_y * camera_distance
-      camera_z = orbit_target_z - look_forward_z * camera_distance
+      if focused_marker {
+      if focusing == false {
+        let local_latitude_cosine =
+          demo_cosine(base_marker.latitude_radians())
+        let local_latitude_sine =
+          demo_sine(base_marker.latitude_radians())
+        let local_longitude_cosine =
+          demo_cosine(base_marker.longitude_radians())
+        let local_longitude_sine =
+          demo_sine(base_marker.longitude_radians())
+        let local_east_x = 0.0 - local_longitude_sine
+        let local_east_y = local_longitude_cosine
+        let local_north_x = 0.0 - local_latitude_sine *
+          local_longitude_cosine
+        let local_north_y = 0.0 - local_latitude_sine *
+          local_longitude_sine
+        let local_north_z = local_latitude_cosine
+        let local_up_x = local_latitude_cosine * local_longitude_cosine
+        let local_up_y = local_latitude_cosine * local_longitude_sine
+        let local_up_z = local_latitude_sine
+        let local_yaw_cosine = demo_cosine(local_orbit_yaw)
+        let local_yaw_sine = demo_sine(local_orbit_yaw)
+        let local_pitch_cosine = demo_cosine(local_orbit_pitch)
+        let local_pitch_sine = demo_sine(local_orbit_pitch)
+        let desired_forward_x =
+          (0.0 - local_east_x * local_yaw_cosine -
+           local_north_x * local_yaw_sine) * local_pitch_cosine -
+          local_up_x * local_pitch_sine
+        let desired_forward_y =
+          (0.0 - local_east_y * local_yaw_cosine -
+           local_north_y * local_yaw_sine) * local_pitch_cosine -
+          local_up_y * local_pitch_sine
+        let desired_forward_z =
+          (0.0 - local_north_z * local_yaw_sine) * local_pitch_cosine -
+          local_up_z * local_pitch_sine
+        let desired_up_x =
+          (0.0 - local_east_x * local_yaw_cosine -
+           local_north_x * local_yaw_sine) * local_pitch_sine +
+          local_up_x * local_pitch_cosine
+        let desired_up_y =
+          (0.0 - local_east_y * local_yaw_cosine -
+           local_north_y * local_yaw_sine) * local_pitch_sine +
+          local_up_y * local_pitch_cosine
+        let desired_up_z =
+          (0.0 - local_north_z * local_yaw_sine) * local_pitch_sine +
+          local_up_z * local_pitch_cosine
+        camera_pitch = demo_asin(0.0 - desired_forward_z)
+        camera_yaw = demo_atan2(
+          0.0 - desired_forward_y, 0.0 - desired_forward_x)
+        let converted_pitch_sine = demo_sine(camera_pitch)
+        let converted_pitch_cosine = demo_cosine(camera_pitch)
+        let converted_yaw_sine = demo_sine(camera_yaw)
+        let converted_yaw_cosine = demo_cosine(camera_yaw)
+        let unrolled_up_x =
+          0.0 - converted_yaw_cosine * converted_pitch_sine
+        let unrolled_up_y =
+          0.0 - converted_yaw_sine * converted_pitch_sine
+        let unrolled_up_z = converted_pitch_cosine
+        let unrolled_right_x = 0.0 - converted_yaw_sine
+        let unrolled_right_y = converted_yaw_cosine
+        let roll_sine = desired_up_x * unrolled_right_x +
+          desired_up_y * unrolled_right_y
+        let roll_cosine = desired_up_x * unrolled_up_x +
+          desired_up_y * unrolled_up_y + desired_up_z * unrolled_up_z
+        camera_roll = demo_atan2(roll_sine, roll_cosine)
+      }
+      }
+      let render_pitch_cosine = demo_cosine(camera_pitch)
+      let render_forward_x =
+        0.0 - demo_cosine(camera_yaw) * render_pitch_cosine
+      let render_forward_y =
+        0.0 - demo_sine(camera_yaw) * render_pitch_cosine
+      let render_forward_z = 0.0 - demo_sine(camera_pitch)
+      camera_x = orbit_target_x - render_forward_x * camera_distance
+      camera_y = orbit_target_y - render_forward_y * camera_distance
+      camera_z = orbit_target_z - render_forward_z * camera_distance
+      if focused_marker {
+        let marker_latitude_cosine = demo_cosine(base_marker.latitude_radians())
+        let marker_latitude_sine = demo_sine(base_marker.latitude_radians())
+        let marker_longitude_cosine = demo_cosine(base_marker.longitude_radians())
+        let marker_longitude_sine = demo_sine(base_marker.longitude_radians())
+        let local_surface_up_x = marker_latitude_cosine * marker_longitude_cosine
+        let local_surface_up_y = marker_latitude_cosine * marker_longitude_sine
+        let local_surface_up_z = marker_latitude_sine
+        let surface_x = sample(marker_value).x() -
+          local_surface_up_x * base_marker.altitude()
+        let surface_y = sample(marker_value).y() -
+          local_surface_up_y * base_marker.altitude()
+        let surface_z = sample(marker_value).z() -
+          local_surface_up_z * base_marker.altitude()
+        let clearance = (camera_x - surface_x) * local_surface_up_x +
+          (camera_y - surface_y) * local_surface_up_y +
+          (camera_z - surface_z) * local_surface_up_z
+        if clearance < 5.0 meter {
+          let correction = 5.0 meter - clearance
+          camera_x = camera_x + local_surface_up_x * correction
+          camera_y = camera_y + local_surface_up_y * correction
+          camera_z = camera_z + local_surface_up_z * correction
+        }
+      }
+      let surface_detail_active = local_view
+      if focused_marker {
+        if marker_fade_stage == 0 { surface_detail_active = true }
+      }
       compose(camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
-              selection, first, second, third)
+              camera_roll,
+              selection, first, second, third, base_marker, marker_value,
+              focused_marker, marker_hovered, marker_fade_stage,
+              surface_detail_active, local_geometry_active, focusing,
+              base_panel_tab, return_hovered, selected_structure)
     }
   }
   close()

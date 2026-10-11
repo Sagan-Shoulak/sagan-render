@@ -1,0 +1,236 @@
+module main
+
+import open from render.ui
+import poll from render.ui
+import close from render.ui
+import width from render.ui
+import height from render.ui
+import begin from render.ui
+import fill from render.ui
+import text from render.ui
+import mesh_sphere from render.ui
+import mesh_box from render.ui
+import present from render.ui
+import orbit_delta_x from render.ui
+import orbit_delta_y from render.ui
+import scroll_y from render.ui
+
+const ORIGIN: Float64<meter> = 1e12 kilometer
+
+fun wrapped_angle(value: Float64): Float64 {
+  let result = value
+  while result > 3.141592653589793 { result = result - 6.283185307179586 }
+  while result < 0.0 - 3.141592653589793 { result = result + 6.283185307179586 }
+  return result
+}
+
+fun sine(value: Float64): Float64 {
+  let angle = wrapped_angle(value)
+  if angle > 1.5707963267948966 { angle = 3.141592653589793 - angle }
+  if angle < 0.0 - 1.5707963267948966 {
+    angle = 0.0 - 3.141592653589793 - angle
+  }
+  let squared = angle * angle
+  return angle * (1.0 - squared / 6.0 + squared * squared / 120.0 -
+                  squared * squared * squared / 5040.0)
+}
+
+fun cosine(value: Float64): Float64 {
+  let angle = wrapped_angle(value)
+  let sign = 1.0
+  if angle > 1.5707963267948966 {
+    angle = 3.141592653589793 - angle
+    sign = 0.0 - 1.0
+  }
+  if angle < 0.0 - 1.5707963267948966 {
+    angle = 0.0 - 3.141592653589793 - angle
+    sign = 0.0 - 1.0
+  }
+  let squared = angle * angle
+  return sign * (1.0 - squared / 2.0 + squared * squared / 24.0 -
+                 squared * squared * squared / 720.0)
+}
+
+fun draw_box(viewport_x: Float64, viewport_y: Float64,
+             viewport_width: Float64, viewport_height: Float64,
+             camera_x: Float64<meter>, camera_y: Float64<meter>,
+             camera_z: Float64<meter>, forward_x: Float64,
+             forward_y: Float64, forward_z: Float64,
+             up_x: Float64, up_y: Float64, up_z: Float64,
+             x: Float64<meter>, y: Float64<meter>, z: Float64<meter>,
+             half_x: Float64<meter>, half_y: Float64<meter>,
+             half_z: Float64<meter>, yaw: Float64,
+             appearance: Int64): Void {
+  mesh_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.8726646259971648,
+           1.0 meter, 4000000.0 meter,
+           ORIGIN + x, ORIGIN + y, ORIGIN + z,
+           half_x, half_y, half_z, yaw, appearance)
+}
+
+fun draw_sphere(viewport_x: Float64, viewport_y: Float64,
+                viewport_width: Float64, viewport_height: Float64,
+                camera_x: Float64<meter>, camera_y: Float64<meter>,
+                camera_z: Float64<meter>, forward_x: Float64,
+                forward_y: Float64, forward_z: Float64,
+                up_x: Float64, up_y: Float64, up_z: Float64,
+                x: Float64<meter>, y: Float64<meter>, z: Float64<meter>,
+                radius: Float64<meter>, appearance: Int64): Void {
+  mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
+              camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+              up_x, up_y, up_z, 0.8726646259971648,
+              1.0 meter, 4000000.0 meter,
+              ORIGIN + x, ORIGIN + y, ORIGIN + z,
+              radius, appearance, false)
+}
+
+fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
+            camera_z: Float64<meter>, forward_x: Float64,
+            forward_y: Float64, forward_z: Float64,
+            up_x: Float64, up_y: Float64, up_z: Float64): Void {
+  let window_width = width()
+  let window_height = height()
+  let viewport_x = 20.0
+  let viewport_y = 68.0
+  let viewport_width = window_width - 40.0
+  let viewport_height = window_height - 102.0
+  begin()
+  fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
+  text(20.0, 18.0, "LUNAR SURFACE - LOCAL FRAME", 16.0, 245, 249, 255)
+  text(20.0, 43.0, "RIGHT-DRAG: ORBIT | WHEEL: ALTITUDE", 10.0, 142, 203, 255)
+  fill(viewport_x, viewport_y, viewport_width, viewport_height, 2, 6, 11)
+
+  // Local tangent patch. It uses the same indexed mesh, material, lighting,
+  // depth, and camera-relative precision path as the orbital scene.
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.0 meter, 0.0 meter, 0.0 meter,
+           520.0 meter, 420.0 meter, 5.0 meter, 0.0, 10)
+
+  // Landing pad and inset center marking.
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 115.0 meter, 70.0 meter, 6.0 meter,
+           72.0 meter, 72.0 meter, 1.0 meter, 0.0, 11)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 115.0 meter, 70.0 meter, 7.5 meter,
+           5.0 meter, 48.0 meter, 0.6 meter, 0.0, 20)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 115.0 meter, 70.0 meter, 7.5 meter,
+           48.0 meter, 5.0 meter, 0.6 meter, 0.0, 21)
+
+  // Habitat cluster: two pressure volumes, a connecting spine, and airlocks.
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.0 meter - 95.0 meter, 25.0 meter, 19.0 meter,
+           54.0 meter, 25.0 meter, 14.0 meter, -0.18, 12)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.0 meter - 130.0 meter,
+           0.0 meter - 55.0 meter, 16.0 meter,
+           38.0 meter, 22.0 meter, 11.0 meter, 0.25, 12)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.0 meter - 110.0 meter,
+           0.0 meter - 18.0 meter, 13.0 meter,
+           10.0 meter, 38.0 meter, 7.0 meter, 0.15, 13)
+  draw_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
+              camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+              up_x, up_y, up_z, 0.0 meter - 70.0 meter,
+              18.0 meter, 31.0 meter,
+              17.0 meter, 3)
+
+  // Solar array and communications tower.
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.0 meter - 10.0 meter,
+           0.0 meter - 135.0 meter, 9.0 meter,
+           92.0 meter, 28.0 meter, 2.0 meter, -0.12, 14)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.0 meter - 205.0 meter,
+           85.0 meter, 42.0 meter,
+           5.0 meter, 5.0 meter, 38.0 meter, 0.0, 15)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 0.0 meter - 205.0 meter,
+           85.0 meter, 82.0 meter,
+           23.0 meter, 3.0 meter, 2.0 meter, 0.6, 16)
+
+  // Compact lander silhouette assembled from reusable cuboids.
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 112.0 meter, 62.0 meter, 22.0 meter,
+           18.0 meter, 13.0 meter, 9.0 meter, 0.35, 17)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 112.0 meter, 62.0 meter, 34.0 meter,
+           10.0 meter, 8.0 meter, 4.0 meter, 0.35, 18)
+  draw_box(viewport_x, viewport_y, viewport_width, viewport_height,
+           camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+           up_x, up_y, up_z, 112.0 meter, 62.0 meter, 13.0 meter,
+           34.0 meter, 4.0 meter, 2.0 meter, 0.35, 19)
+
+  // Partially buried boulders break up the otherwise planar bootstrap terrain.
+  draw_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
+              camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+              up_x, up_y, up_z, 245.0 meter,
+              0.0 meter - 110.0 meter, 5.0 meter,
+              18.0 meter, 3)
+  draw_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
+              camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+              up_x, up_y, up_z, 285.0 meter,
+              0.0 meter - 85.0 meter, 3.0 meter,
+              11.0 meter, 3)
+  draw_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
+              camera_x, camera_y, camera_z, forward_x, forward_y, forward_z,
+              up_x, up_y, up_z, 230.0 meter, 205.0 meter, 8.0 meter,
+              24.0 meter, 3)
+
+  text(20.0, window_height - 25.0,
+       "1 KM LOCAL TANGENT PATCH - CAMERA-RELATIVE METRE GEOMETRY", 10.0,
+       142, 164, 188)
+  present()
+}
+
+if open("Sagan lunar surface", 1100, 700) {
+  let yaw = 0.75
+  let pitch = 0.68
+  let distance: Float64<meter> = 620.0 meter
+  let running = true
+  while running {
+    if poll() == false { running = false }
+    if running {
+      yaw = wrapped_angle(yaw - orbit_delta_x() * 0.006)
+      pitch = pitch + orbit_delta_y() * 0.004
+      if pitch < 0.25 { pitch = 0.25 }
+      if pitch > 1.35 { pitch = 1.35 }
+      let zoom_factor = 1.0 - scroll_y() * 0.12
+      if zoom_factor < 0.35 { zoom_factor = 0.35 }
+      if zoom_factor > 2.5 { zoom_factor = 2.5 }
+      distance = distance * zoom_factor
+      if distance < 180.0 meter { distance = 180.0 meter }
+      if distance > 1500.0 meter { distance = 1500.0 meter }
+      let pitch_cosine = cosine(pitch)
+      let pitch_sine = sine(pitch)
+      let forward_x = 0.0 - cosine(yaw) * pitch_cosine
+      let forward_y = 0.0 - sine(yaw) * pitch_cosine
+      let forward_z = 0.0 - pitch_sine
+      let up_x = 0.0 - cosine(yaw) * pitch_sine
+      let up_y = 0.0 - sine(yaw) * pitch_sine
+      let up_z = pitch_cosine
+      let target_x = ORIGIN - 15.0 meter
+      let target_y = ORIGIN - 5.0 meter
+      let target_z = ORIGIN + 4.0 meter
+      let camera_x = target_x - forward_x * distance
+      let camera_y = target_y - forward_y * distance
+      let camera_z = target_z - forward_z * distance
+      compose(camera_x, camera_y, camera_z,
+              forward_x, forward_y, forward_z, up_x, up_y, up_z)
+    }
+  }
+  close()
+}
