@@ -10,7 +10,7 @@ rm -f "$capture" "$report"
 export SAGAN_RENDER_AUTOCLOSE_MS=250
 export SAGAN_RENDER_LIGHTING_CAPTURE_BMP="$capture"
 bash scripts/lighting_demo.sh | tee "$report"
-grep -q 'LIGHTING_DEMO driver=direct3d12 panels=3 lights=0,1,2' "$report"
+grep -q 'LIGHTING_DEMO driver=direct3d12 panels=3 lights=0,1,2 albedo=neutral-white' "$report"
 grep -q 'cleanup=1' "$report"
 [[ "$(head -c 2 "$capture")" == "BM" ]]
 [[ "$(od -An -td4 -j18 -N8 "$capture" | tr -s ' ' | sed 's/^ //;s/ $//')" == "960 540" ]]

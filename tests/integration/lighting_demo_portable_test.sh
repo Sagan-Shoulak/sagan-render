@@ -14,7 +14,7 @@ else
   expected=vulkan
 fi
 bash scripts/lighting_demo_portable.sh | tee "$report"
-grep -q "LIGHTING_DEMO driver=$expected panels=3 lights=0,1,2" "$report"
+grep -q "LIGHTING_DEMO driver=$expected panels=3 lights=0,1,2 albedo=neutral-white" "$report"
 grep -q 'cleanup=1' "$report"
 [[ "$(head -c 2 "$capture")" == "BM" ]]
 echo "Lighting demo passed on $expected."

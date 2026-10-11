@@ -133,7 +133,8 @@ int main()
     download = SDL_CreateGPUTransferBuffer(device, &transfer);
     if (!target || !download) fail("Could not create lighting demo targets");
 
-    auto sphere_pass = std::make_unique<sagan_render::scene_gpu::indexed_sphere_pass>(device);
+    auto sphere_pass = std::make_unique<sagan_render::scene_gpu::indexed_sphere_pass>(
+      device, false);
     const sagan_render::scene::render_item sphere{
       1, {0.0, 0.0, 0.0}, 1.0, "Lighting reference sphere"};
     const sagan_render::scene::camera camera{
@@ -160,8 +161,13 @@ int main()
       SDL_EndGPURenderPass(clear);
       for (std::uint32_t index = 0; index < views.size(); ++index)
       {
-        const std::vector<sagan_render::scene_gpu::sphere_draw> draws{{
-          sphere, camera, views[index], neutral}};
+        const std::vector<sagan_render::scene_gpu::mesh_draw> draws{{
+          .kind = sagan_render::scene_gpu::mesh_kind::sphere,
+          .item = sphere,
+          .camera = camera,
+          .target = views[index],
+          .material = neutral,
+          .albedo_map = sagan_render::scene_gpu::surface_map::none}};
         sphere_pass->render(commands, target, width, height, draws, light_rig(index));
       }
 
@@ -210,7 +216,8 @@ int main()
         SDL_UnmapGPUTransferBuffer(device, download);
         capture_pending = false;
         std::cout << "LIGHTING_DEMO driver=" << SDL_GetGPUDeviceDriver(device)
-                  << " panels=3 lights=0,1,2 ambient=" << evidence.ambient
+                  << " panels=3 lights=0,1,2 albedo=neutral-white ambient="
+                  << evidence.ambient
                   << " warm=" << evidence.warm << " cool=" << evidence.cool << '\n';
       }
     };
