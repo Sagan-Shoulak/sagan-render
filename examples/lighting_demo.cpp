@@ -121,7 +121,8 @@ int main()
     SDL_GPUTextureCreateInfo texture{};
     texture.type = SDL_GPU_TEXTURETYPE_2D;
     texture.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    texture.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
+    texture.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET |
+      SDL_GPU_TEXTUREUSAGE_SAMPLER;
     texture.width = width;
     texture.height = height;
     texture.layer_count_or_depth = 1;
