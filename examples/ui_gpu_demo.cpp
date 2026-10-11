@@ -808,6 +808,9 @@ namespace
   std::uint64_t bridge_deadline{};
   std::uint64_t bridge_started_at{};
   std::uint64_t bridge_test_step_ms{};
+  std::uint64_t bridge_test_late_step_ms{};
+  std::uint64_t bridge_test_late_after_ms{};
+  std::vector<std::uint64_t> bridge_test_capture_times;
   std::uint64_t bridge_test_time_ms{};
   double bridge_elapsed_override{-1.0};
   bool bridge_captured{};
@@ -894,6 +897,18 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   bridge_started_at = SDL_GetTicks();
   const char *step_value = std::getenv("SAGAN_RENDER_TEST_STEP_MS");
   bridge_test_step_ms = step_value ? std::strtoull(step_value, nullptr, 10) : 0;
+  const char *late_step = std::getenv("SAGAN_RENDER_TEST_LATE_STEP_MS");
+  const char *late_after = std::getenv("SAGAN_RENDER_TEST_LATE_AFTER_MS");
+  bridge_test_late_step_ms = late_step ? std::strtoull(late_step, nullptr, 10) : 0;
+  bridge_test_late_after_ms = late_after ? std::strtoull(late_after, nullptr, 10) : 0;
+  bridge_test_capture_times.clear();
+  if (const char *times = std::getenv("SAGAN_RENDER_TEST_CAPTURE_TIMES_MS"))
+  {
+    std::istringstream entries{times};
+    std::string value;
+    while (std::getline(entries, value, ','))
+      bridge_test_capture_times.push_back(std::strtoull(value.c_str(), nullptr, 10));
+  }
   bridge_test_time_ms = 0;
   // Private deterministic input script. It only feeds existing key/pointer
   // edges; Sagan still owns hit testing, focus, modal policy and construction.
@@ -1376,7 +1391,28 @@ auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void
     capture = std::string{sequence_value} + std::to_string(bridge_elapsed_ms()) + ".bmp";
   bridge_gpu->render(*bridge_list, true, capture);
   if (!capture.empty()) bridge_captured = true;
-  bridge_test_time_ms += bridge_test_step_ms;
+  auto next_step = bridge_test_step_ms;
+  if (bridge_test_step_ms && bridge_test_late_step_ms &&
+      bridge_test_time_ms >= bridge_test_late_after_ms)
+  {
+    next_step = bridge_test_late_step_ms;
+    // Sparse long UI/economy checks can skip intermediate presentations, never
+    // simulation time or a timed input/capture edge. Dense camera tests opt out.
+    const auto stop_at = [&](const std::uint64_t at)
+    {
+      if (at > bridge_test_time_ms)
+        next_step = std::min(next_step, at - bridge_test_time_ms);
+    };
+    if (bridge_test_input_next < bridge_test_inputs.size())
+      stop_at(bridge_test_inputs[bridge_test_input_next].at);
+    for (const auto at : bridge_test_capture_times) stop_at(at);
+    if (!bridge_delayed_keys_delivered && !bridge_delayed_keys.empty()) stop_at(bridge_delayed_keys_at);
+    if (bridge_delayed_pointer_pending) stop_at(bridge_delayed_pointer_at);
+    if (bridge_test_orbit_pending) stop_at(bridge_test_orbit_at);
+    if (!bridge_captured && capture_value && *capture_value) stop_at(capture_delay);
+    if (bridge_deadline) stop_at(bridge_deadline);
+  }
+  bridge_test_time_ms += next_step;
 }
 
 auto sagan_5f5f72656e6465725f75695f6b65795f70726573736564(

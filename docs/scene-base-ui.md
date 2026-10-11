@@ -177,6 +177,14 @@ therefore cannot jump past a capture's short automatic-close window. This fixes
 the observed Windows CI missing-focus-capture failure without relaxing capture,
 frame-difference or pixel assertions, or changing interactive rendering.
 
+Long UI/economy sequences opt into private `SAGAN_RENDER_TEST_LATE_AFTER_MS=25000`
+and `SAGAN_RENDER_TEST_LATE_STEP_MS=5000`: after entry/build interaction, they
+skip intermediate presentations but stop at every upcoming scripted input,
+selected capture and automatic-close boundary. The Sagan economy still advances
+through every simulated second. Dense lunar and Earth-zoom tests explicitly
+unset these controls and retain their fixed frame steps. Checkpoint states,
+pixel assertions and the unattended-maintenance duration are not reduced.
+
 Normal runs leave these hooks unset. Launch the demo as before:
 
 ```bash
