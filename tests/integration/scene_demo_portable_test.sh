@@ -71,5 +71,6 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-idle.bmp)" == \
   exit 1
 fi
 echo "Sagan scene demo passed on $expected: smooth indexed bodies rendered; selection, right-drag orbit, and wheel zoom changed frame data."
+bash tests/integration/earth_zoom_test.sh "$executable"
 bash tests/integration/lunar_transition_test.sh "$executable"
 bash tests/integration/scene_base_ui_test.sh "$executable" build/scene-sagan-demo-test/program.cpp

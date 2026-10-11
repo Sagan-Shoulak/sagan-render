@@ -995,12 +995,16 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   let moon_sample = sample(third)
   let scene_near: Float64<meter> = 1000.0 kilometer
   let scene_far: Float64<meter> = 500000000.0 kilometer
-  // Projection follows geometry, never the UI's detail/settled flags. Bound
-  // the near plane by the Moon's nearest possible forward surface; otherwise
-  // a 1,000 km plane cuts off the approaching ground and exposes back faces.
-  let lunar_clearance = projected_depth(
-    third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch) - moon_sample.radius()
-  scene_near = lunar_clearance * 0.01
+  // Projection follows actual surface distance, not UI state or forward depth.
+  // An off-screen Moon can cross the eye plane while still hundreds of Mm away;
+  // its forward clearance must not collapse Earth depth precision to a 1 m near
+  // plane. One percent of radial altitude remains conservative for close ground.
+  let lunar_dx = (camera_x - moon_sample.x()) / (1.0 meter)
+  let lunar_dy = (camera_y - moon_sample.y()) / (1.0 meter)
+  let lunar_dz = (camera_z - moon_sample.z()) / (1.0 meter)
+  let lunar_altitude = sqrt(lunar_dx * lunar_dx + lunar_dy * lunar_dy + lunar_dz * lunar_dz) *
+    (1.0 meter) - moon_sample.radius()
+  scene_near = lunar_altitude * 0.01
   if scene_near < 1.0 meter { scene_near = 1.0 meter }
   if scene_near > 1000.0 kilometer { scene_near = 1000.0 kilometer }
   if surface_detail_active == false {

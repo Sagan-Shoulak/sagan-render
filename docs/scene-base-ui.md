@@ -10,7 +10,12 @@ verified_by: null
 # Scene demo base UI
 
 This issue #11 slice changes the combined orbital/base demo's sidebar, not its
-lunar mesh, surface material, projection, camera path or fixture geometry.
+lunar mesh, surface material, camera path or fixture geometry.
+The owner-authorized Earth-zoom crash fix alongside this UI slice separates a
+mesh's coordinate origin from box-center visibility validation; it does not
+change the projection equations or lunar geometry. Shared near-plane adaptation
+uses radial surface distance so the same off-screen crossing cannot make Earth
+disappear through depth rounding.
 The UI is Sagan-authored in `examples/scene_sagan_demo/src/base_ui.sagan`;
 the session-only economy fixture lives alongside it in `base_economy.sagan`.
 The native host only supplies existing input edges, logical dimensions and GPU
@@ -182,7 +187,8 @@ Windows D3D12 evidence does not independently establish Vulkan/Metal support;
 the portable CI jobs run the same tests. Issue #11's broader UI roadmap remains
 open. PR #68 supplies the independently verified lunar continuity dependency;
 the owner-authorized dev integration preserves that fix and leaves issue #11
-open. This UI slice does not change the lunar renderer.
+open. The UI slice does not change lunar geometry/detail; its accompanying
+Earth-zoom fix is documented in [the transition diagnosis](lunar-transition-debugging.md).
 
 Local context verification uses the exact Sagan pin
 `d8f6d50672908b852bb9003b8200a7b0875ac3f3`, MSYS2 g++ 15.2.0 and SDL 3.4.16.

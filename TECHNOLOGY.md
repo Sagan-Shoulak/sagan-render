@@ -677,7 +677,8 @@ world +Z north are shared with Earth. Local rocks use a neutral primitive
 appearance, not the Moon appearance that selects planetary geometry.
 
 Ground and structures use the same field of view and near/far planes. The near
-plane follows lunar forward clearance continuously, not the UI detail flag.
+plane follows radial lunar surface distance continuously, not the UI detail flag
+or an off-screen Moon's forward-depth crossing.
 Descent and settled orbit use the identical local tangent-frame conversion,
 and sidebar space eases rather than snapping at settlement. Deterministic
 50-millisecond captures and per-draw state traces guard these seams; see
@@ -774,6 +775,19 @@ camera near plane. A large radius can geometrically cross that plane while its
 center remains behind the viewer, but the current center-based perspective
 transform cannot represent that case. Culling it is ordinary visibility
 behavior; invalid finite/unit inputs remain contract errors.
+
+Mesh coordinate origins are distinct from those object visibility centers.
+During Earth zoom the Moon's center can pass in front while its surface anchor
+lies behind the eye plane. Its anchor-relative vertices still use a valid
+signed affine projection; `prepare_oriented_mesh_draw` therefore accepts finite
+rear/eye-plane origins and leaves vertex clipping to the GPU. Ordinary box
+preparation retains its center-in-front guard. The native anchor test and live
+Earth-zoom regression exercise this crossing. The shared near plane uses radial
+surface distance so a distant off-screen Moon cannot collapse it to 1 m and
+round Earth's projected depth to the clear value. Central-disk pixel checks
+exclude HUD/orbit-guide colors and require visible Earth before/during/after
+the crossing. Lunar geometry, detail, projection equations and the
+compiler/shader ABI remain unchanged.
 
 ## Supported foundation and rollback
 

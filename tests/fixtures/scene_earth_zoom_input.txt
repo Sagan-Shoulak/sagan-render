@@ -1,0 +1,5 @@
+# Earth focus starts via injected Right/Enter; two wheel inputs expose the
+# Moon-origin/visibility-center crossing at 4450 ms on the 50 ms frame clock.
+0 resize 960 540
+3500 wheel 480 6
+4000 wheel 480 2

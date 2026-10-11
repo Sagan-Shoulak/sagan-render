@@ -218,11 +218,15 @@ Live pointer/keyboard and 800x400 captures check recipes, disabled actions,
 no wasted kits, construction, power/battery, food and kit counts.
 Windows D3D12 evidence does not establish new Vulkan/Metal results.
 
-The earlier dense 124-frame lunar continuity regression passed. Default
-real-time Earth/Sun ancestor focus previously raised
-`Mesh box center must be in front of the camera`. Unchanged dependency
-`b2271bf` builds its lunar anchor transform through a box helper; an
-isolated probe reproduces the guard with a front-facing Moon center and
-rear-facing anchor. That is still a candidate explanation, not an exact failing
-live-frame diagnosis or claimed fix. Lunar code remains untouched; evidence is
-under `build/scene-base-ui-test/`.
+The dense 124-frame lunar continuity regression remains in the focused tests.
+An owner-reported Earth-zoom crash was separately reproduced at 4435 ms with a
+1 ms frame clock, then reduced to a 4450 ms sample on the standard 50 ms clock.
+The Moon center was in front while its mesh coordinate anchor was behind the
+camera. A box-center guard incorrectly rejected that origin. The authorized fix
+retains strict box validation and uses signed mesh-origin transforms for the
+same lunar geometry. The new Earth-zoom and native anchor tests preserve
+before/during/after captures. The follow-up also replaces off-screen forward
+clearance with radial surface distance for shared near-plane adaptation and
+requires actual Earth-disk pixels, not HUD/guide colors; see
+[the diagnosis](lunar-transition-debugging.md).
+This changes no economy rules, source textures, shader ABI or dependency pins.

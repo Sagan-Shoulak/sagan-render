@@ -273,5 +273,6 @@ if [[ "$(fingerprint build/scene-sagan-demo-test/scene-marker-base.bmp)" == \
   exit 1
 fi
 echo "Sagan scene demo passed on D3D12: indexed bodies and lunar marker rendered; hover, continuous local-base handoff, base UI focus, slot interaction, return to orbit, orbit, and zoom changed frame data."
+bash tests/integration/earth_zoom_test.sh build/scene-sagan-demo-test/scene-sagan-demo-test.exe
 bash tests/integration/lunar_transition_test.sh build/scene-sagan-demo-test/scene-sagan-demo-test.exe
 bash tests/integration/scene_base_ui_test.sh build/scene-sagan-demo-test/scene-sagan-demo-test.exe build/scene-sagan-demo-test/program.cpp
