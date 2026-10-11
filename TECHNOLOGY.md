@@ -454,14 +454,11 @@ counts needed by `SDL_GPUShaderCreateInfo`. `material_contract_test.sh` checks
 the byte layout, sRGB-to-linear conversion, reference Lambert calculation, and
 SDL binding convention on every supported platform.
 
-This slice defines and tests the source interface only. Ahead-of-time
-SDL_shadercross compilation, reflected artifact validation, GPU pipeline use,
-native sampled textures, multiple lights, post-processing, and replacement of
-the sphere impostor remain open under #16. The issue #13 demo can assign one
-material uniform per sphere cell from small NASA-derived albedo grids without
-changing this shader resource ABI; that bootstrap is not filtered texture
-sampling. The repository must not claim that handwritten
-source plus a manifest is equivalent to compiled DXIL, SPIR-V, or MSL.
+The material contract is now compiled ahead of time, reflected, and consumed
+by the indexed depth-tested scene pipeline. The scene binds filtered global and
+local textures through the same sampled-material ABI. Multiple lights and the
+runtime post-processing pass remain open under #16; generated source plus a
+manifest is not treated as equivalent to reviewed DXIL, SPIR-V, and MSL.
 
 The first shader-toolchain dependency boundary is now pinned in
 `third_party/sdl-shadercross.lock`. `fetch-shadercross-source.sh` checks out
@@ -501,16 +498,35 @@ pins, verifies the DXC archive digest before extraction, initializes only the
 SPIRV-Cross gitlink, builds each dependency into ignored isolated directories,
 and smoke-tests the resulting CLI. Linux CI performs the real build; the
 cross-platform plan test separately prevents configuration drift on every
-runner. This still does not replace the bootstrap runtime shaders: project
-artifact generation and reflection checks are the next boundary.
+runner. Project-owned artifact generation and reflection checks now replace
+the bootstrap material-shader path. The original foundation fixtures remain
+only for the isolated first-triangle probe.
 
 The material artifact generator compiles `VSMain` and `PSMain` from that one
 HLSL source into DXIL, SPIR-V, MSL, and reflection JSON. The focused test checks
 container magic, textual MSL stages, vertex inputs, uniform-buffer counts, and
 source/tool provenance. CI runs the generation twice and rejects any byte
-difference, then retains one set as inspectable evidence. Runtime pipelines do
-not consume these files yet; generation proof and backend integration remain
-separate review boundaries.
+difference, then retains one set as inspectable evidence. Runtime pipelines
+consume these files only after their source, reflection, and provenance
+inventory pass independently.
+
+### Post-processing contract
+
+`shaders/post_process/tonemap.hlsl` begins the post-processing boundary with a
+bufferless full-screen triangle. Its fragment stage samples a completed linear
+scene-color target, applies exponential exposure mapping, converts to display
+gamma through an explicit inverse-gamma uniform, and writes opaque display
+color. The pass disables depth testing, depth writes, and blending because it
+replaces every output pixel; it does not inherit scene-material state.
+
+Scene rendering and display conversion are deliberately separate passes. This
+lets later bloom, color grading, or diagnostic effects consume the same linear
+scene result without adding backend objects or effect-specific fields to the
+public Sagan scene API. The pinned Linux generator produces DXIL, SPIR-V, MSL,
+and reflection JSON twice in CI, and the focused tests require deterministic
+artifacts plus the same sampled-texture and uniform binding counts on every
+backend. Runtime integration remains the next slice and must prove that the
+offscreen scene target survives until the post pass completes.
 
 The exact reviewed outputs are versioned in `shaders/generated/material/`.
 Their inventory binds them to the source, manifest, SDL, SDL_shadercross,
