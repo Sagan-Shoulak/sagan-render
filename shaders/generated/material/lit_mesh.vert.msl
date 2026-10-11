@@ -18,8 +18,9 @@ struct type_MaterialUniform
 struct type_LightingUniform
 {
     float4 ambient_linear;
-    float4 direction_to_light_and_intensity;
-    float4 light_color_linear;
+    float4 direction_to_light_and_intensity[4];
+    float4 light_color_linear[4];
+    float4 light_count_and_padding;
 };
 
 struct type_SurfaceLodUniform

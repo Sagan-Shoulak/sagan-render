@@ -528,10 +528,16 @@ scene result without adding backend objects or effect-specific fields to the
 public Sagan scene API. The pinned Linux generator produces DXIL, SPIR-V, MSL,
 and reflection JSON twice in CI, and the focused tests require deterministic
 artifacts plus the same sampled-texture and uniform binding counts on every
-backend. Runtime integration remains the next slice and must prove that the
-offscreen scene target survives until the post pass completes.
+backend. A native two-pass probe first clears an offscreen linear scene-color
+target, ends that render pass, then samples the retained target through the
+full-screen shader into a separate display-color target. It reads back and
+checks the resulting tone-mapped pixel on D3D12, Vulkan, and Metal. The probe
+releases the pipeline, transfer buffer, sampler, and both textures before
+destroying the device, making cross-pass resource lifetime explicit and
+testable.
 
-The exact reviewed outputs are versioned in `shaders/generated/material/`.
+The exact reviewed outputs are versioned in `shaders/generated/material/` and
+`shaders/generated/post_process/`.
 Their inventory binds them to the source, manifest, SDL, SDL_shadercross,
 SPIRV-Cross, and DXC revisions. Every supported platform validates the package
 without installing a compiler; Linux also regenerates it and requires a

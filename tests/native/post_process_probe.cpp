@@ -138,10 +138,13 @@ namespace
     const auto offset = (height / 2 * width + width / 2) * pixel_bytes;
     const std::array<std::uint8_t, 3> center{
       pixels[offset], pixels[offset + 1], pixels[offset + 2]};
-    if (center[0] < 210 || center[1] < 100 || center[1] > 150 ||
+    if (center[0] < 180 || center[0] > 210 || center[1] < 100 || center[1] > 150 ||
         center[2] < 45 || center[2] > 90 ||
         !(center[0] > center[1] && center[1] > center[2]))
-      throw std::runtime_error("Tone-mapped center pixel is outside the reviewed range");
+      throw std::runtime_error(
+        "Tone-mapped center pixel is outside the reviewed range: " +
+        std::to_string(center[0]) + "," + std::to_string(center[1]) + "," +
+        std::to_string(center[2]));
     return center;
   }
 }

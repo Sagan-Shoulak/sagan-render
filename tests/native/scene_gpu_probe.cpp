@@ -204,7 +204,7 @@ int main()
         "3D scene capture lacks distinguishable Sun, Earth, or Moon meshes");
     }
     std::cout << "SCENE_3D driver=" << SDL_GetGPUDeviceDriver(device)
-              << " indexed=1 depth=1 views=4 bodies=3 sun=" << result.sun
+              << " indexed=1 depth=1 views=4 bodies=3 lights=2 sun=" << result.sun
               << " earth=" << result.earth << " moon=" << result.moon
               << " precision_origin_metres=1e15 cleanup=1\n";
 

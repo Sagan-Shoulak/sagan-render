@@ -43,6 +43,7 @@ jobs:
           bash tests/integration/post_process_shader_artifacts_test.sh build/generated-post-process/first
           bash tests/integration/post_process_shader_artifacts_test.sh build/generated-post-process/second
           diff -qr build/generated-post-process/first build/generated-post-process/second
+          diff -qr build/generated-post-process/first shaders/generated/post_process
       - uses: actions/upload-artifact@v6
         if: always()
         with:
@@ -101,7 +102,9 @@ jobs:
           bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/post_process_contract_test.sh
+          bash tests/integration/post_process_shader_artifacts_test.sh
           bash tests/integration/material_depth_probe_test.sh
+          bash tests/integration/post_process_probe_test.sh
           bash tests/integration/scene_gpu_probe_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
@@ -124,6 +127,8 @@ jobs:
             render/build/sdl-gpu/sdl-gpu-report.txt
             render/build/material-depth/material-depth.bmp
             render/build/material-depth/material-depth-report.txt
+            render/build/post-process/post-process.bmp
+            render/build/post-process/post-process-report.txt
             render/build/scene-3d/scene-3d.bmp
             render/build/scene-3d/scene-3d-report.txt
             render/build/ui-contract/ui-layout.svg
@@ -203,7 +208,9 @@ jobs:
           bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/post_process_contract_test.sh
+          bash tests/integration/post_process_shader_artifacts_test.sh
           xvfb-run --auto-servernum bash tests/integration/material_depth_probe_portable_test.sh
+          xvfb-run --auto-servernum bash tests/integration/post_process_probe_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/scene_gpu_probe_portable_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
@@ -224,7 +231,9 @@ jobs:
           bash tests/integration/material_shader_artifacts_test.sh
           bash tests/integration/material_contract_test.sh
           bash tests/integration/post_process_contract_test.sh
+          bash tests/integration/post_process_shader_artifacts_test.sh
           bash tests/integration/material_depth_probe_portable_test.sh
+          bash tests/integration/post_process_probe_portable_test.sh
           bash tests/integration/scene_gpu_probe_portable_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
@@ -244,6 +253,8 @@ jobs:
             build/sdl-gpu/sdl-gpu-report.txt
             build/material-depth/material-depth.bmp
             build/material-depth/material-depth-report.txt
+            build/post-process/post-process.bmp
+            build/post-process/post-process-report.txt
             build/scene-3d/scene-3d.bmp
             build/scene-3d/scene-3d-report.txt
             build/ui-contract/ui-layout.svg

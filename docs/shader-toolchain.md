@@ -94,11 +94,10 @@ requires each pair of directories to be byte-identical. The reviewed output
 directories are retained as CI evidence.
 
 Reviewed material outputs are committed under `shaders/generated/material/`
-with their provenance and SHA-256 inventory. Post-process outputs first remain
-CI evidence until their generated diff is reviewed, then follow the same
-versioned-artifact boundary. Every platform validates committed packages
-without needing a shader compiler, while Linux additionally requires fresh
-generation to match each committed directory byte for byte.
+and post-process outputs under `shaders/generated/post_process/`, each with its
+provenance and SHA-256 inventory. Every platform validates both committed
+packages without needing a shader compiler, while Linux additionally requires
+fresh generation to match each committed directory byte for byte.
 
 These files still do not replace the bootstrap runtime fixtures. The next
 boundary is to load this package in an indexed, depth-tested GPU pipeline using
