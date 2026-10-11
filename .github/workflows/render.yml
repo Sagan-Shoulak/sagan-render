@@ -106,6 +106,7 @@ jobs:
           bash tests/integration/material_depth_probe_test.sh
           bash tests/integration/post_process_probe_test.sh
           bash tests/integration/scene_gpu_probe_test.sh
+          bash tests/integration/lighting_demo_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_test.sh
@@ -129,6 +130,8 @@ jobs:
             render/build/material-depth/material-depth-report.txt
             render/build/post-process/post-process.bmp
             render/build/post-process/post-process-report.txt
+            render/build/lighting-demo/lighting-demo.bmp
+            render/build/lighting-demo/lighting-demo-report.txt
             render/build/scene-3d/scene-3d.bmp
             render/build/scene-3d/scene-3d-report.txt
             render/build/ui-contract/ui-layout.svg
@@ -212,6 +215,7 @@ jobs:
           xvfb-run --auto-servernum bash tests/integration/material_depth_probe_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/post_process_probe_portable_test.sh
           xvfb-run --auto-servernum bash tests/integration/scene_gpu_probe_portable_test.sh
+          xvfb-run --auto-servernum bash tests/integration/lighting_demo_portable_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           xvfb-run --auto-servernum bash tests/integration/scene_demo_portable_test.sh
@@ -235,6 +239,7 @@ jobs:
           bash tests/integration/material_depth_probe_portable_test.sh
           bash tests/integration/post_process_probe_portable_test.sh
           bash tests/integration/scene_gpu_probe_portable_test.sh
+          bash tests/integration/lighting_demo_portable_test.sh
           bash tests/integration/ui_contract_test.sh
           bash tests/integration/scene_contract_test.sh
           bash tests/integration/scene_demo_portable_test.sh
@@ -255,6 +260,8 @@ jobs:
             build/material-depth/material-depth-report.txt
             build/post-process/post-process.bmp
             build/post-process/post-process-report.txt
+            build/lighting-demo/lighting-demo.bmp
+            build/lighting-demo/lighting-demo-report.txt
             build/scene-3d/scene-3d.bmp
             build/scene-3d/scene-3d-report.txt
             build/ui-contract/ui-layout.svg

@@ -553,6 +553,16 @@ than painter's order, controls visibility. D3D12 consumes DXIL, Vulkan consumes
 SPIR-V, and Metal consumes MSL from the same reviewed package. Each platform
 saves and inspects the same 256x256 offscreen capture.
 
+The lighting demo makes the multi-light contract directly inspectable. It
+presents three copies of the same neutral indexed sphere: ambient only, a warm
+directional key light, and that key plus a cool directional fill light. The
+window title names the panels in that order. Escape closes an interactive run;
+the focused test instead captures a deterministic 960x540 frame, verifies the
+neutral, warm, and cool responses occupy their intended panels, and closes the
+same executable automatically. Run it on Windows with
+`bash scripts/lighting_demo.sh`, or on Linux and macOS with
+`bash scripts/lighting_demo_portable.sh`.
+
 The #29 completion target is a full 3D scene, not a more elaborate impostor.
 Sun, Earth, and Moon must be model-based entities backed by vertex/index
 geometry, transformed and depth-tested by the shared 3D pipeline. Its

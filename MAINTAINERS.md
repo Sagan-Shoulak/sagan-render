@@ -97,6 +97,7 @@ bash scripts/loading_demo.sh
 bash scripts/toolbar_demo.sh
 bash scripts/scene_demo.sh
 bash scripts/surface_demo.sh
+bash scripts/lighting_demo.sh
 ```
 
 These open native windows. The tests set `SAGAN_RENDER_AUTOCLOSE_MS` to avoid
