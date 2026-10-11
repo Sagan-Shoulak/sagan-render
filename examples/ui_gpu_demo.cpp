@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -473,6 +474,36 @@ namespace
       if (!commands) fail("Could not acquire UI command buffer");
       if (repaint)
       {
+        if (!capture.empty() && std::getenv("SAGAN_RENDER_TEST_TRACE_SCENE"))
+        {
+          std::cout << std::setprecision(17) << "SAGAN_SCENE_FRAME capture=" << capture << '\n';
+          for (const auto &draw : scene_draws)
+          {
+            const auto relative = sagan_render::scene::subtract(draw.item.position, draw.camera.position);
+            const double altitude = std::sqrt(relative.x_metres * relative.x_metres +
+              relative.y_metres * relative.y_metres + relative.z_metres * relative.z_metres) -
+              draw.item.radius_metres;
+            std::cout << "SAGAN_SCENE_DRAW id=" << draw.item.identifier
+                      << " radius=" << draw.item.radius_metres
+                      << " map=" << static_cast<int>(draw.albedo_map)
+                      << " altitude=" << altitude
+                      << " relative=" << relative.x_metres << ',' << relative.y_metres << ',' << relative.z_metres
+                      << " forward=" << draw.camera.forward.x << ',' << draw.camera.forward.y << ',' << draw.camera.forward.z
+                      << " up=" << draw.camera.up.x << ',' << draw.camera.up.y << ',' << draw.camera.up.z
+                      << " near=" << draw.camera.near_metres << " far=" << draw.camera.far_metres
+                      << " fov=" << draw.camera.vertical_field_of_view_radians
+                      << " viewport=" << draw.target.x << ',' << draw.target.y << ','
+                      << draw.target.width << ',' << draw.target.height
+                      << " camera=" << draw.camera.position.x_metres << ','
+                      << draw.camera.position.y_metres << ',' << draw.camera.position.z_metres
+                      << " extents=" << draw.half_extents.x_metres << ','
+                      << draw.half_extents.y_metres << ',' << draw.half_extents.z_metres
+                      << " detail=" << (draw.albedo_map == sagan_render::scene_gpu::surface_map::moon_lro
+                        ? sagan_render::scene::lunar_detail_weight(altitude) : 0.0F)
+                      << " terrain_indices=" << (draw.albedo_map == sagan_render::scene_gpu::surface_map::moon_lro
+                        ? 6 * sagan_render::scene::lunar_face_index_count : 0) << '\n';
+          }
+        }
         SDL_GPUColorTargetInfo color_target{};
         color_target.texture = target;
         color_target.clear_color = {0.0F, 0.0F, 0.0F, 1.0F};
@@ -741,6 +772,11 @@ namespace
   bool bridge_delayed_keys_delivered{};
   std::uint64_t bridge_delayed_pointer_at{};
   bool bridge_delayed_pointer_pending{};
+  std::uint64_t bridge_test_orbit_at{};
+  double bridge_test_orbit_x{};
+  double bridge_test_orbit_y{};
+  double bridge_test_scroll{};
+  bool bridge_test_orbit_pending{};
   bool bridge_running{};
   bool bridge_pointer_down{};
   bool bridge_pointer_up{};
@@ -753,11 +789,18 @@ namespace
   double bridge_scroll_y{};
   std::uint64_t bridge_deadline{};
   std::uint64_t bridge_started_at{};
+  std::uint64_t bridge_test_step_ms{};
+  std::uint64_t bridge_test_time_ms{};
   double bridge_elapsed_override{-1.0};
   bool bridge_captured{};
   std::string bridge_driver;
   std::int64_t bridge_width{};
   std::int64_t bridge_height{};
+
+  auto bridge_elapsed_ms() -> std::uint64_t
+  {
+    return bridge_test_step_ms ? bridge_test_time_ms : SDL_GetTicks() - bridge_started_at;
+  }
 
   auto bridge_color(const std::int64_t red, const std::int64_t green,
                     const std::int64_t blue) -> color
@@ -821,8 +864,16 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   const char *autoclose_value = std::getenv("SAGAN_RENDER_AUTOCLOSE_MS");
   const std::uint64_t autoclose = autoclose_value && *autoclose_value
     ? std::strtoull(autoclose_value, nullptr, 10) : 0;
-  bridge_deadline = autoclose == 0 ? 0 : SDL_GetTicks() + autoclose;
+  bridge_deadline = autoclose;
   bridge_started_at = SDL_GetTicks();
+  const char *step_value = std::getenv("SAGAN_RENDER_TEST_STEP_MS");
+  bridge_test_step_ms = step_value ? std::strtoull(step_value, nullptr, 10) : 0;
+  bridge_test_time_ms = 0;
+  // The manual launcher intentionally clears AUTOCLOSE. Allow a deterministic
+  // launcher-validation run to close itself without changing launcher policy.
+  const char *stop_value = std::getenv("SAGAN_RENDER_TEST_STOP_AFTER_MS");
+  if (bridge_test_step_ms && !bridge_deadline && stop_value)
+    bridge_deadline = std::strtoull(stop_value, nullptr, 10);
   const char *elapsed_value = std::getenv("SAGAN_RENDER_ELAPSED_SECONDS");
   bridge_elapsed_override = elapsed_value && *elapsed_value
     ? std::strtod(elapsed_value, nullptr) : -1.0;
@@ -874,20 +925,37 @@ auto sagan_5f5f72656e6465725f75695f6f70656e(
   if (orbit_y && *orbit_y) bridge_orbit_delta_y = std::strtod(orbit_y, nullptr);
   const char *scroll_y = std::getenv("SAGAN_RENDER_TEST_SCROLL_Y");
   if (scroll_y && *scroll_y) bridge_scroll_y = std::strtod(scroll_y, nullptr);
+  const char *orbit_after = std::getenv("SAGAN_RENDER_TEST_ORBIT_AFTER_MS");
+  bridge_test_orbit_pending = orbit_after && *orbit_after;
+  if (bridge_test_orbit_pending)
+  {
+    bridge_test_orbit_at = std::strtoull(orbit_after, nullptr, 10);
+    bridge_test_orbit_x = bridge_orbit_delta_x;
+    bridge_test_orbit_y = bridge_orbit_delta_y;
+    bridge_test_scroll = bridge_scroll_y;
+    bridge_orbit_delta_x = bridge_orbit_delta_y = bridge_scroll_y = 0.0;
+  }
   return true;
 }
 
 auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
 {
   if (!bridge_gpu || !bridge_running) return false;
+  if (bridge_test_orbit_pending && bridge_elapsed_ms() >= bridge_test_orbit_at)
+  {
+    bridge_orbit_delta_x += bridge_test_orbit_x;
+    bridge_orbit_delta_y += bridge_test_orbit_y;
+    bridge_scroll_y += bridge_test_scroll;
+    bridge_test_orbit_pending = false;
+  }
   if (!bridge_delayed_keys_delivered && !bridge_delayed_keys.empty() &&
-      SDL_GetTicks() - bridge_started_at >= bridge_delayed_keys_at)
+      bridge_elapsed_ms() >= bridge_delayed_keys_at)
   {
     for (const auto &key : bridge_delayed_keys) remember_key(key);
     bridge_delayed_keys_delivered = true;
   }
   if (bridge_delayed_pointer_pending &&
-      SDL_GetTicks() - bridge_started_at >= bridge_delayed_pointer_at)
+      bridge_elapsed_ms() >= bridge_delayed_pointer_at)
   {
     bridge_pointer_down = true;
     bridge_pointer_up = true;
@@ -960,7 +1028,7 @@ auto sagan_5f5f72656e6465725f75695f706f6c6c() -> bool
     }
   }
   update_bridge_size();
-  if (bridge_deadline != 0 && SDL_GetTicks() >= bridge_deadline) bridge_running = false;
+  if (bridge_deadline != 0 && bridge_elapsed_ms() >= bridge_deadline) bridge_running = false;
   return bridge_running;
 }
 
@@ -1003,7 +1071,7 @@ auto sagan_5f5f72656e6465725f75695f686569676874() -> double
 auto sagan_5f5f72656e6465725f656c61707365645f7365636f6e6473() -> double
 {
   if (bridge_elapsed_override >= 0.0) return bridge_elapsed_override;
-  return static_cast<double>(SDL_GetTicks() - bridge_started_at) / 1000.0;
+  return static_cast<double>(bridge_elapsed_ms()) / 1000.0;
 }
 
 auto sagan_5f5f72656e6465725f75695f626567696e() -> void
@@ -1094,7 +1162,9 @@ auto sagan_5f5f72656e6465725f75695f6d6573685f737068657265(
     material = {{0.04F, 0.18F, 0.92F, 1.0F}, {0.0F, 0.01F, 0.03F, 0.7F}};
   else
     material = {{0.48F, 0.52F, 0.58F, 1.0F}, {0.0F, 0.0F, 0.0F, 0.85F}};
-  if (selected)
+  // Moon selection is conveyed by UI, not a blue emissive ground layer. Keep
+  // one neutral material through orbital and local framing.
+  if (selected && appearance != 3)
   {
     material.emissive_linear_and_roughness.x += 0.04F;
     material.emissive_linear_and_roughness.y += 0.08F;
@@ -1207,11 +1277,15 @@ auto sagan_5f5f72656e6465725f75695f70726573656e74() -> void
   const char *capture_delay_value = std::getenv("SAGAN_RENDER_UI_CAPTURE_AFTER_MS");
   const std::uint64_t capture_delay = capture_delay_value && *capture_delay_value
     ? std::strtoull(capture_delay_value, nullptr, 10) : 0;
-  const bool capture_ready = SDL_GetTicks() - bridge_started_at >= capture_delay;
-  const std::string capture = !bridge_captured && capture_ready && capture_value && *capture_value
+  const bool capture_ready = bridge_elapsed_ms() >= capture_delay;
+  std::string capture = !bridge_captured && capture_ready && capture_value && *capture_value
     ? capture_value : std::string{};
+  const char *sequence_value = std::getenv("SAGAN_RENDER_TEST_CAPTURE_PREFIX");
+  if (bridge_test_step_ms && capture_ready && sequence_value && *sequence_value)
+    capture = std::string{sequence_value} + std::to_string(bridge_elapsed_ms()) + ".bmp";
   bridge_gpu->render(*bridge_list, true, capture);
   if (!capture.empty()) bridge_captured = true;
+  bridge_test_time_ms += bridge_test_step_ms;
 }
 
 auto sagan_5f5f72656e6465725f75695f6b65795f70726573736564(

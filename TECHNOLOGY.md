@@ -304,7 +304,8 @@ handoff first orbits yaw, pitch, and roll into the marker-facing local camera
 frame, then translates the target and reduces reciprocal distance so the
 descent cannot cut a chord through the Moon. It fades the orbital marker
 through fixed-palette stages, hides it when local detail owns the view, and
-activates tangent-patch detail near the end of the ease. Base structures remain
+uses one closed lunar mesh throughout the ease. Close observation detail fades
+continuously with altitude rather than replacing the ground. Base structures remain
 submitted throughout descent and return, so their apparent size changes with
 camera distance instead of switching on at the detail threshold. Once settled,
 the base view begins at a steep local elevation and orbits in the marker's
@@ -617,36 +618,44 @@ rejects unit, type, or arity drift before native compilation.
 `scene_gpu::indexed_sphere_pass` is the reusable native consumer of that draw
 contract. It builds one shared UV sphere with 64 latitude bands, 128 longitude
 segments, 8,385 smooth-normal vertices, and 16,384 indexed triangles, plus a
-shared hard-normal indexed box for local structures and terrain patches. Both
-shapes use the same reviewed sampled-texture material shader, camera-relative
+shared hard-normal indexed box and a closed, locally dense cubed-sphere Moon.
+These shapes use the same reviewed sampled-texture material shader, camera-relative
 transform, lighting uniforms, resize-aware D32 depth target, and backend
 selection. Earth and Moon bind provenance-tracked 1024x512 and 2048x1024 NASA
 textures; untextured primitives bind a one-pixel white texture through the same
 pipeline. Planetary uploads allocate and GPU-generate a complete mip chain;
 trilinear sampling with 8x anisotropy stabilizes oblique close-surface motion
-without changing the source texture identity. The available 0.8-metre-per-pixel
-LROC Shackleton rim observation contains baked extreme-angle illumination and
-is not used as albedo. Blending it into the photometrically different global
-map exposed its finite square footprint and applied scene lighting twice. A
-future local-detail input must be photometrically normalized or use a separately
-defined detail contract. Below five kilometres altitude, a 255-by-255 indexed
-spherical patch replaces the coarse global sphere over a 1,048.576-kilometre
-square centered on the marker. Cubic vertex spacing concentrates resolution
-around the base while extending beyond the 132-kilometre lunar horizon at the
-LOD activation altitude. Its
-vertices are projected onto the same Moon
-radius, then stored as metre-scale offsets from the marker's surface anchor.
-The patch reuses the Moon's continuous global material, lighting, and depth
-target,
-but its camera-relative transform follows the same anchor arithmetic as the
-local structures. This avoids quantizing ground height through a
-1,737,400-metre float transform. A small underground foundation datum and
-downward-only structure skirts keep low buildings visibly seated without
-changing their roof heights. At every distance, the coarse sphere and close
-patch use the same neutralized global Moon map and global spherical UVs. The
-global and local meshes are never drawn together,
-so the change adds close-range geometry resolution without creating a second
-ground surface, a second Moon, or an independent ground plane.
+without changing the source texture identity. The existing 0.8-metre-per-pixel
+LROC Shackleton rim observation supplies close detail over its measured
+1,638.4-metre footprint. It contains baked illumination and is not directly
+used as albedo: upload extracts bounded fine-scale luminance residuals against
+an 81-pixel box average and centers them on the global map's anchor luminance.
+The source asset is unchanged. This explicit demo-detail convention removes
+broad illumination mismatch; it does not claim photometric calibration or
+displacement terrain. Spatial blending falls smoothly to zero at the footprint
+edge; altitude blending eases between one and twenty kilometres. Only the
+anchor cube face receives it, not the antipode.
+
+The Moon uses one complete cubed sphere at every distance. Each of its six
+128-by-128 faces has cubic vertex spacing, concentrating approximately
+6.6-metre cells around the fixture's surface anchor while retaining closed
+global coverage. Its 589,824 indices are 32-bit; shared geometric edges are
+checked for exactly two incident triangles. There is no five-kilometre mesh
+switch, finite cap edge, or overlapping coarse/local shell. Vertices are
+projected onto the measured radius and stored as anchor-relative metre offsets.
+The camera-relative transform follows the same anchor arithmetic as local
+structures, avoiding large-radius float quantization at the base. A small
+underground foundation datum and downward-only structure skirts keep low
+buildings seated without changing their roof heights. Global spherical UVs and
+world +Z north are shared with Earth. Local rocks use a neutral primitive
+appearance, not the Moon appearance that selects planetary geometry.
+
+Ground and structures use the same field of view and near/far planes. The near
+plane follows lunar forward clearance continuously, not the UI detail flag.
+Descent and settled orbit use the identical local tangent-frame conversion,
+and sidebar space eases rather than snapping at settlement. Deterministic
+50-millisecond captures and per-draw state traces guard these seams; see
+[the transition diagnosis](docs/lunar-transition-debugging.md).
 Tessellation changes presentation geometry only; entity dimensions and
 positions remain measured inputs.
 Callers provide immutable render items, cameras, target viewports, and

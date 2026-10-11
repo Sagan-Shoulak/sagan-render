@@ -120,6 +120,7 @@ jobs:
           bash tests/integration/sdl_window_probe_test.sh
           bash tests/integration/sdl_gpu_triangle_probe_test.sh
       - uses: actions/upload-artifact@v6
+        if: always()
         with:
           name: renderer-foundation-windows
           path: |
@@ -144,6 +145,8 @@ jobs:
             render/build/scene-sagan-demo-test/scene-marker.bmp
             render/build/scene-sagan-demo-test/scene-marker-hovered.bmp
             render/build/scene-sagan-demo-test/scene-marker-base.bmp
+            render/build/lunar-transition-test/*.bmp
+            render/build/lunar-transition-test/trace.txt
             render/build/surface-sagan-demo-test/surface.bmp
             render/build/surface-sagan-demo-test/surface-turned.bmp
             render/build/surface-sagan-demo-test/surface-demo-report.txt
@@ -250,6 +253,7 @@ jobs:
           bash tests/integration/sdl_window_probe_portable_test.sh
           bash tests/integration/sdl_gpu_triangle_probe_portable_test.sh
       - uses: actions/upload-artifact@v6
+        if: always()
         with:
           name: renderer-foundation-${{ runner.os }}
           path: |
@@ -271,6 +275,8 @@ jobs:
             build/scene-sagan-demo-test/scene-camera-turned.bmp
             build/scene-sagan-demo-test/scene-zoomed.bmp
             build/scene-sagan-demo-test/scene-demo-report.txt
+            build/lunar-transition-test/*.bmp
+            build/lunar-transition-test/trace.txt
             build/surface-sagan-demo-test/surface.bmp
             build/surface-sagan-demo-test/surface-turned.bmp
             build/surface-sagan-demo-test/surface-demo-report.txt

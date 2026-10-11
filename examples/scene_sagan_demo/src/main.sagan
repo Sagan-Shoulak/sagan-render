@@ -44,9 +44,6 @@ const MOON_VIEW_DISTANCE: Float64<meter> = 3e4 kilometer
 const FOCUS_DURATION_SECONDS: Float64 = 3.0
 const SURFACE_HANDOFF_DURATION_SECONDS: Float64 = 5.0
 const LOCAL_VIEW_DISTANCE: Float64<meter> = 380.0 meter
-const LOCAL_CAMERA_YAW: Float64 = 0.2088277681093603
-const LOCAL_CAMERA_PITCH: Float64 = 0.7361241952402625
-const LOCAL_CAMERA_ROLL: Float64 = 0.0 - 2.405799749683939
 const ANCESTOR_FOCUS_DURATION_SECONDS: Float64 = 4.0
 const LARGE_SCALE_FOCUS_DURATION_SECONDS: Float64 = 6.0
 
@@ -231,6 +228,89 @@ class PresentationObject has SpatialRenderable {
   fun render_label(): String => self.label_value
 }
 
+class LocalCameraOrientation {
+  let yaw_value: Float64
+  let pitch_value: Float64
+  let roll_value: Float64
+  new(yaw: Float64, pitch: Float64, roll: Float64) {
+    self.yaw_value = yaw
+    self.pitch_value = pitch
+    self.roll_value = roll
+  }
+  fun yaw(): Float64 => self.yaw_value
+  fun pitch(): Float64 => self.pitch_value
+  fun roll(): Float64 => self.roll_value
+}
+
+// Use the identical tangent-frame conversion during descent and settled orbit.
+fun local_camera_orientation(marker: SurfaceLocationMarker, azimuth: Float64,
+                             elevation: Float64): LocalCameraOrientation {
+  let local_latitude_cosine =
+    demo_cosine(marker.latitude_radians())
+  let local_latitude_sine =
+    demo_sine(marker.latitude_radians())
+  let local_longitude_cosine =
+    demo_cosine(marker.longitude_radians())
+  let local_longitude_sine =
+    demo_sine(marker.longitude_radians())
+  let local_east_x = 0.0 - local_longitude_sine
+  let local_east_y = local_longitude_cosine
+  let local_north_x = 0.0 - local_latitude_sine *
+    local_longitude_cosine
+  let local_north_y = 0.0 - local_latitude_sine *
+    local_longitude_sine
+  let local_north_z = local_latitude_cosine
+  let local_up_x = local_latitude_cosine * local_longitude_cosine
+  let local_up_y = local_latitude_cosine * local_longitude_sine
+  let local_up_z = local_latitude_sine
+  let local_yaw_cosine = demo_cosine(azimuth)
+  let local_yaw_sine = demo_sine(azimuth)
+  let local_pitch_cosine = demo_cosine(elevation)
+  let local_pitch_sine = demo_sine(elevation)
+  let desired_forward_x =
+    (0.0 - local_east_x * local_yaw_cosine -
+     local_north_x * local_yaw_sine) * local_pitch_cosine -
+    local_up_x * local_pitch_sine
+  let desired_forward_y =
+    (0.0 - local_east_y * local_yaw_cosine -
+     local_north_y * local_yaw_sine) * local_pitch_cosine -
+    local_up_y * local_pitch_sine
+  let desired_forward_z =
+    (0.0 - local_north_z * local_yaw_sine) * local_pitch_cosine -
+    local_up_z * local_pitch_sine
+  let desired_up_x =
+    (0.0 - local_east_x * local_yaw_cosine -
+     local_north_x * local_yaw_sine) * local_pitch_sine +
+    local_up_x * local_pitch_cosine
+  let desired_up_y =
+    (0.0 - local_east_y * local_yaw_cosine -
+     local_north_y * local_yaw_sine) * local_pitch_sine +
+    local_up_y * local_pitch_cosine
+  let desired_up_z =
+    (0.0 - local_north_z * local_yaw_sine) * local_pitch_sine +
+    local_up_z * local_pitch_cosine
+  let pitch = demo_asin(0.0 - desired_forward_z)
+  let yaw = demo_atan2(
+    0.0 - desired_forward_y, 0.0 - desired_forward_x)
+  let converted_pitch_sine = demo_sine(pitch)
+  let converted_pitch_cosine = demo_cosine(pitch)
+  let converted_yaw_sine = demo_sine(yaw)
+  let converted_yaw_cosine = demo_cosine(yaw)
+  let unrolled_up_x =
+    0.0 - converted_yaw_cosine * converted_pitch_sine
+  let unrolled_up_y =
+    0.0 - converted_yaw_sine * converted_pitch_sine
+  let unrolled_up_z = converted_pitch_cosine
+  let unrolled_right_x = 0.0 - converted_yaw_sine
+  let unrolled_right_y = converted_yaw_cosine
+  let roll_sine = desired_up_x * unrolled_right_x +
+    desired_up_y * unrolled_right_y
+  let roll_cosine = desired_up_x * unrolled_up_x +
+    desired_up_y * unrolled_up_y + desired_up_z * unrolled_up_z
+  let roll = demo_atan2(roll_sine, roll_cosine)
+  return LocalCameraOrientation(yaw, pitch, roll)
+}
+
 fun marker_x(marker: SurfaceLocationMarker,
              moon: SpatialRenderable): Float64<meter> {
   let moon_sample = sample(moon)
@@ -329,6 +409,7 @@ fun marker_faces_camera(marker_value: SpatialRenderable,
 
 fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
                    viewport_width: Float64, viewport_height: Float64,
+                   near_distance: Float64<meter>, far_distance: Float64<meter>,
                    camera_x: Float64<meter>, camera_y: Float64<meter>,
                    camera_z: Float64<meter>, forward_x: Float64,
                    forward_y: Float64, forward_z: Float64,
@@ -364,7 +445,7 @@ fun draw_local_box(viewport_x: Float64, viewport_y: Float64,
   mesh_box_frame(viewport_x, viewport_y, viewport_width, viewport_height,
                  0.0 meter, 0.0 meter, 0.0 meter,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
-                 0.8726646259971648, 1.0 meter, 4000000.0 meter,
+                 1.0471975511965976, near_distance, far_distance,
                  relative_origin_x + east_x * x + north_x * y + surface_up_x * seated_z,
                  relative_origin_y + east_y * x + north_y * y + surface_up_y * seated_z,
                  relative_origin_z + east_z * x + north_z * y + surface_up_z * seated_z,
@@ -381,7 +462,9 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                           camera_pitch: Float64, camera_roll: Float64,
                           viewport_x: Float64, viewport_y: Float64,
                           viewport_width: Float64,
-                          viewport_height: Float64): Void {
+                          viewport_height: Float64,
+                          near_distance: Float64<meter>,
+                          far_distance: Float64<meter>): Void {
   let marker_sample = sample(marker_value)
   let latitude_cosine = demo_cosine(marker.latitude_radians())
   let latitude_sine = demo_sine(marker.latitude_radians())
@@ -420,6 +503,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   let up_y = base_up_y * roll_cosine + right_y * roll_sine
   let up_z = base_up_z * roll_cosine
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 near_distance, far_distance,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  surface_origin_x, surface_origin_y, surface_origin_z,
@@ -428,6 +512,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                  surface_up_x, surface_up_y, surface_up_z,
                  24.0 meter, 24.0 meter, 1.0 meter, 0.0, 11)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 near_distance, far_distance,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  surface_origin_x, surface_origin_y, surface_origin_z,
@@ -436,6 +521,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                  surface_up_x, surface_up_y, surface_up_z,
                  8.0 meter, 6.0 meter, 6.0 meter, 0.35, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 near_distance, far_distance,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  surface_origin_x, surface_origin_y, surface_origin_z,
@@ -444,6 +530,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                  surface_up_x, surface_up_y, surface_up_z,
                  18.0 meter, 8.0 meter, 5.0 meter, 0.0 - 0.18, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 near_distance, far_distance,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  surface_origin_x, surface_origin_y, surface_origin_z,
@@ -453,6 +540,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                  surface_up_x, surface_up_y, surface_up_z,
                  14.0 meter, 7.0 meter, 4.0 meter, 0.25, 12)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 near_distance, far_distance,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  surface_origin_x, surface_origin_y, surface_origin_z,
@@ -463,6 +551,7 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
                  28.0 meter, 8.0 meter, 0.7 meter,
                  0.0 - 0.12, 14)
   draw_local_box(viewport_x, viewport_y, viewport_width, viewport_height,
+                 near_distance, far_distance,
                  camera_x, camera_y, camera_z,
                  forward_x, forward_y, forward_z, up_x, up_y, up_z,
                  surface_origin_x, surface_origin_y, surface_origin_z,
@@ -473,11 +562,13 @@ fun draw_local_base_scene(marker: SurfaceLocationMarker,
   mesh_sphere(viewport_x, viewport_y, viewport_width, viewport_height,
               0.0 meter, 0.0 meter, 0.0 meter,
               forward_x, forward_y, forward_z, up_x, up_y, up_z,
-              0.8726646259971648, 1.0 meter, 4000000.0 meter,
+              1.0471975511965976, near_distance, far_distance,
               surface_origin_x - camera_x + east_x * (0.0 meter - 5.0 meter) + north_x * 15.0 meter + surface_up_x * 6.0 meter,
               surface_origin_y - camera_y + east_y * (0.0 meter - 5.0 meter) + north_y * 15.0 meter + surface_up_y * 6.0 meter,
               surface_origin_z - camera_z + east_z * (0.0 meter - 5.0 meter) + north_z * 15.0 meter + surface_up_z * 6.0 meter,
-              6.0 meter, 3, false)
+              // Appearance 3 denotes the planetary Moon, including its lunar
+              // terrain LOD. A rock is a neutral primitive, not another Moon.
+              6.0 meter, 4, false)
 }
 
 fun moon_marker_offset(camera_z: Float64<meter>, moon: SpatialRenderable): Float64 {
@@ -999,15 +1090,12 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
             surface_detail_active: Bool, local_geometry_active: Bool,
             transitioning: Bool,
             base_panel_tab: Int64, return_hovered: Bool,
-            selected_structure: Int64): Void {
+            selected_structure: Int64, sidebar_fraction: Float64): Void {
   let window_width = width()
   let window_height = height()
   let viewport_x = 24.0
   let viewport_y = 76.0
-  let viewport_width = window_width - 48.0
-  if surface_detail_active {
-    if transitioning == false { viewport_width = window_width - 360.0 }
-  }
+  let viewport_width = window_width - 48.0 - 312.0 * sidebar_fraction
   let viewport_height = window_height - 116.0
   begin()
   fill(0.0, 0.0, window_width, window_height, 7, 17, 31)
@@ -1036,10 +1124,14 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
   let moon_sample = sample(third)
   let scene_near: Float64<meter> = 1000.0 kilometer
   let scene_far: Float64<meter> = 500000000.0 kilometer
-  if surface_detail_active {
-    scene_near = 1.0 meter
-    scene_far = 4000000.0 meter
-  }
+  // Projection follows geometry, never the UI's detail/settled flags. Bound
+  // the near plane by the Moon's nearest possible forward surface; otherwise
+  // a 1,000 km plane cuts off the approaching ground and exposes back faces.
+  let lunar_clearance = projected_depth(
+    third, camera_x, camera_y, camera_z, camera_yaw, camera_pitch) - moon_sample.radius()
+  scene_near = lunar_clearance * 0.01
+  if scene_near < 1.0 meter { scene_near = 1.0 meter }
+  if scene_near > 1000.0 kilometer { scene_near = 1000.0 kilometer }
   if surface_detail_active == false {
     draw_orbit(sun_sample.x(), sun_sample.y(), sun_sample.z(), EARTH_DISTANCE,
                camera_x, camera_y, camera_z, camera_yaw, camera_pitch,
@@ -1072,7 +1164,7 @@ fun compose(camera_x: Float64<meter>, camera_y: Float64<meter>,
                           camera_x, camera_y, camera_z,
                           camera_yaw, camera_pitch, camera_roll,
                           viewport_x, viewport_y,
-                          viewport_width, viewport_height)
+                          viewport_width, viewport_height, scene_near, scene_far)
     if transitioning == false {
       if selected_structure == 401 {
         draw_local_selection(
@@ -1173,6 +1265,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
   let focused_identifier: Int64 = 1
   let focused_marker = false
   let local_view = false
+  let sidebar_fraction = 0.0
   let local_geometry_active = false
   let returning_to_orbit = false
   let focus_source_marker = false
@@ -1284,10 +1377,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       let look_forward_z = 0.0 - demo_sine(camera_pitch)
       let viewport_x = 24.0
       let viewport_y = 76.0
-      let viewport_width = width() - 48.0
-      if local_view {
-        if focusing == false { viewport_width = width() - 360.0 }
-      }
+      let viewport_width = width() - 48.0 - 312.0 * sidebar_fraction
       let viewport_height = height() - 116.0
       // Keep picking and painting on the same fresh presentation camera. The
       // accelerated demo Moon can move thousands of kilometres between frames;
@@ -1566,21 +1656,25 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
           let orientation_duration = focus_duration * 0.38
           let orientation_progress = focus_progress(
             focus_elapsed, orientation_duration)
+          sidebar_fraction = base_progress
           let descent_elapsed = focus_elapsed - focus_duration * 0.32
           if descent_elapsed < 0.0 { descent_elapsed = 0.0 }
           transition_progress = focus_progress(
             descent_elapsed, focus_duration * 0.68)
+          let local_orientation = local_camera_orientation(
+            base_marker, local_orbit_yaw, local_orbit_pitch)
           camera_yaw = focus_scalar_at(
-            focus_start_yaw, LOCAL_CAMERA_YAW, orientation_progress)
+            focus_start_yaw, local_orientation.yaw(), orientation_progress)
           camera_pitch = focus_scalar_at(
-            focus_start_pitch, LOCAL_CAMERA_PITCH, orientation_progress)
+            focus_start_pitch, local_orientation.pitch(), orientation_progress)
           camera_roll = focus_scalar_at(
-            focus_start_roll, LOCAL_CAMERA_ROLL, orientation_progress)
+            focus_start_roll, local_orientation.roll(), orientation_progress)
           if base_progress > 0.35 { marker_fade_stage = 2 }
           if base_progress > 0.58 { marker_fade_stage = 1 }
           if base_progress > 0.94 { marker_fade_stage = 0 }
         }
         if returning_to_orbit {
+          sidebar_fraction = 1.0 - base_progress
           camera_yaw = focus_scalar_at(
             focus_start_yaw, saved_orbit_yaw, base_progress)
           camera_pitch = focus_scalar_at(
@@ -1668,69 +1762,11 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
       }
       if focused_marker {
       if focusing == false {
-        let local_latitude_cosine =
-          demo_cosine(base_marker.latitude_radians())
-        let local_latitude_sine =
-          demo_sine(base_marker.latitude_radians())
-        let local_longitude_cosine =
-          demo_cosine(base_marker.longitude_radians())
-        let local_longitude_sine =
-          demo_sine(base_marker.longitude_radians())
-        let local_east_x = 0.0 - local_longitude_sine
-        let local_east_y = local_longitude_cosine
-        let local_north_x = 0.0 - local_latitude_sine *
-          local_longitude_cosine
-        let local_north_y = 0.0 - local_latitude_sine *
-          local_longitude_sine
-        let local_north_z = local_latitude_cosine
-        let local_up_x = local_latitude_cosine * local_longitude_cosine
-        let local_up_y = local_latitude_cosine * local_longitude_sine
-        let local_up_z = local_latitude_sine
-        let local_yaw_cosine = demo_cosine(local_orbit_yaw)
-        let local_yaw_sine = demo_sine(local_orbit_yaw)
-        let local_pitch_cosine = demo_cosine(local_orbit_pitch)
-        let local_pitch_sine = demo_sine(local_orbit_pitch)
-        let desired_forward_x =
-          (0.0 - local_east_x * local_yaw_cosine -
-           local_north_x * local_yaw_sine) * local_pitch_cosine -
-          local_up_x * local_pitch_sine
-        let desired_forward_y =
-          (0.0 - local_east_y * local_yaw_cosine -
-           local_north_y * local_yaw_sine) * local_pitch_cosine -
-          local_up_y * local_pitch_sine
-        let desired_forward_z =
-          (0.0 - local_north_z * local_yaw_sine) * local_pitch_cosine -
-          local_up_z * local_pitch_sine
-        let desired_up_x =
-          (0.0 - local_east_x * local_yaw_cosine -
-           local_north_x * local_yaw_sine) * local_pitch_sine +
-          local_up_x * local_pitch_cosine
-        let desired_up_y =
-          (0.0 - local_east_y * local_yaw_cosine -
-           local_north_y * local_yaw_sine) * local_pitch_sine +
-          local_up_y * local_pitch_cosine
-        let desired_up_z =
-          (0.0 - local_north_z * local_yaw_sine) * local_pitch_sine +
-          local_up_z * local_pitch_cosine
-        camera_pitch = demo_asin(0.0 - desired_forward_z)
-        camera_yaw = demo_atan2(
-          0.0 - desired_forward_y, 0.0 - desired_forward_x)
-        let converted_pitch_sine = demo_sine(camera_pitch)
-        let converted_pitch_cosine = demo_cosine(camera_pitch)
-        let converted_yaw_sine = demo_sine(camera_yaw)
-        let converted_yaw_cosine = demo_cosine(camera_yaw)
-        let unrolled_up_x =
-          0.0 - converted_yaw_cosine * converted_pitch_sine
-        let unrolled_up_y =
-          0.0 - converted_yaw_sine * converted_pitch_sine
-        let unrolled_up_z = converted_pitch_cosine
-        let unrolled_right_x = 0.0 - converted_yaw_sine
-        let unrolled_right_y = converted_yaw_cosine
-        let roll_sine = desired_up_x * unrolled_right_x +
-          desired_up_y * unrolled_right_y
-        let roll_cosine = desired_up_x * unrolled_up_x +
-          desired_up_y * unrolled_up_y + desired_up_z * unrolled_up_z
-        camera_roll = demo_atan2(roll_sine, roll_cosine)
+        let orientation = local_camera_orientation(
+          base_marker, local_orbit_yaw, local_orbit_pitch)
+        camera_yaw = orientation.yaw()
+        camera_pitch = orientation.pitch()
+        camera_roll = orientation.roll()
       }
       }
       let render_pitch_cosine = demo_cosine(camera_pitch)
@@ -1775,7 +1811,7 @@ if open("Sagan Sun-Earth-Moon scene", 960, 540) {
               selection, first, second, third, base_marker, marker_value,
               focused_marker, marker_hovered, marker_fade_stage,
               surface_detail_active, local_geometry_active, focusing,
-              base_panel_tab, return_hovered, selected_structure)
+              base_panel_tab, return_hovered, selected_structure, sidebar_fraction)
     }
   }
   close()

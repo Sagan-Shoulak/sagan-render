@@ -2,6 +2,8 @@
 
 #include "material_contract.hpp"
 #include "scene_mesh_contract.hpp"
+#include "lunar_surface_mesh.hpp"
+#include "lunar_detail_contract.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -15,16 +17,12 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace sagan_render::scene_gpu
 {
-  struct vertex
-  {
-    float position[3];
-    float normal[3];
-    float uv[2];
-  };
+  using vertex = scene::surface_vertex;
 
   struct target_viewport
   {
@@ -91,8 +89,8 @@ namespace sagan_render::scene_gpu
     std::vector<std::uint16_t> indices;
     std::vector<vertex> box_vertices;
     std::vector<std::uint16_t> box_indices;
-    std::vector<vertex> surface_patch_vertices;
-    std::vector<std::uint16_t> surface_patch_indices;
+    std::vector<vertex> lunar_surface_vertices;
+    std::vector<std::uint32_t> lunar_surface_indices;
 
     SDL_GPUDevice *device{};
     SDL_GPUGraphicsPipeline *pipeline{};
@@ -100,12 +98,13 @@ namespace sagan_render::scene_gpu
     SDL_GPUBuffer *index_buffer{};
     SDL_GPUBuffer *box_vertex_buffer{};
     SDL_GPUBuffer *box_index_buffer{};
-    SDL_GPUBuffer *surface_patch_vertex_buffer{};
-    SDL_GPUBuffer *surface_patch_index_buffer{};
+    SDL_GPUBuffer *lunar_surface_vertex_buffer{};
+    SDL_GPUBuffer *lunar_surface_index_buffer{};
     SDL_GPUTexture *depth{};
     SDL_GPUTexture *white_texture{};
     SDL_GPUTexture *earth_texture{};
-    SDL_GPUTexture *moon_local_texture{};
+    SDL_GPUTexture *moon_global_texture{};
+    SDL_GPUTexture *moon_detail_texture{};
     SDL_GPUSampler *surface_sampler{};
     std::uint32_t depth_width{};
     std::uint32_t depth_height{};
@@ -145,13 +144,13 @@ namespace sagan_render::scene_gpu
         const float polar = pi * static_cast<float>(latitude) /
                             static_cast<float>(latitude_segments);
         const float ring = std::sin(polar);
-        const float y = std::cos(polar);
+        const float z = std::cos(polar);
         for (std::uint32_t longitude = 0; longitude <= longitude_segments; ++longitude)
         {
           const float azimuth = 2.0F * pi * static_cast<float>(longitude) /
                                 static_cast<float>(longitude_segments);
           const float x = ring * std::cos(azimuth);
-          const float z = ring * std::sin(azimuth);
+          const float y = ring * std::sin(azimuth);
           // NASA's equirectangular maps are centered on zero longitude. The
           // procedural sphere starts at +X, so the half-turn offset preserves
           // the same body-fixed orientation used by the earlier albedo grid.
@@ -213,73 +212,11 @@ namespace sagan_render::scene_gpu
       }
     }
 
-    auto build_surface_patch_mesh() -> void
+    auto build_lunar_surface_mesh() -> void
     {
-      constexpr std::uint32_t segments = 255;
-      constexpr double pi = 3.14159265358979323846;
-      constexpr double moon_radius_metres = 1737400.0;
-      // Cover well beyond the roughly 132 km lunar horizon at the 5 km patch
-      // activation altitude. Cubic spacing preserves metre-scale density near
-      // the base while keeping the finite edge outside every local frustum.
-      constexpr double patch_half_width_metres = 524288.0;
-      constexpr std::array<double, 3> center{{
-        0.8660254037835535, 0.0, 0.49999999999996425}};
-      constexpr std::array<double, 3> east{{0.0, 1.0, 0.0}};
-      constexpr std::array<double, 3> north{{
-        -0.49999999999996425, 0.0, 0.8660254037835535}};
-      surface_patch_vertices.reserve((segments + 1) * (segments + 1));
-      surface_patch_indices.reserve(segments * segments * 6);
-      for (std::uint32_t row = 0; row <= segments; ++row)
-      {
-        const double north_normalized = -1.0 +
-          2.0 * static_cast<double>(row) / static_cast<double>(segments);
-        const double north_metres = north_normalized * north_normalized *
-          north_normalized * patch_half_width_metres;
-        for (std::uint32_t column = 0; column <= segments; ++column)
-        {
-          const double east_normalized = -1.0 +
-            2.0 * static_cast<double>(column) /
-              static_cast<double>(segments);
-          const double east_metres = east_normalized * east_normalized *
-            east_normalized * patch_half_width_metres;
-          double x = center[0] + east[0] * east_metres / moon_radius_metres +
-            north[0] * north_metres / moon_radius_metres;
-          double y = center[1] + east[1] * east_metres / moon_radius_metres +
-            north[1] * north_metres / moon_radius_metres;
-          double z = center[2] + east[2] * east_metres / moon_radius_metres +
-            north[2] * north_metres / moon_radius_metres;
-          const double length = std::sqrt(x * x + y * y + z * z);
-          x /= length;
-          y /= length;
-          z /= length;
-          const float u = static_cast<float>(
-            std::atan2(z, x) / (2.0 * pi) + 0.5);
-          const float v = static_cast<float>(
-            std::acos(std::clamp(y, -1.0, 1.0)) / pi);
-          // Close terrain uses marker-relative metre coordinates. Keeping the
-          // vertex magnitude near the local patch avoids quantizing metre-scale
-          // height against a 1,737,400-metre unit-sphere transform.
-          surface_patch_vertices.push_back({{
-            static_cast<float>((x - center[0]) * moon_radius_metres),
-            static_cast<float>((y - center[1]) * moon_radius_metres),
-            static_cast<float>((z - center[2]) * moon_radius_metres)},
-            {static_cast<float>(x), static_cast<float>(y),
-             static_cast<float>(z)}, {u, v}});
-        }
-      }
-      for (std::uint32_t row = 0; row < segments; ++row)
-      {
-        for (std::uint32_t column = 0; column < segments; ++column)
-        {
-          const auto first = static_cast<std::uint16_t>(
-            row * (segments + 1) + column);
-          const auto second = static_cast<std::uint16_t>(first + segments + 1);
-          surface_patch_indices.insert(surface_patch_indices.end(), {
-            first, second, static_cast<std::uint16_t>(first + 1),
-            static_cast<std::uint16_t>(first + 1), second,
-            static_cast<std::uint16_t>(second + 1)});
-        }
-      }
+      auto mesh = scene::build_lunar_surface_mesh();
+      lunar_surface_vertices = std::move(mesh.vertices);
+      lunar_surface_indices = std::move(mesh.indices);
     }
 
     auto select_format() const -> shader_format
@@ -464,7 +401,13 @@ namespace sagan_render::scene_gpu
           moon.rgba[pixel + 1] = luminance;
           moon.rgba[pixel + 2] = luminance;
         }
-        moon_local_texture = upload_texture(moon);
+        moon_global_texture = upload_texture(moon);
+        image observation = load_image("assets/planetary/moon_shackleton_rim_2048x2048.ppm");
+        const auto anchor_pixel = (static_cast<std::size_t>(moon.height / 3) *
+                                   moon.width + moon.width / 2) * 4;
+        observation.rgba = scene::neutral_lunar_detail(
+          observation.rgba, observation.width, observation.height, moon.rgba[anchor_pixel]);
+        moon_detail_texture = upload_texture(observation);
       }
       SDL_GPUSamplerCreateInfo sampler_info{};
       sampler_info.min_filter = SDL_GPU_FILTER_LINEAR;
@@ -491,10 +434,10 @@ namespace sagan_render::scene_gpu
         box_vertices.size() * sizeof(vertex));
       const auto box_index_bytes = static_cast<std::uint32_t>(
         box_indices.size() * sizeof(std::uint16_t));
-      const auto surface_patch_vertex_bytes = static_cast<std::uint32_t>(
-        surface_patch_vertices.size() * sizeof(vertex));
-      const auto surface_patch_index_bytes = static_cast<std::uint32_t>(
-        surface_patch_indices.size() * sizeof(std::uint16_t));
+      const auto lunar_surface_vertex_bytes = static_cast<std::uint32_t>(
+        lunar_surface_vertices.size() * sizeof(vertex));
+      const auto lunar_surface_index_bytes = static_cast<std::uint32_t>(
+        lunar_surface_indices.size() * sizeof(std::uint32_t));
       buffer.size = vertex_bytes;
       vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
       buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
@@ -507,19 +450,19 @@ namespace sagan_render::scene_gpu
       buffer.size = box_index_bytes;
       box_index_buffer = SDL_CreateGPUBuffer(device, &buffer);
       buffer.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-      buffer.size = surface_patch_vertex_bytes;
-      surface_patch_vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
+      buffer.size = lunar_surface_vertex_bytes;
+      lunar_surface_vertex_buffer = SDL_CreateGPUBuffer(device, &buffer);
       buffer.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-      buffer.size = surface_patch_index_bytes;
-      surface_patch_index_buffer = SDL_CreateGPUBuffer(device, &buffer);
+      buffer.size = lunar_surface_index_bytes;
+      lunar_surface_index_buffer = SDL_CreateGPUBuffer(device, &buffer);
       SDL_GPUTransferBufferCreateInfo transfer{
         SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
         vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes +
-          surface_patch_vertex_bytes + surface_patch_index_bytes, 0};
+          lunar_surface_vertex_bytes + lunar_surface_index_bytes, 0};
       auto *upload = SDL_CreateGPUTransferBuffer(device, &transfer);
       if (!vertex_buffer || !index_buffer || !box_vertex_buffer ||
-          !box_index_buffer || !surface_patch_vertex_buffer ||
-          !surface_patch_index_buffer || !upload)
+          !box_index_buffer || !lunar_surface_vertex_buffer ||
+          !lunar_surface_index_buffer || !upload)
         fail("Could not create indexed scene buffers");
       auto *mapped = static_cast<std::uint8_t *>(
         SDL_MapGPUTransferBuffer(device, upload, false));
@@ -532,11 +475,11 @@ namespace sagan_render::scene_gpu
                   box_indices.data(), box_index_bytes);
       std::memcpy(
         mapped + vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes,
-        surface_patch_vertices.data(), surface_patch_vertex_bytes);
+        lunar_surface_vertices.data(), lunar_surface_vertex_bytes);
       std::memcpy(
         mapped + vertex_bytes + index_bytes + box_vertex_bytes + box_index_bytes +
-          surface_patch_vertex_bytes,
-        surface_patch_indices.data(), surface_patch_index_bytes);
+          lunar_surface_vertex_bytes,
+        lunar_surface_indices.data(), lunar_surface_index_bytes);
       SDL_UnmapGPUTransferBuffer(device, upload);
       auto *commands = SDL_AcquireGPUCommandBuffer(device);
       if (!commands) fail("Could not acquire indexed scene upload commands");
@@ -556,11 +499,11 @@ namespace sagan_render::scene_gpu
       source.offset = vertex_bytes + index_bytes + box_vertex_bytes +
         box_index_bytes;
       destination = {
-        surface_patch_vertex_buffer, 0, surface_patch_vertex_bytes};
+        lunar_surface_vertex_buffer, 0, lunar_surface_vertex_bytes};
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
-      source.offset += surface_patch_vertex_bytes;
+      source.offset += lunar_surface_vertex_bytes;
       destination = {
-        surface_patch_index_buffer, 0, surface_patch_index_bytes};
+        lunar_surface_index_buffer, 0, lunar_surface_index_bytes};
       SDL_UploadToGPUBuffer(copy, &source, &destination, false);
       SDL_EndGPUCopyPass(copy);
       auto *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
@@ -596,7 +539,7 @@ namespace sagan_render::scene_gpu
     {
       build_sphere_mesh();
       build_box_mesh();
-      build_surface_patch_mesh();
+      build_lunar_surface_mesh();
       create_pipeline();
       upload_mesh();
       create_surface_textures(load_planetary_textures);
@@ -605,13 +548,15 @@ namespace sagan_render::scene_gpu
     ~indexed_sphere_pass()
     {
       if (depth) SDL_ReleaseGPUTexture(device, depth);
-      if (surface_patch_index_buffer)
-        SDL_ReleaseGPUBuffer(device, surface_patch_index_buffer);
-      if (surface_patch_vertex_buffer)
-        SDL_ReleaseGPUBuffer(device, surface_patch_vertex_buffer);
+      if (lunar_surface_index_buffer)
+        SDL_ReleaseGPUBuffer(device, lunar_surface_index_buffer);
+      if (lunar_surface_vertex_buffer)
+        SDL_ReleaseGPUBuffer(device, lunar_surface_vertex_buffer);
       if (surface_sampler) SDL_ReleaseGPUSampler(device, surface_sampler);
-      if (moon_local_texture)
-        SDL_ReleaseGPUTexture(device, moon_local_texture);
+      if (moon_global_texture)
+        SDL_ReleaseGPUTexture(device, moon_global_texture);
+      if (moon_detail_texture)
+        SDL_ReleaseGPUTexture(device, moon_detail_texture);
       if (earth_texture) SDL_ReleaseGPUTexture(device, earth_texture);
       if (white_texture) SDL_ReleaseGPUTexture(device, white_texture);
       if (box_index_buffer) SDL_ReleaseGPUBuffer(device, box_index_buffer);
@@ -687,22 +632,21 @@ namespace sagan_render::scene_gpu
         SDL_GPUTexture *surface = white_texture;
         SDL_GPUTexture *detail = white_texture;
         surface_lod_uniform surface_lod{};
-        bool draw_surface_patch = false;
+        const bool draw_lunar_surface = draw.albedo_map == surface_map::moon_lro;
         if (draw.albedo_map == surface_map::earth_blue_marble)
           surface = earth_texture;
         else if (draw.albedo_map == surface_map::moon_lro)
         {
-          surface = moon_local_texture;
-          const double camera_dx =
-            draw.camera.position.x_metres - draw.item.position.x_metres;
-          const double camera_dy =
-            draw.camera.position.y_metres - draw.item.position.y_metres;
-          const double camera_dz =
-            draw.camera.position.z_metres - draw.item.position.z_metres;
-          const double camera_altitude = std::sqrt(
-            camera_dx * camera_dx + camera_dy * camera_dy +
-            camera_dz * camera_dz) - draw.item.radius_metres;
-          draw_surface_patch = camera_altitude < 5000.0;
+          surface = moon_global_texture;
+          detail = moon_detail_texture;
+          const auto relative = scene::subtract(draw.camera.position, draw.item.position);
+          const double altitude = std::sqrt(relative.x_metres * relative.x_metres +
+            relative.y_metres * relative.y_metres + relative.z_metres * relative.z_metres) -
+            draw.item.radius_metres;
+          surface_lod = {{0.0F, 0.0F, 0.0F, static_cast<float>(scene::lunar_detail_width_metres)},
+            {0.0F, 1.0F, 0.0F, scene::lunar_detail_weight(altitude)},
+            {static_cast<float>(-scene::lunar_mesh_anchor.z), 0.0F,
+             static_cast<float>(scene::lunar_mesh_anchor.x), 0.5F}};
         }
         if (draw.albedo_map != surface_map::none)
           material.base_color_linear = {
@@ -715,57 +659,66 @@ namespace sagan_render::scene_gpu
           commands, 0, &material, sizeof(material));
         SDL_PushGPUFragmentUniformData(
           commands, 2, &surface_lod, sizeof(surface_lod));
-        if (!draw_surface_patch)
+        if (!draw_lunar_surface)
           SDL_DrawGPUIndexedPrimitives(
             render_pass, selected_index_count, 1, 0, 0, 0);
-        if (draw_surface_patch)
+        if (draw_lunar_surface)
         {
-          constexpr scene::direction3 patch_center{
-            0.8660254037835535, 0.0, 0.49999999999996425};
+          constexpr auto anchor_direction = scene::lunar_mesh_anchor;
           constexpr double marker_altitude_metres = 10.0;
           constexpr double foundation_datum_metres = 0.25;
-          scene::render_item patch_anchor = draw.item;
+          scene::render_item surface_anchor = draw.item;
           // Match the demo's marker construction and altitude removal exactly.
           // Reassociating this as center + radius changes the rounded anchor at
           // the demo's 1e15-metre precision origin by enough to clip foundations.
-          patch_anchor.position.x_metres +=
-            patch_center.x *
+          surface_anchor.position.x_metres +=
+            anchor_direction.x *
               (draw.item.radius_metres + marker_altitude_metres);
-          patch_anchor.position.y_metres +=
-            patch_center.y *
+          surface_anchor.position.y_metres +=
+            anchor_direction.y *
               (draw.item.radius_metres + marker_altitude_metres);
-          patch_anchor.position.z_metres +=
-            patch_center.z *
+          surface_anchor.position.z_metres +=
+            anchor_direction.z *
               (draw.item.radius_metres + marker_altitude_metres);
-          patch_anchor.position.x_metres -=
-            patch_center.x * marker_altitude_metres;
-          patch_anchor.position.y_metres -=
-            patch_center.y * marker_altitude_metres;
-          patch_anchor.position.z_metres -=
-            patch_center.z * marker_altitude_metres;
-          patch_anchor.position.x_metres -=
-            patch_center.x * foundation_datum_metres;
-          patch_anchor.position.y_metres -=
-            patch_center.y * foundation_datum_metres;
-          patch_anchor.position.z_metres -=
-            patch_center.z * foundation_datum_metres;
+          surface_anchor.position.x_metres -=
+            anchor_direction.x * marker_altitude_metres;
+          surface_anchor.position.y_metres -=
+            anchor_direction.y * marker_altitude_metres;
+          surface_anchor.position.z_metres -=
+            anchor_direction.z * marker_altitude_metres;
+          surface_anchor.position.x_metres -=
+            anchor_direction.x * foundation_datum_metres;
+          surface_anchor.position.y_metres -=
+            anchor_direction.y * foundation_datum_metres;
+          surface_anchor.position.z_metres -=
+            anchor_direction.z * foundation_datum_metres;
           camera_uniform = scene::prepare_oriented_box_draw(
-            patch_anchor, {1.0, 1.0, 1.0},
+            surface_anchor, {
+              draw.item.radius_metres / scene::lunar_mesh_radius_metres,
+              draw.item.radius_metres / scene::lunar_mesh_radius_metres,
+              draw.item.radius_metres / scene::lunar_mesh_radius_metres},
             {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
             draw.camera, logical).camera_uniform;
           SDL_PushGPUVertexUniformData(
             commands, 0, &camera_uniform, sizeof(camera_uniform));
           const SDL_GPUBufferBinding patch_vertex_binding{
-            surface_patch_vertex_buffer, 0};
+            lunar_surface_vertex_buffer, 0};
           const SDL_GPUBufferBinding patch_index_binding{
-            surface_patch_index_buffer, 0};
+            lunar_surface_index_buffer, 0};
           SDL_BindGPUVertexBuffers(
             render_pass, 0, &patch_vertex_binding, 1);
           SDL_BindGPUIndexBuffer(
             render_pass, &patch_index_binding,
-            SDL_GPU_INDEXELEMENTSIZE_16BIT);
+            SDL_GPU_INDEXELEMENTSIZE_32BIT);
           SDL_DrawGPUIndexedPrimitives(
-            render_pass, surface_patch_indices.size(), 1, 0, 0, 0);
+            render_pass, scene::lunar_face_index_count, 1, 0, 0, 0);
+          // Only the anchor cube face owns this small observation footprint.
+          // Its antipodal projection must not receive the same local texture.
+          surface_lod.east_and_enabled[3] = 0.0F;
+          SDL_PushGPUFragmentUniformData(commands, 2, &surface_lod, sizeof(surface_lod));
+          SDL_DrawGPUIndexedPrimitives(render_pass,
+            lunar_surface_indices.size() - scene::lunar_face_index_count,
+            1, scene::lunar_face_index_count, 0, 0);
         }
       }
       SDL_EndGPURenderPass(render_pass);
