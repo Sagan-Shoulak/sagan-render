@@ -164,7 +164,15 @@ captures to exact comma-separated timestamps; unset retains dense lunar capture
 behavior. Canonical orbital/lunar tests explicitly resize to 960x540 through
 `scene_test_size.txt`, keeping marker coordinates independent of the larger
 manual window. UI tests retain targeted checkpoints including an 11-minute automatic
-maintenance capture. Normal runs leave these hooks unset. Launch the demo as before:
+maintenance capture.
+
+The canonical scene harness also uses the existing 50-millisecond frame-stepped
+clock: time advances only after presentation. A slow software-rendered CI frame
+therefore cannot jump past a capture's short automatic-close window. This fixes
+the observed Windows CI missing-focus-capture failure without relaxing capture,
+frame-difference or pixel assertions, or changing interactive rendering.
+
+Normal runs leave these hooks unset. Launch the demo as before:
 
 ```bash
 bash scripts/scene_demo.sh

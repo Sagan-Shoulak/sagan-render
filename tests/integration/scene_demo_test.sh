@@ -60,6 +60,9 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
+# Advance test time after each presented frame, so slow CI rendering cannot
+# skip the short capture-before-autoclose window or a timed input edge.
+export SAGAN_RENDER_TEST_STEP_MS=50
 export SAGAN_RENDER_TEST_INPUT_FILE=tests/fixtures/scene_test_size.txt
 export SAGAN_RENDER_ELAPSED_SECONDS=0
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp

@@ -37,6 +37,7 @@ rm -f "$report" build/scene-sagan-demo-test/scene-idle.bmp \
   build/scene-sagan-demo-test/scene-camera-turned.bmp \
   build/scene-sagan-demo-test/scene-zoomed.bmp
 export SAGAN_RENDER_AUTOCLOSE_MS=500 SAGAN_RENDER_DEMO_KIND=scene
+export SAGAN_RENDER_TEST_STEP_MS=50
 export SAGAN_RENDER_TEST_INPUT_FILE=tests/fixtures/scene_test_size.txt
 export SAGAN_RENDER_UI_CAPTURE_BMP=build/scene-sagan-demo-test/scene-idle.bmp
 unset SAGAN_RENDER_TEST_KEY
