@@ -32,13 +32,14 @@ turned=build/surface-sagan-demo-test/surface-turned.bmp
 report=build/surface-sagan-demo-test/surface-demo-report.txt
 rm -f "$capture" "$turned" "$report"
 export SAGAN_RENDER_AUTOCLOSE_MS=600 SAGAN_RENDER_DEMO_KIND=surface
+export SAGAN_RENDER_LOGICAL_WIDTH=960 SAGAN_RENDER_LOGICAL_HEIGHT=540
 export SAGAN_RENDER_UI_CAPTURE_BMP="$capture"
 "$executable" | tee -a "$report"
 export SAGAN_RENDER_UI_CAPTURE_BMP="$turned" SAGAN_RENDER_TEST_ORBIT_DX=52
 "$executable" | tee -a "$report"
 unset SAGAN_RENDER_TEST_ORBIT_DX
 
-grep -q "SAGAN_SURFACE_DEMO language=sagan driver=$expected logical=1100x700 precision_origin_metres=1e15 cleanup=1" "$report"
+grep -q "SAGAN_SURFACE_DEMO language=sagan driver=$expected logical=960x540 precision_origin_metres=1e15 cleanup=1" "$report"
 if cmp -s "$capture" "$turned"; then
   echo "Surface orbit input did not change the rendered local scene" >&2
   exit 1
