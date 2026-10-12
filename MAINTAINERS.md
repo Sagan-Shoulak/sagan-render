@@ -119,12 +119,28 @@ cleanup and upload its rendered BMP. These are native-window dependency checks,
 not proof that the Sagan-facing renderer has been ported and not a GPU pipeline
 test.
 
-On a Linux or macOS development machine with CMake, Ninja, a C++23 compiler,
-and the corresponding SDL platform build dependencies:
+On a Linux or macOS development machine with a C++23 compiler and either Ninja
+or Make, plus the corresponding SDL platform build dependencies:
 
 ```bash
 bash tests/integration/sdl_window_probe_portable_test.sh
 ```
+
+The source builder prefers Ninja when it is already installed and otherwise
+uses Unix Makefiles. It uses CMake from `PATH` when available; otherwise macOS
+downloads the universal CMake archive pinned in
+`third_party/cmake-bootstrap.lock`, rejects a checksum mismatch, and keeps it
+under ignored `build/dependencies/`. A clean macOS checkout with Xcode
+command-line tools, Git, Make, curl, and tar therefore does not require
+Homebrew. Set
+`SAGAN_RENDER_CMAKE_GENERATOR=Ninja` or `Unix Makefiles` only for an explicit
+reviewed override; generator-specific build directories prevent an existing
+CMake cache from being reused with the wrong generator. Downstream Sagan hosts
+use the same contract as the portable demos: obtain the absolute SDL prefix
+from the final line of `bash scripts/build-sdl3-source.sh`, compile with its
+`include` and `lib` directories, link `-lSDL3`, select the committed MSL
+artifacts under `shaders/generated/material`, and prepend the SDL `lib`
+directory to `DYLD_LIBRARY_PATH` when launching on macOS.
 
 On headless Linux, run the script through `xvfb-run --auto-servernum`. The
 source archive and its digest are recorded in `third_party/sdl3.lock`; never

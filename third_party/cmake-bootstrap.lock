@@ -1,0 +1,5 @@
+name = "CMake"
+version = "4.4.4"
+macos_asset = "cmake-4.4.4-macos-universal.tar.gz"
+macos_sha256 = "4b7b73704b1db9b374e5c9ab8e17ac6148b817b6396ee75cd94a852cbac9d305"
+license = "BSD-3-Clause"
