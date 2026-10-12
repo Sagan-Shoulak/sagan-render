@@ -14,11 +14,14 @@ compiler_version="$(c++ --version)"
 if [[ "$compiler_version" == *clang* || "$compiler_version" == *Clang* ]]; then
   warning_flags+=(-Wno-parentheses-equality)
 fi
+executable=build/toolbar-sagan-demo/toolbar-sagan-demo
 c++ -std=c++23 -Wall -Wextra -Wpedantic -Werror "${warning_flags[@]}" \
   -DSAGAN_RENDER_UI_BRIDGE \
   -include "$repo_root/libraries/render/native/ui_gpu_bridge.hpp" \
   -I"$sdl_root/include" build/toolbar-sagan-demo/program.cpp examples/ui_gpu_demo.cpp \
-  -L"$sdl_root/lib" -lSDL3 -o build/toolbar-sagan-demo/toolbar-sagan-demo
+  -L"$sdl_root/lib" -lSDL3 -o "$executable"
+launch_executable="$(bash scripts/stage-application-icon.sh "$sagan_executable" "$executable" \
+  "Sagan Toolbar Demo" "org.saganshoulak.render.toolbar-demo")"
 unset SAGAN_RENDER_AUTOCLOSE_MS SAGAN_RENDER_TEST_KEY SAGAN_RENDER_UI_CAPTURE_BMP
 unset SAGAN_RENDER_TEST_POINTER_X SAGAN_RENDER_TEST_POINTER_Y SAGAN_RENDER_TEST_POINTER_ACTION
 unset SAGAN_RENDER_LOGICAL_WIDTH SAGAN_RENDER_LOGICAL_HEIGHT
@@ -28,4 +31,4 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 else
   export LD_LIBRARY_PATH="$sdl_root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
-exec build/toolbar-sagan-demo/toolbar-sagan-demo
+exec "$launch_executable" "$@"

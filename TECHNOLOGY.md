@@ -25,7 +25,9 @@ for each demo, then compile it with the bridge. A custom icon resource is
 obtained through the pinned compiler's `--application-icon` contract. Windows
 demos link its resource object; Linux staging writes a desktop entry and
 hicolor PNG; macOS staging writes an application bundle with the compiler's
-ICNS. No canonical icon asset is copied into this repository. The bridge's
+ICNS, and every interactive portable launcher executes the binary from that
+bundle so Finder and the Dock can associate the canonical artwork. No
+canonical icon asset is copied into this repository. The bridge's
 stock Windows icon remains only an explicit fallback for consumers that bypass
 the supported packaging contract.
 

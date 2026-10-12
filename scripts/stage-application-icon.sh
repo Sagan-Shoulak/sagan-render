@@ -38,8 +38,12 @@ case "${SAGAN_APPLICATION_PLATFORM:-$(uname -s)}" in
       '<key>CFBundlePackageType</key><string>APPL</string>' \
       "<key>CFBundleIdentifier</key><string>$application_id</string>" \
       "<key>CFBundleName</key><string>$application_name</string>" \
+      "<key>CFBundleDisplayName</key><string>$application_name</string>" \
       "<key>CFBundleExecutable</key><string>$application_name</string>" \
       '<key>CFBundleIconFile</key><string>sagan.icns</string>' \
+      '<key>CFBundleShortVersionString</key><string>1</string>' \
+      '<key>CFBundleVersion</key><string>1</string>' \
+      '<key>NSHighResolutionCapable</key><true/>' \
       '</dict></plist>' > "$bundle/Contents/Info.plist"
     printf '%s\n' "$bundle/Contents/MacOS/$application_name"
     ;;
