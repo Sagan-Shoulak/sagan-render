@@ -32,7 +32,8 @@ staged="$(SAGAN_APPLICATION_PLATFORM=Darwin bash scripts/stage-application-icon.
   "Sagan Test Host" "org.saganshoulak.render.test-host")"
 bundle="$fixture/native/application/Sagan Test Host.app"
 [[ "$staged" == "$bundle/Contents/MacOS/Sagan Test Host" ]]
-cmp "$fixture/compiler/sagan.icns" "$bundle/Contents/Resources/sagan.icns"
+[[ "$(<"$fixture/compiler/sagan.icns")" == \
+    "$(<"$bundle/Contents/Resources/sagan.icns")" ]]
 grep -q '<key>CFBundleIdentifier</key><string>org.saganshoulak.render.test-host</string>' \
   "$bundle/Contents/Info.plist"
 grep -q '<key>CFBundleIconFile</key><string>sagan.icns</string>' \
