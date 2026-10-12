@@ -97,6 +97,8 @@ jobs:
           export SAGAN_EXECUTABLE="$(cygpath -u "$GITHUB_WORKSPACE")/sagan-source/bin/sagan.exe"
           export SAGAN_PACKAGE_INDEX="$PWD/libraries/index.tsv"
           bash tests/integration/compiler_resolver_test.sh
+          bash tests/integration/cmake_bootstrap_contract_test.sh
+          bash tests/integration/cmake_generator_test.sh
           bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/shader_toolchain_plan_test.sh
           bash tests/integration/material_shader_artifacts_test.sh
@@ -202,9 +204,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build xvfb mesa-vulkan-drivers vulkan-tools libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libdbus-1-dev libudev-dev libgl1-mesa-dev libegl1-mesa-dev
-      - name: Install macOS build dependency
-        if: runner.os == 'macOS'
-        run: brew install ninja
       - name: Build pinned compiler
         working-directory: sagan-source
         run: make -j2 bin/sagan
@@ -213,6 +212,8 @@ jobs:
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
           bash tests/integration/compiler_resolver_test.sh
+          bash tests/integration/cmake_bootstrap_contract_test.sh
+          bash tests/integration/cmake_generator_test.sh
           bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/shader_toolchain_plan_test.sh
           bash tests/integration/material_shader_artifacts_test.sh
@@ -236,7 +237,11 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           export SAGAN_EXECUTABLE="$GITHUB_WORKSPACE/sagan-source/bin/sagan"
+          export SAGAN_RENDER_CMAKE_BOOTSTRAP=1
+          export SAGAN_RENDER_CMAKE_GENERATOR='Unix Makefiles'
           bash tests/integration/compiler_resolver_test.sh
+          bash tests/integration/cmake_bootstrap_contract_test.sh
+          bash tests/integration/cmake_generator_test.sh
           bash tests/integration/shadercross_lock_test.sh
           bash tests/integration/shader_toolchain_plan_test.sh
           bash tests/integration/material_shader_artifacts_test.sh

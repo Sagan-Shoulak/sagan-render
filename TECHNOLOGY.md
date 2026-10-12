@@ -810,8 +810,12 @@ SDL is pinned to release 3.4.16, source commit
 `fa2c02bb6e21974a89ea9824bc53c9932abe5f9c`, with release-asset checksums in
 `third_party/sdl3.lock`. Windows consumes the official MinGW development
 archive. Linux and macOS CI build the official source archive at the same
-version. Backend and platform limitations must continue to be reported
-explicitly.
+version. The source build prefers Ninja but falls back to Unix Makefiles. If
+CMake is absent on macOS, it downloads the checksummed universal archive pinned
+in `third_party/cmake-bootstrap.lock`. macOS CI explicitly exercises both
+bootstrap and Make paths so a target Mac with Xcode command-line tools, Git,
+Make, curl, and tar does not need Homebrew. Backend and platform limitations
+must continue to be reported explicitly.
 
 The local Windows extraction tests passed the short auto-closing window check,
 the shape/text BMP capture check, the SDL window lifecycle/capture probe, and
