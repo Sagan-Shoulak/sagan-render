@@ -31,4 +31,4 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 else
   export LD_LIBRARY_PATH="$sdl_root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
-exec "$launch_executable"
+exec "$launch_executable" "$@"

@@ -110,6 +110,17 @@ failure; do not add icon artwork to this repository as a workaround. The
 bridge's Windows stock icon is only a compatibility fallback for consumers
 that bypass the supported packaging contract.
 
+Every interactive portable launcher executes the copied binary inside that
+staged macOS bundle, rather than launching the unbundled build output. This is
+what associates the running process with the compiler-owned canonical ICNS in
+Finder and the Dock; the native runtime does not set a separate macOS icon.
+Staging preserves the caller's environment and working directory, and launchers
+forward their arguments and replace themselves with the bundled executable so
+its exit status is unchanged. A downstream consumer follows the same contract:
+call `stage-application-icon.sh` with its pinned Sagan executable, native host,
+display name, and stable bundle identifier, then execute the returned
+`Contents/MacOS` path. The consumer continues to own SDL rpath or loader setup.
+
 ## Cross-platform SDL foundation probe
 
 The `portable-sdl-window-probe` CI matrix builds the pinned SDL 3.4.16 source
